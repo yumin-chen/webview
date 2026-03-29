@@ -188,8 +188,8 @@ int main(void) {
       "    destroy: (id) => window.alloy_gui_destroy(id)"
       "  }"
       "};"
-      "window._forbidden_eval = window.eval;"
-      "window.eval = (code) => window.Alloy.secureEval(code);";
+      "globalThis._forbidden_eval = globalThis.eval;"
+      "globalThis.eval = (code) => globalThis.Alloy.secureEval(code);";
 
   webview_init(w, bridge_js);
   webview_init(w, ALLOY_BUNDLE);

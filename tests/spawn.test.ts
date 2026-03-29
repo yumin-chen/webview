@@ -91,13 +91,13 @@ describe("Alloy Runtime", () => {
       });
   });
 
-  test("window.eval should be replaced", () => {
-      const originalEval = (window as any).eval;
-      (window as any)._forbidden_eval = originalEval || (() => {});
-      (window as any).eval = (code: string) => secureEval(code);
+  test("globalThis.eval should be replaced", () => {
+      const originalEval = (globalThis as any).eval;
+      (globalThis as any)._forbidden_eval = originalEval || (() => {});
+      (globalThis as any).eval = (code: string) => secureEval(code);
 
       const code = "2 + 2";
-      expect((window as any).eval(code)).toBe(code);
-      expect((window as any)._forbidden_eval).toBeDefined();
+      expect((globalThis as any).eval(code)).toBe(code);
+      expect((globalThis as any)._forbidden_eval).toBeDefined();
   });
 });
