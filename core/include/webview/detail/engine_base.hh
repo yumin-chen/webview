@@ -33,6 +33,9 @@
 #include "../types.hh"
 #include "json.hh"
 #include "user_script.hh"
+#include "../meta.hh"
+#include "../meta_js.hh"
+#include "../meta_bindings.hh"
 
 #include <atomic>
 #include <functional>
@@ -313,7 +316,17 @@ protected:
     dispatch([=] { context.call(id, args); });
   }
 
-  virtual void on_window_created() { inc_window_count(); }
+  virtual void on_window_created() {
+    inc_window_count();
+    m_meta_runtime = std::unique_ptr<meta_runtime>(new meta_runtime(
+        [this](std::function<void()> f) { return dispatch(f); },
+        [this](const std::string &js) { eval(js); }));
+    setup_meta_bindings(*m_meta_runtime,
+                        [this](const std::string &name, binding_t fn, void *arg) {
+                          bind(name, fn, arg);
+                        });
+    init(meta_bootstrap_js);
+  }
 
   virtual void on_window_destroyed(bool skip_termination = false) {
     if (dec_window_count() <= 0) {
@@ -365,6 +378,7 @@ private:
   }
 
   std::map<std::string, binding_ctx_t> bindings;
+  std::unique_ptr<meta_runtime> m_meta_runtime;
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
 
