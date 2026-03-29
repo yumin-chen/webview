@@ -9,7 +9,7 @@
 
 namespace alloy {
 
-static std::string run_command(const std::string& cmd, const std::string& input = "") {
+static std::string run_command_with_args(const std::vector<std::string>& args, const std::string& input = "") {
     int input_pipe[2];
     int output_pipe[2];
     if (pipe(input_pipe) == -1 || pipe(output_pipe) == -1) {
@@ -29,7 +29,11 @@ static std::string run_command(const std::string& cmd, const std::string& input 
         close(output_pipe[0]);
         close(output_pipe[1]);
 
-        execl("/bin/sh", "sh", "-c", cmd.c_str(), nullptr);
+        std::vector<char*> argv;
+        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        argv.push_back(nullptr);
+
+        execvp(argv[0], argv.data());
         exit(1);
     }
 
@@ -57,12 +61,12 @@ static std::string run_command(const std::string& cmd, const std::string& input 
 
 void cron_manager::register_job(const std::string& path, const std::string& schedule, const std::string& title) {
     char current_path[4096];
-    if (getcwd(current_path, sizeof(current_path)) == nullptr) {
-        throw std::runtime_error("Failed to get current directory");
+    if (readlink("/proc/self/exe", current_path, sizeof(current_path)) == -1) {
+        throw std::runtime_error("Failed to get current executable path");
     }
-    std::string alloy_exe = std::string(current_path) + "/alloy_bin"; // Assuming the binary is named alloy_bin
+    std::string alloy_exe = std::string(current_path);
 
-    std::string current_crontab = run_command("crontab -l 2>/dev/null");
+    std::string current_crontab = run_command_with_args({"crontab", "-l"});
     std::stringstream ss(current_crontab);
     std::string line;
     std::vector<std::string> lines;
@@ -86,15 +90,14 @@ void cron_manager::register_job(const std::string& path, const std::string& sche
         new_crontab << l << "\n";
     }
 
-    // Add new job
     new_crontab << marker << "\n";
     new_crontab << schedule << " '" << alloy_exe << "' run --cron-title='" << title << "' --cron-period='" << schedule << "' '" << path << "'\n";
 
-    run_command("crontab -", new_crontab.str());
+    run_command_with_args({"crontab", "-"}, new_crontab.str());
 }
 
 void cron_manager::remove_job(const std::string& title) {
-    std::string current_crontab = run_command("crontab -l 2>/dev/null");
+    std::string current_crontab = run_command_with_args({"crontab", "-l"});
     std::stringstream ss(current_crontab);
     std::string line;
     std::vector<std::string> lines;
@@ -120,7 +123,7 @@ void cron_manager::remove_job(const std::string& title) {
         for (const auto& l : lines) {
             new_crontab << l << "\n";
         }
-        run_command("crontab -", new_crontab.str());
+        run_command_with_args({"crontab", "-"}, new_crontab.str());
     }
 }
 

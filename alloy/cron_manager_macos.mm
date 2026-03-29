@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <pwd.h>
+#include <mach-o/dyld.h>
 
 namespace alloy {
 
@@ -15,10 +16,11 @@ void cron_manager::register_job(const std::string& path, const std::string& sche
     auto expr = cron_parser::parse(schedule);
 
     char current_path[4096];
-    if (getcwd(current_path, sizeof(current_path)) == nullptr) {
-        throw std::runtime_error("Failed to get current directory");
+    uint32_t size = sizeof(current_path);
+    if (_NSGetExecutablePath(current_path, &size) != 0) {
+        throw std::runtime_error("Failed to get current executable path");
     }
-    std::string alloy_exe = std::string(current_path) + "/alloy_bin";
+    std::string alloy_exe = std::string(current_path);
 
     struct passwd *pw = getpwuid(getuid());
     std::string home_dir = pw->pw_dir;
@@ -69,7 +71,6 @@ void cron_manager::register_job(const std::string& path, const std::string& sche
     std::set<int> w_set = expr.days_of_week.size() == 7 ? std::set<int>{-1} : expr.days_of_week;
 
     if (expr.dom_restricted && expr.dow_restricted) {
-        // POSIX OR logic: matches if DOM matches OR DOW matches.
         generate_intervals(m_set, d_set, h_set, mi_set, std::set<int>{-1});
         generate_intervals(m_set, std::set<int>{-1}, h_set, mi_set, w_set);
     } else if (expr.dom_restricted) {
@@ -92,8 +93,12 @@ void cron_manager::register_job(const std::string& path, const std::string& sche
     ofs << ss.str();
     ofs.close();
 
-    std::string cmd = "launchctl load " + plist_path;
-    system(cmd.c_str());
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("launchctl", "launchctl", "load", plist_path.c_str(), nullptr);
+        exit(1);
+    }
+    waitpid(pid, nullptr, 0);
 }
 
 void cron_manager::remove_job(const std::string& title) {
@@ -101,8 +106,12 @@ void cron_manager::remove_job(const std::string& title) {
     std::string home_dir = pw->pw_dir;
     std::string plist_path = home_dir + "/Library/LaunchAgents/Alloy.cron." + title + ".plist";
 
-    std::string cmd = "launchctl unload " + plist_path + " 2>/dev/null";
-    system(cmd.c_str());
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("launchctl", "launchctl", "unload", plist_path.c_str(), nullptr);
+        exit(1);
+    }
+    waitpid(pid, nullptr, 0);
     unlink(plist_path.c_str());
 }
 

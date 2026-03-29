@@ -8,6 +8,8 @@ set(ALLOY_SOURCES
     main.cpp
     runtime.cpp
     cron_parser.cpp
+    subprocess.cpp
+    process_manager.cpp
 )
 
 if(APPLE)
@@ -22,14 +24,11 @@ add_executable(alloy_bin ${ALLOY_SOURCES})
 target_include_directories(alloy_bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
 target_link_libraries(alloy_bin PRIVATE webview::core)
 
-# Add webview include path
-target_include_directories(alloy_bin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
-
 if(UNIX AND NOT APPLE)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GTK3 REQUIRED gtk+-3.0 webkit2gtk-4.1)
     target_include_directories(alloy_bin PRIVATE ${GTK3_INCLUDE_DIRS})
-    target_link_libraries(alloy_bin PRIVATE ${GTK3_LIBRARIES} dl)
+    target_link_libraries(alloy_bin PRIVATE ${GTK3_LIBRARIES} dl util)
 elseif(APPLE)
     target_link_libraries(alloy_bin PRIVATE "-framework WebKit" dl)
 elseif(WIN32)
