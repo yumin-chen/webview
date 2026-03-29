@@ -324,6 +324,17 @@ protected:
       }
     });
 
+    bind("Alloy_sqlite_exec", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto sql = json_parse(req, "", 1);
+      try {
+        m_sqlite.exec(db_id, sql);
+        return "true";
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
+
     bind("Alloy_sqlite_close", [this](const std::string &req) -> std::string {
       auto id = json_parse(req, "", 0);
       m_sqlite.close(id);
@@ -657,7 +668,15 @@ protected:
 
         query(sql) { return new Statement(this, sql, { cache: true }); }
         prepare(sql) { return new Statement(this, sql, { cache: false }); }
-        run(sql, params) { return this.query(sql).run(params); }
+        run(sql, params) {
+          if (params === undefined) {
+            const res = window.Alloy_sqlite_exec(this.id, sql);
+            if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
+            return { lastInsertRowid: 0, changes: 0 };
+          }
+          return this.query(sql).run(params);
+        }
+        exec(sql) { return this.run(sql); }
         close() { window.Alloy_sqlite_close(this.id); }
         transaction(fn) {
           const wrapper = (...args) => {
@@ -690,6 +709,7 @@ protected:
           db.id = res;
           return db;
         }
+        static open(filename, options) { return new Database(filename, options); }
         [Symbol.dispose]() { this.close(); }
       }
 
@@ -701,7 +721,8 @@ protected:
   script.type = 'importmap';
   script.textContent = JSON.stringify({
     imports: {
-      "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database;"
+      "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database;",
+      "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database;"
     }
   });
   document.head.appendChild(script);

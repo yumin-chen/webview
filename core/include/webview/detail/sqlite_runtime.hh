@@ -41,6 +41,16 @@ namespace detail {
 
 class sqlite_runtime {
 public:
+        void exec(const std::string& db_id, const std::string& sql) {
+            auto db = get_db(db_id);
+            if (!db) throw std::runtime_error("Database not found");
+            char* errmsg = nullptr;
+            if (sqlite3_exec(db->get_native(), sql.c_str(), nullptr, nullptr, &errmsg) != SQLITE_OK) {
+                std::string err = errmsg;
+                sqlite3_free(errmsg);
+                throw std::runtime_error(err);
+            }
+        }
     class statement {
     public:
         statement(sqlite3* db, const std::string& sql) : m_db(db) {
@@ -358,6 +368,8 @@ public:
         int file_control(int cmd, void* value) {
             return sqlite3_file_control(m_db, "main", cmd, value);
         }
+
+        sqlite3* get_native() { return m_db; }
 
         void load_extension(const std::string& path) {
             sqlite3_enable_load_extension(m_db, 1);
