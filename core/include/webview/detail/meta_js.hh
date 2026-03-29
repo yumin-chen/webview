@@ -10,9 +10,24 @@ static const std::string meta_js = R"js(
 (function() {
   'use strict';
 
+  function b64ToUint8(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function uint8ToB64(uint8) {
+    let bin = '';
+    const len = uint8.byteLength;
+    for (let i = 0; i < len; i++) bin += String.fromCharCode(uint8[i]);
+    return btoa(bin);
+  }
+
   class Subprocess {
-    constructor(pid, options) {
-      this.pid = pid;
+    constructor(handle, options) {
+      this.handle = handle;
+      this.pid = null;
       this.options = options || {};
       this._exited_resolve = null;
       this.exited = new Promise(resolve => {
@@ -38,8 +53,8 @@ static const std::string meta_js = R"js(
           start: (controller) => { this._stderr_controller = controller; }
         });
         this.stdin = {
-          write: (data) => { window.meta._write(this.pid, data); },
-          end: () => { window.meta._closeStdin(this.pid); },
+          write: (data) => { window.meta._write(this.handle, data); },
+          end: () => { window.meta._closeStdin(this.handle); },
           flush: () => {}
         };
       }
@@ -47,23 +62,35 @@ static const std::string meta_js = R"js(
 
     kill(signal) {
       this.killed = true;
-      window.meta._kill(this.pid, signal || 'SIGTERM');
+      window.meta._kill(this.handle, signal || 'SIGTERM');
     }
 
     ref() {}
     unref() {}
+
+    resourceUsage() {
+      return { maxRSS: 0, cpuTime: { user: 0, system: 0 } };
+    }
   }
 
   class Terminal {
-    constructor(proc) {
-      this.proc = proc;
+    constructor(options_or_proc) {
+      if (options_or_proc instanceof Subprocess) {
+        this.proc = options_or_proc;
+        this.handle = this.proc.handle;
+      } else {
+        this.options = options_or_proc || {};
+        this.handle = "term_" + (++window.meta._handleCounter);
+        // This mode would need a way to spawn without meta.spawn,
+        // but for now let's just make it a holder.
+      }
       this.closed = false;
     }
     write(data) {
-      window.meta._write(this.proc.pid, data);
+      window.meta._write(this.handle, data);
     }
     resize(cols, rows) {
-      window.meta._resize(this.proc.pid, cols, rows);
+      window.meta._resize(this.handle, cols, rows);
     }
     setRawMode(enabled) {}
     close() {
@@ -75,78 +102,101 @@ static const std::string meta_js = R"js(
 
   window.meta = {
     _processes: {},
+    _handleCounter: 0,
+    Terminal: Terminal,
 
-    spawn: async function(command, options) {
-      if (Array.isArray(command)) {
-        // ok
-      } else if (typeof command === 'object' && command.cmd) {
-        options = command;
-        command = command.cmd;
+    spawn: function(command, options) {
+      if (!Array.isArray(command)) {
+        if (typeof command === 'object' && command.cmd) {
+          options = command;
+          command = command.cmd;
+        }
       }
 
-      const res_json = await window.__meta_spawn(command, JSON.stringify(options || {}));
-      const res = JSON.parse(res_json);
-      if (res.error) throw new Error(res.error);
+      const handle = "proc_" + (++this._handleCounter);
+      const proc = new Subprocess(handle, options);
+      this._processes[handle] = proc;
 
-      const proc = new Subprocess(res.pid, options);
-      this._processes[res.pid] = proc;
+      (async () => {
+        try {
+          const res = await window.__meta_spawn(handle, JSON.stringify(command), JSON.stringify(options || {}));
+          if (res.error) {
+             console.error("meta.spawn error:", res.error);
+             return;
+          }
+          proc.pid = res.pid;
+        } catch (e) {
+          console.error("meta.spawn failed:", e);
+        }
+      })();
+
       return proc;
     },
 
-    spawnSync: async function(command, options) {
-      if (Array.isArray(command)) {
-        // ok
-      } else if (typeof command === 'object' && command.cmd) {
-        options = command;
-        command = command.cmd;
+    spawnSync: function(command, options) {
+      if (!Array.isArray(command)) {
+        if (typeof command === 'object' && command.cmd) {
+          options = command;
+          command = command.cmd;
+        }
       }
-      const res_json = await window.__meta_spawnSync(command, JSON.stringify(options || {}));
-      return JSON.parse(res_json);
+      // Return a Promise as a fallback since true sync is not available.
+      return (async () => {
+        const res = await window.__meta_spawnSync(JSON.stringify(command), JSON.stringify(options || {}));
+        if (res.stdout) res.stdout = b64ToUint8(res.stdout);
+        if (res.stderr) res.stderr = b64ToUint8(res.stderr);
+        return res;
+      })();
     },
 
-    _onData: function(pid, type, data) {
-      const proc = this._processes[pid];
+    _onData: function(handle, type, data_b64) {
+      const proc = this._processes[handle];
       if (!proc) return;
+      const encoded = b64ToUint8(data_b64);
       if (type === 'stdout' && proc._stdout_controller) {
-        proc._stdout_controller.enqueue(new TextEncoder().encode(data));
+        proc._stdout_controller.enqueue(encoded);
       } else if (type === 'stderr' && proc._stderr_controller) {
-        proc._stderr_controller.enqueue(new TextEncoder().encode(data));
+        proc._stderr_controller.enqueue(encoded);
       } else if (type === 'terminal' && proc.options.terminal && proc.options.terminal.data) {
-        proc.options.terminal.data(proc.terminal, new TextEncoder().encode(data));
+        proc.options.terminal.data(proc.terminal, encoded);
       }
     },
 
-    _onExit: function(pid, exitCode, signalCode) {
-      const proc = this._processes[pid];
+    _onExit: function(handle, exitCode, signalCode) {
+      const proc = this._processes[handle];
       if (!proc) return;
       proc.exitCode = exitCode;
       proc.signalCode = signalCode;
-      if (proc._stdout_controller) proc._stdout_controller.close();
-      if (proc._stderr_controller) proc._stderr_controller.close();
-      if (proc.options.onExit) {
-        proc.options.onExit(proc, exitCode, signalCode);
-      }
+      if (proc._stdout_controller) try { proc._stdout_controller.close(); } catch(e) {}
+      if (proc._stderr_controller) try { proc._stderr_controller.close(); } catch(e) {}
+      if (proc.options.onExit) proc.options.onExit(proc, exitCode, signalCode);
       if (proc.options.terminal && proc.options.terminal.exit) {
         proc.options.terminal.exit(proc.terminal, 0, null);
       }
       proc._exited_resolve(exitCode);
+      window.__meta_cleanup(handle);
     },
 
-    _write: function(pid, data) {
-      window.__meta_write(pid, typeof data === 'string' ? data : new TextDecoder().decode(data));
+    _write: function(handle, data) {
+      let b64;
+      if (typeof data === 'string') {
+        b64 = btoa(data);
+      } else {
+        b64 = uint8ToB64(new Uint8Array(data));
+      }
+      window.__meta_write(handle, b64);
     },
-    _closeStdin: function(pid) {
-      window.__meta_closeStdin(pid);
+    _closeStdin: function(handle) {
+      window.__meta_closeStdin(handle);
     },
-    _kill: function(pid, signal) {
-      window.__meta_kill(pid, signal);
+    _kill: function(handle, signal) {
+      window.__meta_kill(handle, signal);
     },
-    _resize: function(pid, cols, rows) {
-      window.__meta_resize(pid, cols, rows);
+    _resize: function(handle, cols, rows) {
+      window.__meta_resize(handle, cols, rows);
     }
   };
 
-  // Polyfill for text() on ReadableStream if needed
   if (!ReadableStream.prototype.text) {
     ReadableStream.prototype.text = async function() {
       const reader = this.getReader();
@@ -161,7 +211,6 @@ static const std::string meta_js = R"js(
       return result;
     };
   }
-
 })();
 )js";
 
