@@ -237,144 +237,6 @@ public:
       return {1, "", "rm failed\n"};
   }
 
-  shell_result shell(const std::string &command, const std::string &cwd = "") {
-    std::vector<std::string> pipe_segments;
-    bool in_quotes = false;
-    char quote_char = 0;
-    size_t last = 0;
-    for (size_t i = 0; i < command.length(); ++i) {
-        char c = command[i];
-        if (c == '"' || c == '\'') {
-            if (!in_quotes) { in_quotes = true; quote_char = c; }
-            else if (c == quote_char) { in_quotes = false; }
-        } else if (c == '|' && !in_quotes) {
-            pipe_segments.push_back(command.substr(last, i - last));
-            last = i + 1;
-        }
-    }
-    pipe_segments.push_back(command.substr(last));
-
-    if (!cwd.empty()) {
-#ifdef _WIN32
-        _chdir(cwd.c_str());
-#else
-        (void)chdir(cwd.c_str());
-#endif
-    }
-
-    if (pipe_segments.size() == 1) {
-        std::vector<std::string> args = tokenize(pipe_segments[0]);
-        if (args.empty()) return {0, "", ""};
-
-        const std::string& cmd = args[0];
-        if (cmd == "echo") return builtin_echo(args);
-        if (cmd == "pwd") return builtin_pwd();
-        if (cmd == "ls") return builtin_ls(args);
-        if (cmd == "mkdir") return builtin_mkdir(args);
-        if (cmd == "rm") return builtin_rm(args);
-        if (cmd == "true") return {0, "", ""};
-        if (cmd == "false") return {1, "", ""};
-        if (cmd == "cd") {
-            if (args.size() > 1) {
-#ifdef _WIN32
-                if (_chdir(args[1].c_str()) == 0) return {0, "", ""};
-#else
-                if (chdir(args[1].c_str()) == 0) return {0, "", ""};
-#endif
-                return {1, "", "cd: " + args[1] + ": No such file or directory\n"};
-            }
-            return {0, "", ""};
-        }
-    }
-
-#ifdef _WIN32
-    // Windows pipe chains not fully implemented in this refined version, fallback to single command
-    std::vector<std::string> args = tokenize(pipe_segments[0]);
-    auto state = spawn(args, cwd);
-    if (!state) return {127, "", "Alloy: command not found: " + args[0] + "\n"};
-#else
-    int num_cmds = static_cast<int>(pipe_segments.size());
-    std::vector<int> pipes(2 * (num_cmds - 1));
-    for (int i = 0; i < num_cmds - 1; i++) {
-        if (pipe(pipes.data() + 2 * i) < 0) return {1, "", "pipe failed\n"};
-    }
-
-    int stdout_pipe[2];
-    int stderr_pipe[2];
-    if (pipe(stdout_pipe) < 0 || pipe(stderr_pipe) < 0) return {1, "", "pipe failed\n"};
-
-    std::vector<pid_t> pids;
-    for (int i = 0; i < num_cmds; i++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            if (i > 0) dup2(pipes[2 * (i - 1)], STDIN_FILENO);
-            if (i < num_cmds - 1) dup2(pipes[2 * i + 1], STDOUT_FILENO);
-            else dup2(stdout_pipe[1], STDOUT_FILENO);
-            dup2(stderr_pipe[1], STDERR_FILENO);
-
-            for (int j = 0; j < 2 * (num_cmds - 1); j++) close(pipes[j]);
-            close(stdout_pipe[0]); close(stdout_pipe[1]);
-            close(stderr_pipe[0]); close(stderr_pipe[1]);
-
-            std::vector<std::string> args = tokenize(pipe_segments[i]);
-            if (args.empty()) _exit(0);
-            std::vector<char*> c_args;
-            for (const auto& arg : args) c_args.push_back(const_cast<char*>(arg.c_str()));
-            c_args.push_back(nullptr);
-            execvp(c_args[0], c_args.data());
-            _exit(127);
-        }
-        pids.push_back(pid);
-    }
-
-    for (int i = 0; i < 2 * (num_cmds - 1); i++) close(pipes[i]);
-    close(stdout_pipe[1]);
-    close(stderr_pipe[1]);
-
-    std::string stdout_acc, stderr_acc;
-    char buffer[4096];
-    struct pollfd fds[2];
-    fds[0].fd = stdout_pipe[0]; fds[0].events = POLLIN;
-    fds[1].fd = stderr_pipe[0]; fds[1].events = POLLIN;
-    bool out_eof = false, err_eof = false;
-    while (!out_eof || !err_eof) {
-        if (poll(fds, 2, 100) < 0) break;
-        if (fds[0].revents & POLLIN) {
-            ssize_t n = read(stdout_pipe[0], buffer, sizeof(buffer));
-            if (n > 0) stdout_acc.append(buffer, n);
-            else out_eof = true;
-        } else if (fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
-        if (fds[1].revents & POLLIN) {
-            ssize_t n = read(stderr_pipe[0], buffer, sizeof(buffer));
-            if (n > 0) stderr_acc.append(buffer, n);
-            else err_eof = true;
-        } else if (fds[1].revents & (POLLHUP | POLLERR)) err_eof = true;
-    }
-
-    int last_status = 0;
-    for (pid_t pid : pids) {
-        int status;
-        waitpid(pid, &status, 0);
-        if (WIFEXITED(status)) last_status = WEXITSTATUS(status);
-    }
-    close(stdout_pipe[0]);
-    close(stderr_pipe[0]);
-    return {last_status, stdout_acc, stderr_acc};
-#endif
-
-    // Rest of the logic for Windows or single command sync execution if needed
-    std::string stdout_acc, stderr_acc;
-    state->on_stdout = [&](const std::string &data) { stdout_acc += data; };
-    state->on_stderr = [&](const std::string &data) { stderr_acc += data; };
-    bool done = false;
-    int exit_code = 0;
-    state->on_exit = [&](int code, int sig) { (void)sig; exit_code = code; done = true; };
-
-    start_monitoring(state);
-    while (!done) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    return {exit_code, stdout_acc, stderr_acc};
-  }
-
   std::shared_ptr<shared_state> spawn(const std::vector<std::string> &args,
                                           const std::string &cwd = "",
                                           const std::map<std::string, std::string> &env = {},
@@ -386,137 +248,56 @@ public:
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     saAttr.bInheritHandle = TRUE;
     saAttr.lpSecurityDescriptor = NULL;
-
-    HANDLE hChildStd_IN_Rd = NULL;
-    HANDLE hChildStd_IN_Wr = NULL;
-    HANDLE hChildStd_OUT_Rd = NULL;
-    HANDLE hChildStd_OUT_Wr = NULL;
-    HANDLE hChildStd_ERR_Rd = NULL;
-    HANDLE hChildStd_ERR_Wr = NULL;
-
+    HANDLE hChildStd_IN_Rd = NULL; HANDLE hChildStd_IN_Wr = NULL;
+    HANDLE hChildStd_OUT_Rd = NULL; HANDLE hChildStd_OUT_Wr = NULL;
+    HANDLE hChildStd_ERR_Rd = NULL; HANDLE hChildStd_ERR_Wr = NULL;
     if (!CreatePipe(&hChildStd_OUT_Rd, &hChildStd_OUT_Wr, &saAttr, 0)) return nullptr;
     if (!SetHandleInformation(hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0)) return nullptr;
     if (!CreatePipe(&hChildStd_ERR_Rd, &hChildStd_ERR_Wr, &saAttr, 0)) return nullptr;
     if (!SetHandleInformation(hChildStd_ERR_Rd, HANDLE_FLAG_INHERIT, 0)) return nullptr;
     if (!CreatePipe(&hChildStd_IN_Rd, &hChildStd_IN_Wr, &saAttr, 0)) return nullptr;
     if (!SetHandleInformation(hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0)) return nullptr;
-
-    PROCESS_INFORMATION piProcInfo;
-    STARTUPINFO siStartInfo;
-    ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
-    ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
+    PROCESS_INFORMATION piProcInfo; STARTUPINFO siStartInfo;
+    ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION)); ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
     siStartInfo.cb = sizeof(STARTUPINFO);
-    siStartInfo.hStdError = hChildStd_ERR_Wr;
-    siStartInfo.hStdOutput = hChildStd_OUT_Wr;
-    siStartInfo.hStdInput = hChildStd_IN_Rd;
+    siStartInfo.hStdError = hChildStd_ERR_Wr; siStartInfo.hStdOutput = hChildStd_OUT_Wr; siStartInfo.hStdInput = hChildStd_IN_Rd;
     siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
-
-    std::string cmdLine;
-    for (const auto& arg : args) {
-        cmdLine += "\"" + arg + "\" ";
-    }
-
-    if (!CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, TRUE, 0, NULL, cwd.empty() ? NULL : cwd.c_str(), &siStartInfo, &piProcInfo)) {
-        return nullptr;
-    }
-
-    CloseHandle(hChildStd_OUT_Wr);
-    CloseHandle(hChildStd_ERR_Wr);
-    CloseHandle(hChildStd_IN_Rd);
-
-    state->hProcess = piProcInfo.hProcess;
-    state->hStdin = hChildStd_IN_Wr;
-    state->hStdout = hChildStd_OUT_Rd;
-    state->hStderr = hChildStd_ERR_Rd;
-    state->dwProcessId = piProcInfo.dwProcessId;
+    std::string cmdLine; for (const auto& arg : args) cmdLine += "\"" + arg + "\" ";
+    if (!CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, TRUE, 0, NULL, cwd.empty() ? NULL : cwd.c_str(), &siStartInfo, &piProcInfo)) return nullptr;
+    CloseHandle(hChildStd_OUT_Wr); CloseHandle(hChildStd_ERR_Wr); CloseHandle(hChildStd_IN_Rd);
+    state->hProcess = piProcInfo.hProcess; state->hStdin = hChildStd_IN_Wr; state->hStdout = hChildStd_OUT_Rd; state->hStderr = hChildStd_ERR_Rd; state->dwProcessId = piProcInfo.dwProcessId;
     CloseHandle(piProcInfo.hThread);
 #else
     int stdin_pipe[2], stdout_pipe[2], stderr_pipe[2], ipc_socket[2];
     if (pipe(stdin_pipe) == -1 || pipe(stdout_pipe) == -1 || pipe(stderr_pipe) == -1) return nullptr;
     if (use_ipc && socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket) == -1) return nullptr;
-
     pid_t pid = fork();
     if (pid == -1) return nullptr;
     if (pid == 0) {
-      dup2(stdin_pipe[0], STDIN_FILENO);
-      dup2(stdout_pipe[1], STDOUT_FILENO);
-      dup2(stderr_pipe[1], STDERR_FILENO);
-      close(stdin_pipe[0]); close(stdin_pipe[1]);
-      close(stdout_pipe[0]); close(stdout_pipe[1]);
-      close(stderr_pipe[0]); close(stderr_pipe[1]);
+      dup2(stdin_pipe[0], STDIN_FILENO); dup2(stdout_pipe[1], STDOUT_FILENO); dup2(stderr_pipe[1], STDERR_FILENO);
+      close(stdin_pipe[0]); close(stdin_pipe[1]); close(stdout_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[0]); close(stderr_pipe[1]);
       if (use_ipc) { dup2(ipc_socket[1], 3); close(ipc_socket[0]); close(ipc_socket[1]); }
       if (!cwd.empty()) (void)chdir(cwd.c_str());
-      std::vector<char*> c_args;
-      for (const auto& arg : args) c_args.push_back(const_cast<char*>(arg.c_str()));
+
+      std::vector<std::string> env_strings;
+      std::vector<char*> c_env;
+      if (!env.empty()) {
+          for (const auto& kv : env) env_strings.push_back(kv.first + "=" + kv.second);
+          for (const auto& s : env_strings) c_env.push_back(const_cast<char*>(s.c_str()));
+          c_env.push_back(nullptr);
+      }
+
+      std::vector<char*> c_args; for (const auto& arg : args) c_args.push_back(const_cast<char*>(arg.c_str()));
       c_args.push_back(nullptr);
-      execvp(c_args[0], c_args.data());
+      if (c_env.empty()) execvp(c_args[0], c_args.data());
+      else execve(c_args[0], c_args.data(), c_env.data());
       _exit(127);
     }
     close(stdin_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[1]);
     if (use_ipc) close(ipc_socket[1]);
-    state->pid = pid;
-    state->stdin_fd = stdin_pipe[1];
-    state->stdout_fd = stdout_pipe[0];
-    state->stderr_fd = stderr_pipe[0];
-    if (use_ipc) state->ipc_fd = ipc_socket[0];
+    state->pid = pid; state->stdin_fd = stdin_pipe[1]; state->stdout_fd = stdout_pipe[0]; state->stderr_fd = stderr_pipe[0]; if (use_ipc) state->ipc_fd = ipc_socket[0];
 #endif
     return state;
-  }
-
-  void start_monitoring(std::shared_ptr<shared_state> state) {
-    state->monitoring = true;
-    start_stdin_thread(state);
-    std::thread([state]() {
-#ifdef _WIN32
-        char buffer[4096];
-        DWORD bytesRead;
-        while (state->monitoring) {
-            if (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
-                if (state->on_stdout) state->on_stdout(std::string(buffer, bytesRead));
-            } else break;
-        }
-        WaitForSingleObject(state->hProcess, INFINITE);
-        DWORD exitCode;
-        GetExitCodeProcess(state->hProcess, &exitCode);
-        state->exit_code = (int)exitCode;
-        state->exited = true;
-        if (state->on_exit) state->on_exit(state->exit_code, 0);
-#else
-        struct pollfd fds[3];
-        fds[0].fd = state->stdout_fd; fds[0].events = POLLIN;
-        fds[1].fd = state->stderr_fd; fds[1].events = POLLIN;
-        fds[2].fd = state->ipc_fd; fds[2].events = (state->ipc_fd != -1) ? POLLIN : 0;
-        char buffer[4096];
-        bool out_eof = false, err_eof = false, ipc_eof = (state->ipc_fd == -1);
-        while (state->monitoring && (!out_eof || !err_eof || !ipc_eof)) {
-            int ret = poll(fds, (state->ipc_fd != -1) ? 3 : 2, 100);
-            if (ret < 0) break;
-            if (fds[0].revents & POLLIN) {
-                ssize_t n = read(state->stdout_fd, buffer, sizeof(buffer));
-                if (n > 0) { if (state->on_stdout) state->on_stdout(std::string(buffer, n)); }
-                else out_eof = true;
-            } else if (fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
-            if (fds[1].revents & POLLIN) {
-                ssize_t n = read(state->stderr_fd, buffer, sizeof(buffer));
-                if (n > 0) { if (state->on_stderr) state->on_stderr(std::string(buffer, n)); }
-                else err_eof = true;
-            } else if (fds[1].revents & (POLLHUP | POLLERR)) err_eof = true;
-            if (!ipc_eof && (fds[2].revents & POLLIN)) {
-                ssize_t n = read(state->ipc_fd, buffer, sizeof(buffer));
-                if (n > 0) { if (state->on_ipc) state->on_ipc(std::string(buffer, n)); }
-                else ipc_eof = true;
-            } else if (!ipc_eof && (fds[2].revents & (POLLHUP | POLLERR))) ipc_eof = true;
-            int status;
-            if (waitpid(state->pid, &status, WNOHANG) == state->pid) {
-                state->exited = true;
-                if (WIFEXITED(status)) state->exit_code = WEXITSTATUS(status);
-                else if (WIFSIGNALED(status)) state->signal_code = WTERMSIG(status);
-            }
-            if (state->exited && out_eof && err_eof && ipc_eof) break;
-        }
-        if (state->on_exit) state->on_exit(state->exit_code, state->signal_code);
-#endif
-    }).detach();
   }
 
   void start_stdin_thread(std::shared_ptr<shared_state> state) {
@@ -527,12 +308,10 @@ public:
                   std::unique_lock<std::mutex> lock(state->mutex);
                   state->stdin_cv.wait(lock, [&] { return !state->monitoring || !state->stdin_queue.empty(); });
                   if (!state->monitoring) break;
-                  data = std::move(state->stdin_queue.front());
-                  state->stdin_queue.pop_front();
+                  data = std::move(state->stdin_queue.front()); state->stdin_queue.pop_front();
               }
 #ifdef _WIN32
-              DWORD written;
-              WriteFile(state->hStdin, data.c_str(), (DWORD)data.size(), &written, NULL);
+              DWORD written; WriteFile(state->hStdin, data.c_str(), (DWORD)data.size(), &written, NULL);
 #else
               (void)write(state->stdin_fd, data.c_str(), data.size());
 #endif
@@ -543,10 +322,165 @@ public:
   void queue_stdin(std::shared_ptr<shared_state> state, const std::string& data) {
       if (!state) return;
       std::lock_guard<std::mutex> lock(state->mutex);
-      state->stdin_queue.push_back(data);
-      state->stdin_cv.notify_one();
+      state->stdin_queue.push_back(data); state->stdin_cv.notify_one();
   }
 
+  void start_monitoring(std::shared_ptr<shared_state> state) {
+    state->monitoring = true;
+    start_stdin_thread(state);
+    std::thread([state]() {
+#ifdef _WIN32
+        char buffer[4096]; DWORD bytesRead;
+        while (state->monitoring) {
+            if (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                if (state->on_stdout) state->on_stdout(std::string(buffer, bytesRead));
+            } else break;
+        }
+        WaitForSingleObject(state->hProcess, INFINITE);
+        DWORD exitCode; GetExitCodeProcess(state->hProcess, &exitCode);
+        state->exit_code = (int)exitCode; state->exited = true;
+        if (state->on_exit) state->on_exit(state->exit_code, 0);
+#else
+        struct pollfd fds[3];
+        fds[0].fd = state->stdout_fd; fds[0].events = POLLIN;
+        fds[1].fd = state->stderr_fd; fds[1].events = POLLIN;
+        fds[2].fd = state->ipc_fd; fds[2].events = (state->ipc_fd != -1) ? POLLIN : 0;
+        char buffer[4096]; bool out_eof = false, err_eof = false, ipc_eof = (state->ipc_fd == -1);
+        while (state->monitoring && (!out_eof || !err_eof || !ipc_eof)) {
+            int ret = poll(fds, (state->ipc_fd != -1) ? 3 : 2, 100);
+            if (ret < 0) break;
+            if (fds[0].revents & POLLIN) {
+                ssize_t n = read(state->stdout_fd, buffer, sizeof(buffer));
+                if (n > 0) { if (state->on_stdout) state->on_stdout(std::string(buffer, n)); } else out_eof = true;
+            } else if (fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
+            if (fds[1].revents & POLLIN) {
+                ssize_t n = read(state->stderr_fd, buffer, sizeof(buffer));
+                if (n > 0) { if (state->on_stderr) state->on_stderr(std::string(buffer, n)); } else err_eof = true;
+            } else if (fds[1].revents & (POLLHUP | POLLERR)) err_eof = true;
+            if (!ipc_eof && (fds[2].revents & POLLIN)) {
+                ssize_t n = read(state->ipc_fd, buffer, sizeof(buffer));
+                if (n > 0) { if (state->on_ipc) state->on_ipc(std::string(buffer, n)); } else ipc_eof = true;
+            } else if (!ipc_eof && (fds[2].revents & (POLLHUP | POLLERR))) ipc_eof = true;
+            int status; if (!state->exited && waitpid(state->pid, &status, WNOHANG) == state->pid) {
+                state->exited = true; if (WIFEXITED(status)) state->exit_code = WEXITSTATUS(status); else if (WIFSIGNALED(status)) state->signal_code = WTERMSIG(status);
+            }
+            if (state->exited && out_eof && err_eof && ipc_eof) break;
+        }
+        if (!state->exited) {
+            int status; if (waitpid(state->pid, &status, 0) == state->pid) {
+                state->exited = true; if (WIFEXITED(status)) state->exit_code = WEXITSTATUS(status); else if (WIFSIGNALED(status)) state->signal_code = WTERMSIG(status);
+            }
+        }
+        if (state->on_exit) state->on_exit(state->exit_code, state->signal_code);
+#endif
+    }).detach();
+  }
+
+  std::string spawnSync(const std::vector<std::string> &args, const std::string &cwd = "", const std::map<std::string, std::string> &env = {}) {
+    auto state = spawn(args, cwd, env);
+    if (!state) return "{\"success\": false}";
+    std::string stdout_acc, stderr_acc; char buffer[4096];
+    bool success = false;
+#ifdef _WIN32
+    DWORD bytesRead; while (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) stdout_acc.append(buffer, bytesRead);
+    WaitForSingleObject(state->hProcess, INFINITE);
+    DWORD exitCode; GetExitCodeProcess(state->hProcess, &exitCode);
+    success = (exitCode == 0);
+#else
+    struct pollfd fds[2]; fds[0].fd = state->stdout_fd; fds[0].events = POLLIN; fds[1].fd = state->stderr_fd; fds[1].events = POLLIN;
+    bool out_eof = false, err_eof = false;
+    while (!out_eof || !err_eof) {
+        if (poll(fds, 2, 100) < 0) break;
+        if (fds[0].revents & POLLIN) {
+            ssize_t n = read(state->stdout_fd, buffer, sizeof(buffer));
+            if (n > 0) stdout_acc.append(buffer, n); else out_eof = true;
+        } else if (fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
+        if (fds[1].revents & POLLIN) {
+            ssize_t n = read(state->stderr_fd, buffer, sizeof(buffer));
+            if (n > 0) stderr_acc.append(buffer, n); else err_eof = true;
+        } else if (fds[1].revents & (POLLHUP | POLLERR)) err_eof = true;
+    }
+    int status; waitpid(state->pid, &status, 0); success = WIFEXITED(status) && WEXITSTATUS(status) == 0;
+#endif
+    return "{\"success\": " + std::string(success ? "true" : "false") + ", \"stdout\": " + json_escape(stdout_acc) + ", \"stderr\": " + json_escape(stderr_acc) + "}";
+  }
+
+  shell_result shell(const std::string &command, const std::string &cwd = "") {
+    std::vector<std::string> pipe_segments; bool in_quotes = false; char quote_char = 0; size_t last = 0;
+    for (size_t i = 0; i < command.length(); ++i) {
+        char c = command[i];
+        if (c == '"' || c == '\'') {
+            if (!in_quotes) { in_quotes = true; quote_char = c; } else if (c == quote_char) { in_quotes = false; }
+        } else if (c == '|' && !in_quotes) {
+            pipe_segments.push_back(command.substr(last, i - last)); last = i + 1;
+        }
+    }
+    pipe_segments.push_back(command.substr(last));
+    if (pipe_segments.size() == 1) {
+        std::vector<std::string> args = tokenize(pipe_segments[0]); if (args.empty()) return {0, "", ""};
+        if (!cwd.empty()) {
+#ifdef _WIN32
+            _chdir(cwd.c_str());
+#else
+            (void)chdir(cwd.c_str());
+#endif
+        }
+        const std::string& cmd = args[0];
+        if (cmd == "echo") return builtin_echo(args);
+        if (cmd == "pwd") return builtin_pwd();
+        if (cmd == "ls") return builtin_ls(args);
+        if (cmd == "mkdir") return builtin_mkdir(args);
+        if (cmd == "rm") return builtin_rm(args);
+        if (cmd == "true") return {0, "", ""};
+        if (cmd == "false") return {1, "", ""};
+    }
+
+#ifdef _WIN32
+    std::vector<std::string> args = tokenize(pipe_segments[0]);
+    auto state = spawn(args, cwd); if (!state) return {127, "", "command not found\n"};
+    std::string stdout_acc, stderr_acc; std::mutex acc_mutex;
+    state->on_stdout = [&](const std::string &data) { std::lock_guard<std::mutex> l(acc_mutex); stdout_acc += data; };
+    state->on_stderr = [&](const std::string &data) { std::lock_guard<std::mutex> l(acc_mutex); stderr_acc += data; };
+    bool done = false; int exit_code = 0;
+    state->on_exit = [&](int code, int sig) { (void)sig; exit_code = code; done = true; };
+    start_monitoring(state); while (!done) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    return {exit_code, stdout_acc, stderr_acc};
+#else
+    int num_cmds = static_cast<int>(pipe_segments.size());
+    std::vector<int> pipes_fds(2 * (num_cmds - 1));
+    for (int i = 0; i < num_cmds - 1; i++) { if (pipe(pipes_fds.data() + 2 * i) < 0) return {1, "", "pipe failed\n"}; }
+    int stdout_pipe[2]; int stderr_pipe[2]; if (pipe(stdout_pipe) < 0 || pipe(stderr_pipe) < 0) return {1, "", "pipe failed\n"};
+    std::vector<pid_t> pids;
+    for (int i = 0; i < num_cmds; i++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            if (i > 0) dup2(pipes_fds[2 * (i - 1)], STDIN_FILENO);
+            if (i < num_cmds - 1) dup2(pipes_fds[2 * i + 1], STDOUT_FILENO); else dup2(stdout_pipe[1], STDOUT_FILENO);
+            dup2(stderr_pipe[1], STDERR_FILENO);
+            for (int j = 0; j < 2 * (num_cmds - 1); j++) close(pipes_fds[j]);
+            close(stdout_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[0]); close(stderr_pipe[1]);
+            if (!cwd.empty()) (void)chdir(cwd.c_str());
+            std::vector<std::string> args_ = tokenize(pipe_segments[i]); if (args_.empty()) _exit(0);
+            std::vector<char*> c_args; for (const auto& arg : args_) c_args.push_back(const_cast<char*>(arg.c_str()));
+            c_args.push_back(nullptr); execvp(c_args[0], c_args.data()); _exit(127);
+        }
+        pids.push_back(pid);
+    }
+    for (int i = 0; i < 2 * (num_cmds - 1); i++) close(pipes_fds[i]);
+    close(stdout_pipe[1]); close(stderr_pipe[1]);
+    std::string stdout_acc, stderr_acc; char buffer[4096]; struct pollfd poll_fds[2];
+    poll_fds[0].fd = stdout_pipe[0]; poll_fds[0].events = POLLIN; poll_fds[1].fd = stderr_pipe[0]; poll_fds[1].events = POLLIN;
+    bool out_eof = false, err_eof = false;
+    while (!out_eof || !err_eof) {
+        if (poll(poll_fds, 2, 100) < 0) break;
+        if (poll_fds[0].revents & POLLIN) { ssize_t n = read(stdout_pipe[0], buffer, sizeof(buffer)); if (n > 0) stdout_acc.append(buffer, n); else out_eof = true; } else if (poll_fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
+        if (poll_fds[1].revents & POLLIN) { ssize_t n = read(stderr_pipe[0], buffer, sizeof(buffer)); if (n > 0) stderr_acc.append(buffer, n); else err_eof = true; } else if (poll_fds[1].revents & (POLLHUP | POLLERR)) err_eof = true;
+    }
+    int last_status = 0;
+    for (pid_t pid : pids) { int status; waitpid(pid, &status, 0); if (WIFEXITED(status)) last_status = WEXITSTATUS(status); }
+    close(stdout_pipe[0]); close(stderr_pipe[0]); return {last_status, stdout_acc, stderr_acc};
+#endif
+  }
 };
 
 } // namespace detail
