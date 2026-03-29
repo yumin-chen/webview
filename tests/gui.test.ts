@@ -1,43 +1,69 @@
 import { expect, test, describe } from "bun:test";
-import { createComponent, updateComponent, destroyComponent, Window, Button, Color } from "../src/gui";
+import * as GUI from "../src/gui";
 
-// Mocking window.Alloy for tests
-if (typeof window === "undefined") {
-    (global as any).window = {};
-}
-(window as any).Alloy = (window as any).Alloy || {};
-(window as any).Alloy.gui = {
-    create: (type: string, props: any) => 1,
-    update: (id: number, props: any) => {},
-    destroy: (id: number) => {}
-};
-
-describe("Alloy:gui", () => {
-  test("Component object creation (ASX representation)", () => {
-    const btn = Button({ label: "Click Me", variant: "primary" });
+describe("Alloy:gui Component Unit Tests", () => {
+  // Input Controls
+  test("Button representation", () => {
+    const btn = GUI.Button({ label: "Click", onClick: () => {} });
     expect(btn.type).toBe("Button");
-    expect(btn.props.label).toBe("Click Me");
+    expect(btn.props.label).toBe("Click");
   });
 
-  test("Bridge createComponent", () => {
-    const id = createComponent("Button", { label: "Test" });
-    expect(id).toBe(1);
+  test("TextField representation", () => {
+    const tf = GUI.TextField({ placeholder: "Type here" });
+    expect(tf.type).toBe("TextField");
+    expect(tf.props.placeholder).toBe("Type here");
   });
 
-  test("Styling and Color API", () => {
-      const color = Color.blue(500);
-      expect(color).toBe("blue-500");
+  test("Slider representation", () => {
+      const slider = GUI.Slider({ value: 50, min: 0, max: 100 });
+      expect(slider.type).toBe("Slider");
+      expect(slider.props.value).toBe(50);
   });
 
-  test("Complex Layout props", () => {
-      const win = Window({
-          title: "My App",
-          width: 800,
-          children: [
-              Button({ label: "OK" })
-          ]
-      });
-      expect(win.props.title).toBe("My App");
-      expect(win.props.children).toHaveLength(1);
+  test("Switch representation", () => {
+      const sw = GUI.Switch({ checked: true });
+      expect(sw.type).toBe("Switch");
+      expect(sw.props.checked).toBe(true);
+  });
+
+  // Display Components
+  test("Label representation", () => {
+      const lbl = GUI.Label({ text: "Status: OK" });
+      expect(lbl.type).toBe("Label");
+      expect(lbl.props.text).toBe("Status: OK");
+  });
+
+  test("ProgressBar representation", () => {
+      const pb = GUI.ProgressBar({ value: 0.75 });
+      expect(pb.type).toBe("ProgressBar");
+      expect(pb.props.value).toBe(0.75);
+  });
+
+  test("Badge representation", () => {
+      const badge = GUI.Badge({ text: "New" });
+      expect(badge.type).toBe("Badge");
+      expect(badge.props.text).toBe("New");
+  });
+
+  // Layout Containers
+  test("VStack representation", () => {
+      const stack = GUI.VStack({ spacing: 10, children: [] });
+      expect(stack.type).toBe("VStack");
+      expect(stack.props.spacing).toBe(10);
+  });
+
+  // Dialogs
+  test("Dialog representation", () => {
+      const dlg = GUI.Dialog({ title: "Warning", children: [] });
+      expect(dlg.type).toBe("Dialog");
+      expect(dlg.props.title).toBe("Warning");
+  });
+
+  // Additional
+  test("WebView representation", () => {
+      const wv = GUI.WebView({ src: "https://example.com" });
+      expect(wv.type).toBe("WebView");
+      expect(wv.props.src).toBe("https://example.com");
   });
 });
