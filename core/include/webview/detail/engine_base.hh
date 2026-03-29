@@ -31,6 +31,7 @@
 #include "../errors.hh"
 #include "../types.h"
 #include "../types.hh"
+#include "alloyscript_runtime.hh"
 #include "json.hh"
 #include "user_script.hh"
 
@@ -38,6 +39,7 @@
 #include <functional>
 #include <list>
 #include <map>
+#include <memory>
 #include <string>
 
 namespace webview {
@@ -47,7 +49,14 @@ class engine_base {
 public:
   engine_base(bool owns_window) : m_owns_window{owns_window} {}
 
-  virtual ~engine_base() = default;
+  virtual ~engine_base() {
+      for (auto &kv : m_subprocesses) {
+          kv.second->monitoring = false;
+      }
+      for (auto &kv : m_terminals) {
+          kv.second->monitoring = false;
+      }
+  }
 
   noresult navigate(const std::string &url) {
     if (url.empty()) {
@@ -202,8 +211,255 @@ protected:
     }
   }
 
+  void add_alloy_bindings() {
+    bind("Alloy_spawn",
+         [this](const std::string &seq, const std::string &req,
+                void * /*arg*/) {
+           auto cmd_json = json_parse(req, "", 0);
+           auto options_json = json_parse(req, "", 1);
+
+           std::vector<std::string> args;
+           int i = 0;
+           while (true) {
+             auto arg = json_parse(cmd_json, "", i++);
+             if (arg.empty())
+               break;
+             args.push_back(arg);
+           }
+
+           auto cwd = json_parse(options_json, "cwd", 0);
+           bool use_ipc = !json_parse(options_json, "ipc", 0).empty();
+
+           auto state = m_alloy.spawn(args, cwd, {}, use_ipc);
+           if (!state) {
+             resolve(seq, 1, "null");
+             return;
+           }
+
+           std::string pid_str = std::to_string(state->pid);
+           m_subprocesses[pid_str] = state;
+
+           m_alloy.start_subprocess_monitoring(
+               state,
+               [this, pid_str](const std::string &data) {
+                 this->dispatch([this, pid_str, data]() {
+                   this->eval("window.Alloy._onStdout(" + pid_str + ", " +
+                              json_escape(data) + ")");
+                 });
+               },
+               [this, pid_str](const std::string &data) {
+                 this->dispatch([this, pid_str, data]() {
+                   this->eval("window.Alloy._onStderr(" + pid_str + ", " +
+                              json_escape(data) + ")");
+                 });
+               },
+               [this, pid_str](const std::string &data) {
+                 this->dispatch([this, pid_str, data]() {
+                   this->eval("window.Alloy._onIpc(" + pid_str + ", " +
+                              json_escape(data) + ")");
+                 });
+               },
+               [this, pid_str](int exit_code, int signal_code) {
+                 this->dispatch([this, pid_str, exit_code, signal_code]() {
+                   this->eval("window.Alloy._onExit(" + pid_str + ", " +
+                              std::to_string(exit_code) + ", " +
+                              std::to_string(signal_code) + ")");
+                   this->m_subprocesses.erase(pid_str);
+                 });
+               });
+
+           resolve(seq, 0, pid_str);
+         },
+         nullptr);
+
+    bind("Alloy_spawnSync", [this](const std::string &req) -> std::string {
+      auto cmd_json = json_parse(req, "", 0);
+      std::vector<std::string> args;
+      int i = 0;
+      while (true) {
+        auto arg = json_parse(cmd_json, "", i++);
+        if (arg.empty())
+          break;
+        args.push_back(arg);
+      }
+      return m_alloy.spawnSync(args);
+    });
+
+    bind("Alloy_kill", [this](const std::string &req) -> std::string {
+      auto pid_str = json_parse(req, "", 0);
+      auto it = m_subprocesses.find(pid_str);
+      if (it != m_subprocesses.end()) {
+        m_alloy.kill(it->second);
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("Alloy_stdinWrite", [this](const std::string &req) -> std::string {
+      auto pid_str = json_parse(req, "", 0);
+      auto data = json_parse(req, "", 1);
+      auto it = m_subprocesses.find(pid_str);
+      if (it != m_subprocesses.end()) {
+        std::shared_ptr<alloyscript_runtime::subprocess_state> state = it->second;
+        std::thread([state, data]() {
+            (void)write(state->stdin_fd, data.c_str(), data.size());
+        }).detach();
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("Alloy_ipcSend", [this](const std::string &req) -> std::string {
+      auto pid_str = json_parse(req, "", 0);
+      auto data = json_parse(req, "", 1);
+      auto it = m_subprocesses.find(pid_str);
+      if (it != m_subprocesses.end()) {
+        m_alloy.ipc_send(it->second, data);
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("Alloy_createTerminal",
+         [this](const std::string &seq, const std::string &req,
+                void * /*arg*/) {
+           auto cols = std::stoi(json_parse(req, "cols", 0));
+           auto rows = std::stoi(json_parse(req, "rows", 0));
+           auto state = m_alloy.create_terminal(cols, rows);
+           if (!state) {
+             resolve(seq, 1, "null");
+             return;
+           }
+           std::string term_id = std::to_string(state->pid);
+           m_terminals[term_id] = state;
+
+           m_alloy.start_terminal_monitoring(
+               state,
+               [this, term_id](const std::string &data) {
+                 this->dispatch([this, term_id, data]() {
+                   this->eval("window.Alloy._onTerminalData(" + term_id + ", " +
+                              json_escape(data) + ")");
+                 });
+               },
+               [this, term_id](int exit_code, const std::string &signal) {
+                 (void)signal;
+                 this->dispatch([this, term_id, exit_code]() {
+                   this->eval("window.Alloy._onTerminalExit(" + term_id + ", " +
+                              std::to_string(exit_code) + ")");
+                   this->m_terminals.erase(term_id);
+                 });
+               });
+
+           resolve(seq, 0, term_id);
+         },
+         nullptr);
+
+    bind("Alloy_terminalWrite", [this](const std::string &req) -> std::string {
+      auto term_id = json_parse(req, "", 0);
+      auto data = json_parse(req, "", 1);
+      auto it = m_terminals.find(term_id);
+      if (it != m_terminals.end()) {
+        m_alloy.terminal_write(it->second, data);
+        return "true";
+      }
+      return "false";
+    });
+  }
+
+  std::string create_alloy_script() {
+    return R"js(
+(function() {
+  if (window.Alloy) return;
+  window.Alloy = {
+    _subprocesses: {},
+    _terminals: {},
+    spawn: async function(cmd, options) {
+      const pid = await window.Alloy_spawn(cmd, options || {});
+      if (pid === "null") return null;
+      const proc = {
+        pid: pid,
+        stdin: {
+          write: (data) => window.Alloy_stdinWrite(pid, data),
+          end: () => {}
+        },
+        stdout: new ReadableStream({
+          start(controller) {
+            proc._stdoutController = controller;
+          }
+        }),
+        stderr: new ReadableStream({
+          start(controller) {
+            proc._stderrController = controller;
+          }
+        }),
+        kill: (sig) => window.Alloy_kill(pid, sig),
+        send: (msg) => window.Alloy_ipcSend(pid, JSON.stringify(msg)),
+        exited: new Promise((resolve) => { proc._resolveExit = resolve; })
+      };
+      this._subprocesses[pid] = proc;
+      return proc;
+    },
+    spawnSync: function(cmd, options) {
+      return JSON.parse(window.Alloy_spawnSync(cmd, options || {}));
+    },
+    _onStdout: function(pid, data) {
+      const proc = this._subprocesses[pid];
+      if (proc && proc._stdoutController) {
+        proc._stdoutController.enqueue(new TextEncoder().encode(data));
+      }
+    },
+    _onStderr: function(pid, data) {
+      const proc = this._subprocesses[pid];
+      if (proc && proc._stderrController) {
+        proc._stderrController.enqueue(new TextEncoder().encode(data));
+      }
+    },
+    _onExit: function(pid, exitCode, signalCode) {
+      const proc = this._subprocesses[pid];
+      if (proc) {
+        proc.exitCode = exitCode;
+        proc.signalCode = signalCode;
+        if (proc._resolveExit) proc._resolveExit(exitCode);
+      }
+    },
+    _onIpc: function(pid, data) {
+        const proc = this._subprocesses[pid];
+        if (proc && proc.onIpc) {
+            proc.onIpc(JSON.parse(data));
+        }
+    },
+    Terminal: function(options) {
+        this.id = null;
+        this.options = options || {};
+        this.init = async () => {
+            this.id = await window.Alloy_createTerminal(this.options);
+            if (this.id !== "null") {
+                window.Alloy._terminals[this.id] = this;
+            }
+        };
+        this.write = (data) => window.Alloy_terminalWrite(this.id, data);
+    },
+    _onTerminalData: function(id, data) {
+        const term = this._terminals[id];
+        if (term && term.options.data) {
+            term.options.data(term, new TextEncoder().encode(data));
+        }
+    },
+    _onTerminalExit: function(id, exitCode) {
+        const term = this._terminals[id];
+        if (term && term.options.exit) {
+            term.options.exit(term, exitCode);
+        }
+    }
+  };
+})();
+)js";
+  }
+
   void add_init_script(const std::string &post_fn) {
     add_user_script(create_init_script(post_fn));
+    add_user_script(create_alloy_script());
+    add_alloy_bindings();
     m_is_init_script_added = true;
   }
 
@@ -367,6 +623,12 @@ private:
   std::map<std::string, binding_ctx_t> bindings;
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
+
+  alloyscript_runtime m_alloy;
+  std::map<std::string, std::shared_ptr<alloyscript_runtime::subprocess_state>>
+      m_subprocesses;
+  std::map<std::string, std::shared_ptr<alloyscript_runtime::terminal_state>>
+      m_terminals;
 
   bool m_is_init_script_added{};
   bool m_is_size_set{};
