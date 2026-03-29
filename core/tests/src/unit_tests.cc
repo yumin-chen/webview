@@ -186,3 +186,12 @@ TEST_CASE("Ensure that narrow/wide string conversion works on Windows") {
   REQUIRE(narrow_string(std::wstring(2, L'\0')) == std::string(2, '\0'));
 }
 #endif
+
+TEST_CASE("MetaScript: Basic JSON mapping for spawn options") {
+  using webview::detail::json_parse;
+
+  std::string opts_json = R"({"stdin":"pipe", "stdout":"pipe", "stderr":"inherit"})";
+  REQUIRE(json_parse(opts_json, "stdin", -1) == "pipe");
+  REQUIRE(json_parse(opts_json, "stdout", -1) == "pipe");
+  REQUIRE(json_parse(opts_json, "stderr", -1) == "inherit");
+}

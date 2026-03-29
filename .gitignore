@@ -1,2 +1,6 @@
 # Build artifacts
 /build
+node_modules/
+temp_app.cpp
+test_meta_json
+test_spawn
