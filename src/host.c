@@ -53,27 +53,57 @@ void alloy_sqlite_close(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, "0");
 }
 
-// --- GUI Framework Bindings (Using alloy.h) ---
-
+// --- GUI Framework Bindings (Complete Component Map) ---
 void alloy_gui_create(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     alloy_component_t component = NULL;
     alloy_error_t err = ALLOY_OK;
-
-    // Use current main window as parent (simulated)
     alloy_component_t parent = (alloy_component_t)webview_get_window(w);
 
-    if (strstr(req, "\"type\":\"Button\"")) {
-        err = alloy_create_button(parent, &component);
-    } else if (strstr(req, "\"type\":\"TextField\"")) {
-        err = alloy_create_textfield(parent, &component);
-    } else if (strstr(req, "\"type\":\"Window\"")) {
-        err = alloy_create_window("New Window", 400, 300, &component);
-    }
+    if (strstr(req, "\"type\":\"Window\"")) err = alloy_create_window("Window", 800, 600, &component);
+    else if (strstr(req, "\"type\":\"Button\"")) err = alloy_create_button(parent, &component);
+    else if (strstr(req, "\"type\":\"TextField\"")) err = alloy_create_textfield(parent, &component);
+    else if (strstr(req, "\"type\":\"TextArea\"")) err = alloy_create_textarea(parent, &component);
+    else if (strstr(req, "\"type\":\"CheckBox\"")) err = alloy_create_checkbox(parent, &component);
+    else if (strstr(req, "\"type\":\"RadioButton\"")) err = alloy_create_radiobutton(parent, &component);
+    else if (strstr(req, "\"type\":\"ComboBox\"")) err = alloy_create_combobox(parent, &component);
+    else if (strstr(req, "\"type\":\"Slider\"")) err = alloy_create_slider(parent, &component);
+    else if (strstr(req, "\"type\":\"Spinner\"")) err = alloy_create_spinner(parent, &component);
+    else if (strstr(req, "\"type\":\"DatePicker\"")) err = alloy_create_datepicker(parent, &component);
+    else if (strstr(req, "\"type\":\"TimePicker\"")) err = alloy_create_timepicker(parent, &component);
+    else if (strstr(req, "\"type\":\"ColorPicker\"")) err = alloy_create_colorpicker(parent, &component);
+    else if (strstr(req, "\"type\":\"Switch\"")) err = alloy_create_switch(parent, &component);
+    else if (strstr(req, "\"type\":\"Label\"")) err = alloy_create_label(parent, &component);
+    else if (strstr(req, "\"type\":\"Image\"")) err = alloy_create_image(parent, &component);
+    else if (strstr(req, "\"type\":\"Icon\"")) err = alloy_create_icon(parent, &component);
+    else if (strstr(req, "\"type\":\"ProgressBar\"")) err = alloy_create_progressbar(parent, &component);
+    else if (strstr(req, "\"type\":\"Tooltip\"")) err = alloy_create_tooltip(parent, &component);
+    else if (strstr(req, "\"type\":\"Badge\"")) err = alloy_create_badge(parent, &component);
+    else if (strstr(req, "\"type\":\"Card\"")) err = alloy_create_card(parent, &component);
+    else if (strstr(req, "\"type\":\"Divider\"")) err = alloy_create_divider(parent, &component);
+    else if (strstr(req, "\"type\":\"RichTextEditor\"")) err = alloy_create_richtexteditor(parent, &component);
+    else if (strstr(req, "\"type\":\"ListView\"")) err = alloy_create_listview(parent, &component);
+    else if (strstr(req, "\"type\":\"TreeView\"")) err = alloy_create_treeview(parent, &component);
+    else if (strstr(req, "\"type\":\"TabView\"")) err = alloy_create_tabview(parent, &component);
+    else if (strstr(req, "\"type\":\"VStack\"")) err = alloy_create_vstack(parent, &component);
+    else if (strstr(req, "\"type\":\"HStack\"")) err = alloy_create_hstack(parent, &component);
+    else if (strstr(req, "\"type\":\"ScrollView\"")) err = alloy_create_scrollview(parent, &component);
+    else if (strstr(req, "\"type\":\"GroupBox\"")) err = alloy_create_groupbox(parent, &component);
+    else if (strstr(req, "\"type\":\"Dialog\"")) err = alloy_create_dialog(parent, &component);
+    else if (strstr(req, "\"type\":\"FileDialog\"")) err = alloy_create_filedialog(parent, &component);
+    else if (strstr(req, "\"type\":\"Popover\"")) err = alloy_create_popover(parent, &component);
+    else if (strstr(req, "\"type\":\"StatusBar\"")) err = alloy_create_statusbar(parent, &component);
+    else if (strstr(req, "\"type\":\"Splitter\"")) err = alloy_create_splitter(parent, &component);
+    else if (strstr(req, "\"type\":\"WebView\"")) err = alloy_create_webview(parent, &component);
+    else if (strstr(req, "\"type\":\"Link\"")) err = alloy_create_link(parent, &component);
+    else if (strstr(req, "\"type\":\"Chip\"")) err = alloy_create_chip(parent, &component);
+    else if (strstr(req, "\"type\":\"Rating\"")) err = alloy_create_rating(parent, &component);
+    else if (strstr(req, "\"type\":\"Accordion\"")) err = alloy_create_accordion(parent, &component);
+    else if (strstr(req, "\"type\":\"CodeEditor\"")) err = alloy_create_codeeditor(parent, &component);
 
     if (err == ALLOY_OK && component) {
         char buf[32];
-        sprintf(buf, "%p", component); // Use address as handle for JS
+        sprintf(buf, "%p", component);
         webview_return(w, id, 0, buf);
     } else {
         webview_return(w, id, 1, alloy_error_message(err));
@@ -81,28 +111,24 @@ void alloy_gui_create(const char *id, const char *req, void *arg) {
 }
 
 void alloy_gui_update(const char *id, const char *req, void *arg) {
-    webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "0");
+    webview_return((webview_t)arg, id, 0, "0");
 }
 
 void alloy_gui_destroy(const char *id, const char *req, void *arg) {
-    webview_t w = (webview_t)arg;
-    // req is the handle address as string
     void *ptr = NULL;
     sscanf(req, "%p", &ptr);
     if (ptr) alloy_destroy((alloy_component_t)ptr);
-    webview_return(w, id, 0, "0");
+    webview_return((webview_t)arg, id, 0, "0");
 }
 
 #ifdef _WIN32
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
-                   int nCmdShow) {
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
 #else
 int main(void) {
 #endif
   webview_t w = webview_create(0, NULL);
-  webview_set_title(w, "AlloyScript Final Runtime");
-  webview_set_size(w, 800, 600, WEBVIEW_HINT_NONE);
+  webview_set_title(w, "AlloyScript Comprehensive Runtime");
+  webview_set_size(w, 1024, 768, WEBVIEW_HINT_NONE);
 
   webview_bind(w, "alloy_spawn", alloy_spawn, w);
   webview_bind(w, "alloy_spawn_sync", alloy_spawn_sync, w);
@@ -134,8 +160,8 @@ int main(void) {
       "  },"
       "  gui: {"
       "    create: (type, props) => window.alloy_gui_create(JSON.stringify({type, props})),"
-      "    update: (id, props) => window.alloy_gui_update(id, props),"
-      "    destroy: (id) => window.alloy_gui_destroy(id)"
+      "    update: (handle, props) => window.alloy_gui_update(handle, props),"
+      "    destroy: (handle) => window.alloy_gui_destroy(handle)"
       "  }"
       "};"
       "globalThis._forbidden_eval = globalThis.eval;"
@@ -143,7 +169,7 @@ int main(void) {
 
   webview_init(w, bridge_js);
   webview_init(w, ALLOY_BUNDLE);
-  webview_set_html(w, "<h1>AlloyScript Final Runtime</h1><p>Ready.</p>");
+  webview_set_html(w, "<h1>AlloyScript Comprehensive Runtime</h1><p>Ready.</p>");
   webview_run(w);
   webview_destroy(w);
   return 0;
