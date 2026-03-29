@@ -32,6 +32,7 @@
 #include "../types.h"
 #include "../types.hh"
 #include "json.hh"
+#include "subprocess.hh"
 #include "user_script.hh"
 
 #include <atomic>
@@ -203,8 +204,277 @@ protected:
   }
 
   void add_init_script(const std::string &post_fn) {
+    add_user_script(create_alloy_script());
     add_user_script(create_init_script(post_fn));
     m_is_init_script_added = true;
+
+    bind("__alloy_spawn_sync", [this](const std::string &req) -> std::string {
+      auto cmd_json = json_parse(req, "", 0);
+      auto opts_json = json_parse(req, "", 1);
+
+      std::vector<std::string> cmd;
+      if (cmd_json[0] == '[') {
+        for (int i = 0;; ++i) {
+          auto arg = json_parse(cmd_json, "", i);
+          if (arg.empty() && i > 0)
+            break;
+          if (!arg.empty())
+            cmd.push_back(arg);
+          else if (i == 0)
+            break;
+        }
+      } else if (cmd_json[0] == '"') {
+        cmd.push_back(json_parse(req, "", 0));
+      }
+
+      subprocess::options opts;
+      opts.cmd = cmd;
+      opts.cwd = json_parse(opts_json, "cwd", 0);
+
+      std::string stdout_data, stderr_data;
+      int exit_code = -1;
+      bool finished = false;
+
+      subprocess proc(opts);
+      proc.spawn(
+          [&](const std::string &data, bool is_stderr) {
+            if (is_stderr)
+              stderr_data += data;
+            else
+              stdout_data += data;
+          },
+          [&](int code) {
+            exit_code = code;
+            finished = true;
+          });
+
+      while (!finished) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+
+      return "{\"stdout\":" + json_escape(stdout_data) +
+             ",\"stderr\":" + json_escape(stderr_data) +
+             ",\"exitCode\":" + std::to_string(exit_code) +
+             ",\"success\":" + (exit_code == 0 ? "true" : "false") + "}";
+    });
+
+    bind("__alloy_spawn", [this](const std::string &id, const std::string &req,
+                                 void * /*arg*/) {
+      auto cmd_json = json_parse(req, "", 0);
+      auto opts_json = json_parse(req, "", 1);
+
+      std::vector<std::string> cmd;
+      if (cmd_json[0] == '[') {
+        for (int i = 0;; ++i) {
+          auto arg = json_parse(cmd_json, "", i);
+          if (arg.empty() && i > 0)
+            break;
+          if (!arg.empty()) {
+            cmd.push_back(arg);
+          } else if (i == 0) {
+            break;
+          }
+        }
+      } else if (cmd_json[0] == '"') {
+        cmd.push_back(json_parse(req, "", 0));
+      } else {
+        // cmd might be in opts.cmd
+        auto cmd_in_opts = json_parse(req, "cmd", 0);
+        if (!cmd_in_opts.empty()) {
+          for (int i = 0;; ++i) {
+            auto arg = json_parse(cmd_in_opts, "", i);
+            if (arg.empty() && i > 0)
+              break;
+            if (!arg.empty()) {
+              cmd.push_back(arg);
+            } else if (i == 0) {
+              break;
+            }
+          }
+        }
+      }
+
+      subprocess::options opts;
+      opts.cmd = cmd;
+      opts.cwd = json_parse(opts_json, "cwd", 0);
+
+      auto env_json = json_parse(opts_json, "env", 0);
+      if (!env_json.empty() && env_json[0] == '{') {
+        // Simple manual parsing for some env vars
+        // This is tricky without a real JSON parser.
+        // For now, let's just support passing a few known ones or keep it empty.
+      }
+
+      auto proc = std::make_shared<subprocess>(opts);
+      auto proc_id = std::to_string(reinterpret_cast<uintptr_t>(proc.get()));
+      m_subprocesses[proc_id] = proc;
+
+      bool success = proc->spawn(
+          [this, proc_id](const std::string &data, bool is_stderr) {
+            std::string js = "window.Alloy.__onData(" + json_escape(proc_id) +
+                             ", " + json_escape(data) + ", " +
+                             (is_stderr ? "true" : "false") + ")";
+            dispatch([this, js] { eval(js); });
+          },
+          [this, proc_id](int exit_code) {
+            std::string js = "window.Alloy.__onExit(" + json_escape(proc_id) +
+                             ", " + std::to_string(exit_code) + ")";
+            dispatch([this, js] { eval(js); });
+          });
+
+      if (success) {
+        resolve(id, 0,
+                "{\"id\":" + json_escape(proc_id) +
+                    ",\"pid\":" + std::to_string(proc->get_pid()) + "}");
+      } else {
+        resolve(id, 1, "{\"error\":\"Failed to spawn\"}");
+      }
+    });
+
+    bind("__alloy_kill", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      auto it = m_subprocesses.find(proc_id);
+      if (it != m_subprocesses.end()) {
+        it->second->kill();
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_stdin_write", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      auto data = json_parse(req, "", 1);
+      auto it = m_subprocesses.find(proc_id);
+      if (it != m_subprocesses.end()) {
+        it->second->write_stdin(data);
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_stdin_close", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      auto it = m_subprocesses.find(proc_id);
+      if (it != m_subprocesses.end()) {
+        it->second->close_stdin();
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_send", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      auto message = json_parse(req, "", 1);
+      auto it = m_subprocesses.find(proc_id);
+      if (it != m_subprocesses.end()) {
+        // Simple IPC via stdin for now as a fallback
+        it->second->write_stdin(message + "\n");
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_cleanup", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      m_subprocesses.erase(proc_id);
+      return "true";
+    });
+  }
+
+  std::string create_alloy_script() {
+    return R"js(
+(function() {
+  'use strict';
+  if (window.Alloy) return;
+
+  class Subprocess {
+    constructor(id, pid) {
+      this.id = id;
+      this.pid = pid;
+      this.exitCode = null;
+      this.killed = false;
+      this._exitedPromise = new Promise(resolve => {
+        this._resolveExited = resolve;
+      });
+
+      this._stdoutController = null;
+      this.stdout = new ReadableStream({
+        start: (controller) => { this._stdoutController = controller; }
+      });
+
+      this._stderrController = null;
+      this.stderr = new ReadableStream({
+        start: (controller) => { this._stderrController = controller; }
+      });
+
+      this.stdin = {
+        write: (data) => window.__alloy_stdin_write(this.id, data),
+        end: () => window.__alloy_stdin_close(this.id),
+        flush: () => {}
+      };
+    }
+    get exited() { return this._exitedPromise; }
+    kill(sig) {
+      this.killed = true;
+      return window.__alloy_kill(this.id, sig);
+    }
+    send(message) {
+      return window.__alloy_send(this.id, JSON.stringify(message));
+    }
+  }
+
+  const subprocesses = {};
+
+  window.Alloy = {
+    spawn: async function(cmd, opts) {
+        const arg = (Array.isArray(cmd)) ? cmd : (cmd && cmd.cmd ? cmd : [cmd]);
+        const options = (Array.isArray(cmd)) ? opts : cmd;
+        const res = await window.__alloy_spawn(arg, options);
+      if (res.error) throw new Error(res.error);
+      const proc = new Subprocess(res.id, res.pid);
+      subprocesses[res.id] = proc;
+      if (options && options.ipc) {
+        proc._ipcHandler = options.ipc;
+      }
+      return proc;
+    },
+    spawnSync: function(cmd, opts) {
+        const arg = (Array.isArray(cmd)) ? cmd : (cmd && cmd.cmd ? cmd : [cmd]);
+        const options = (Array.isArray(cmd)) ? opts : cmd;
+        return window.__alloy_spawn_sync(arg, options);
+    },
+    __onData: function(id, data, isStderr) {
+      const proc = subprocesses[id];
+      if (proc) {
+        const encoder = new TextEncoder();
+        const uint8 = encoder.encode(data);
+        if (isStderr) {
+          if (proc._stderrController) proc._stderrController.enqueue(uint8);
+        } else {
+          if (proc._stdoutController) proc._stdoutController.enqueue(uint8);
+        }
+      }
+    },
+    __onExit: function(id, exitCode) {
+      const proc = subprocesses[id];
+      if (proc) {
+        proc.exitCode = exitCode;
+        if (proc._stdoutController) proc._stdoutController.close();
+        if (proc._stderrController) proc._stderrController.close();
+        proc._resolveExited(exitCode);
+        delete subprocesses[id];
+        window.__alloy_cleanup(id);
+      }
+    },
+    __onMessage: function(id, message) {
+      const proc = subprocesses[id];
+      if (proc && proc._ipcHandler) {
+        proc._ipcHandler(JSON.parse(message), proc);
+      }
+    }
+  };
+})();
+)js";
   }
 
   std::string create_init_script(const std::string &post_fn) {
@@ -365,6 +635,7 @@ private:
   }
 
   std::map<std::string, binding_ctx_t> bindings;
+  std::map<std::string, std::shared_ptr<subprocess>> m_subprocesses;
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
 
