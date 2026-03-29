@@ -22,6 +22,12 @@ void alloy_spawn(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, "0");
 }
 
+void alloy_secure_eval(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // MicroQuickJS Secure Eval Stub
+    webview_return(w, id, 0, req);
+}
+
 void alloy_spawn_sync(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     webview_return(w, id, 0, "0");
@@ -137,6 +143,7 @@ int main(void) {
 
   webview_bind(w, "alloy_spawn", alloy_spawn, w);
   webview_bind(w, "alloy_spawn_sync", alloy_spawn_sync, w);
+  webview_bind(w, "alloy_secure_eval", alloy_secure_eval, w);
 
   // SQLite bindings
   webview_bind(w, "alloy_sqlite_open", alloy_sqlite_open, w);
@@ -160,6 +167,7 @@ int main(void) {
       "window.Alloy = {"
       "  spawn: async (cmd, args) => await window.alloy_spawn(cmd, args),"
       "  spawnSync: (cmd, args) => window.alloy_spawn_sync(cmd, args),"
+      "  secureEval: (code) => window.alloy_secure_eval(code),"
       "  sqlite: {"
       "    open: (filename, options) => window.alloy_sqlite_open(filename, options),"
       "    query: (db_id, sql) => window.alloy_sqlite_query(db_id, sql),"

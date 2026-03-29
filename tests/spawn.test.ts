@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { spawn, spawnSync } from "../src/index";
+import { spawn, spawnSync, secureEval } from "../src/index";
 
 // Mocking window.Alloy for tests since we are running in bun:test environment, not in the webview yet
 if (typeof window === "undefined") {
@@ -13,7 +13,8 @@ if (typeof window === "undefined") {
     spawnSync: (cmd: string, args: string[]) => {
         const proc = Bun.spawnSync([cmd, ...args]);
         return proc.exitCode;
-    }
+    },
+    secureEval: (code: string) => code
 };
 
 describe("Alloy Runtime", () => {
@@ -59,5 +60,11 @@ describe("Alloy Runtime", () => {
   test("spawn should work with multiple arguments", async () => {
       const exitCode = await spawn("printf", ["%s %s", "hello", "world"]);
       expect(exitCode).toBe(0);
+  });
+
+  test("secureEval should return the code in mock", () => {
+      const code = "1 + 1";
+      const result = secureEval(code);
+      expect(result).toBe(code);
   });
 });
