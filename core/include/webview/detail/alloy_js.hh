@@ -119,6 +119,7 @@ static const std::string alloy_js_code = R"javascript(
         }
     };
 
+    // SQLite
     class Statement {
         constructor(dbId, sql) {
             this.dbId = dbId;
@@ -126,25 +127,22 @@ static const std::string alloy_js_code = R"javascript(
             window.__alloy_sqlite_prepare(dbId, this.id, sql);
         }
         get(...params) {
-            const result = window.__alloy_sqlite_step(this.id);
+            const result = window.__alloy_sqlite_step(this.id, JSON.stringify(params));
             const row = JSON.parse(result);
-            window.__alloy_sqlite_finalize(this.id);
             return row;
         }
         all(...params) {
             const rows = [];
             while (true) {
-                const result = window.__alloy_sqlite_step(this.id);
+                const result = window.__alloy_sqlite_step(this.id, JSON.stringify(params));
                 const row = JSON.parse(result);
                 if (row === null) break;
                 rows.push(row);
             }
-            window.__alloy_sqlite_finalize(this.id);
             return rows;
         }
         run(...params) {
-            window.__alloy_sqlite_step(this.id);
-            window.__alloy_sqlite_finalize(this.id);
+            window.__alloy_sqlite_step(this.id, JSON.stringify(params));
             return { lastInsertRowid: 0, changes: 0 };
         }
         finalize() { window.__alloy_sqlite_finalize(this.id); }
@@ -162,6 +160,44 @@ static const std::string alloy_js_code = R"javascript(
     }
 
     window.Alloy.sqlite = { Database };
+
+    // GUI
+    class Signal {
+        constructor(initial) {
+            this.id = Math.random().toString(36).substr(2, 9);
+            window.__alloy_signal_create_str(this.id, String(initial));
+        }
+        set(v) { window.__alloy_signal_set_str(this.id, String(v)); }
+    }
+
+    class Component {
+        constructor(handle) {
+            this.handle = handle;
+        }
+        setText(text) { window.__alloy_gui_set_text(this.handle, text); }
+        on(event, cb) { window.__alloy_gui_set_event_callback(this.handle, event, cb); }
+        addChild(child) { window.__alloy_gui_add_child(this.handle, child.handle); }
+        bind(prop, signal) { window.__alloy_gui_bind_property(this.handle, prop, signal.id); }
+    }
+
+    const guiProxy = {
+        get(target, prop) {
+            if (prop in target) return target[prop];
+            if (prop.startsWith('create')) {
+                const type = prop.slice(6).toLowerCase();
+                return (...args) => {
+                    const handle = window[`__alloy_gui_create_${type}`](...args.map(a => a instanceof Component ? a.handle : a));
+                    return new Component(handle);
+                };
+            }
+        }
+    };
+
+    window.Alloy.gui = new Proxy({
+        Signal: Signal,
+        Events: { CLICK: 0, CHANGE: 1, CLOSE: 2 },
+        Props: { TEXT: 0, CHECKED: 1, VALUE: 2 }
+    }, guiProxy);
 })();
 )javascript";
 

@@ -67,6 +67,7 @@ private:
     std::map<std::string, std::shared_ptr<AlloyProcess>> m_processes;
     std::map<std::string, std::shared_ptr<AlloySQLite>> m_databases;
     std::map<std::string, std::shared_ptr<AlloySQLite::Statement>> m_statements;
+    std::map<std::string, alloy_signal_t> m_signals;
 };
 
 } // namespace detail

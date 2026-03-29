@@ -169,11 +169,9 @@ void AlloyRuntime::setup_bindings() {
         auto it = m_statements.find(stmt_id);
         if (it != m_statements.end()) {
             it->second->reset();
-            // Bind params
             for (int i = 0; ; ++i) {
                 std::string p = webview::detail::json_parse(params_json, "", i);
                 if (p.empty()) break;
-                // Basic type detection for shim
                 if (p == "null") it->second->bind_null(i + 1);
                 else if (p[0] == '"') it->second->bind(i + 1, webview::detail::json_parse(params_json, "", i));
                 else it->second->bind(i + 1, std::stod(p));
@@ -208,6 +206,96 @@ void AlloyRuntime::setup_bindings() {
     WV->bind("__alloy_sqlite_finalize", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
         auto stmt_id = webview::detail::json_parse(req, "", 0);
         m_statements.erase(stmt_id);
+        WV->resolve(seq, 0, "");
+    }, nullptr);
+
+    // GUI Bindings
+    WV->bind("__alloy_gui_create_window", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
+        auto title = webview::detail::json_parse(req, "", 0);
+        int w = std::stoi(webview::detail::json_parse(req, "", 1));
+        int h = std::stoi(webview::detail::json_parse(req, "", 2));
+        WV->resolve(seq, 0, std::to_string((uintptr_t)alloy_create_window(title.c_str(), w, h)));
+    }, nullptr);
+
+    WV->bind("__alloy_gui_create_component", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
+        auto type = webview::detail::json_parse(req, "", 0);
+        auto parent = (alloy_component_t)std::stoull(webview::detail::json_parse(req, "", 1));
+        alloy_component_t comp = nullptr;
+        if (type == "button") comp = alloy_create_button(parent);
+        else if (type == "textfield") comp = alloy_create_textfield(parent);
+        else if (type == "textarea") comp = alloy_create_textarea(parent);
+        else if (type == "label") comp = alloy_create_label(parent);
+        else if (type == "checkbox") comp = alloy_create_checkbox(parent);
+        else if (type == "radiobutton") comp = alloy_create_radiobutton(parent);
+        else if (type == "combobox") comp = alloy_create_combobox(parent);
+        else if (type == "slider") comp = alloy_create_slider(parent);
+        else if (type == "spinner") comp = alloy_create_spinner(parent);
+        else if (type == "progressbar") comp = alloy_create_progressbar(parent);
+        else if (type == "tabview") comp = alloy_create_tabview(parent);
+        else if (type == "listview") comp = alloy_create_listview(parent);
+        else if (type == "treeview") comp = alloy_create_treeview(parent);
+        else if (type == "webview") comp = alloy_create_webview(parent);
+        else if (type == "vstack") comp = alloy_create_vstack(parent);
+        else if (type == "hstack") comp = alloy_create_hstack(parent);
+        else if (type == "scrollview") comp = alloy_create_scrollview(parent);
+        else if (type == "switch") comp = alloy_create_switch(parent);
+        else if (type == "separator") comp = alloy_create_separator(parent);
+        else if (type == "image") comp = alloy_create_image(parent);
+        else if (type == "icon") comp = alloy_create_icon(parent);
+        else if (type == "menubar") comp = alloy_create_menubar(parent);
+        else if (type == "toolbar") comp = alloy_create_toolbar(parent);
+        else if (type == "statusbar") comp = alloy_create_statusbar(parent);
+        else if (type == "splitter") comp = alloy_create_splitter(parent);
+        else if (type == "dialog") comp = alloy_create_dialog("Dialog", 400, 300);
+        else if (type == "filedialog") comp = alloy_create_filedialog(parent);
+        else if (type == "colorpicker") comp = alloy_create_colorpicker(parent);
+        else if (type == "datepicker") comp = alloy_create_datepicker(parent);
+        else if (type == "timepicker") comp = alloy_create_timepicker(parent);
+        else if (type == "link") comp = alloy_create_link(parent);
+        else if (type == "chip") comp = alloy_create_chip(parent);
+        else if (type == "accordion") comp = alloy_create_accordion(parent);
+        else if (type == "codeeditor") comp = alloy_create_codeeditor(parent);
+        else if (type == "tooltip") comp = alloy_create_tooltip(parent);
+        else if (type == "groupbox") comp = alloy_create_groupbox(parent);
+        else if (type == "popover") comp = alloy_create_popover(parent);
+        else if (type == "badge") comp = alloy_create_badge(parent);
+        else if (type == "card") comp = alloy_create_card(parent);
+        else if (type == "rating") comp = alloy_create_rating(parent);
+        else if (type == "menu") comp = alloy_create_menu(parent);
+        else if (type == "contextmenu") comp = alloy_create_contextmenu(parent);
+        else if (type == "divider") comp = alloy_create_divider(parent);
+        else if (type == "loading_indicator") comp = alloy_create_loading_indicator(parent);
+        else if (type == "richtexteditor") comp = alloy_create_richtexteditor(parent);
+
+        WV->resolve(seq, 0, std::to_string((uintptr_t)comp));
+    }, nullptr);
+
+    WV->bind("__alloy_gui_set_text", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
+        auto h = (alloy_component_t)std::stoull(webview::detail::json_parse(req, "", 0));
+        auto text = webview::detail::json_parse(req, "", 1);
+        alloy_set_text(h, text.c_str());
+        WV->resolve(seq, 0, "");
+    }, nullptr);
+
+    WV->bind("__alloy_signal_create_str", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
+        auto id = webview::detail::json_parse(req, "", 0);
+        auto val = webview::detail::json_parse(req, "", 1);
+        m_signals[id] = (alloy_signal_t)alloy_signal_create_str(val.c_str());
+        WV->resolve(seq, 0, "");
+    }, nullptr);
+
+    WV->bind("__alloy_signal_set_str", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
+        auto id = webview::detail::json_parse(req, "", 0);
+        auto val = webview::detail::json_parse(req, "", 1);
+        alloy_signal_set_str(m_signals[id], val.c_str());
+        WV->resolve(seq, 0, "");
+    }, nullptr);
+
+    WV->bind("__alloy_gui_bind_property", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
+        auto h = (alloy_component_t)std::stoull(webview::detail::json_parse(req, "", 0));
+        int prop = std::stoi(webview::detail::json_parse(req, "", 1));
+        auto sig_id = webview::detail::json_parse(req, "", 2);
+        alloy_bind_property(h, (alloy_prop_id_t)prop, m_signals[sig_id]);
         WV->resolve(seq, 0, "");
     }, nullptr);
 }

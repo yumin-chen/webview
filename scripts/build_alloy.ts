@@ -31,6 +31,7 @@ int main() {
     webview::webview w(false, nullptr);
     w.set_title("Alloy App");
     w.set_size(800, 600, WEBVIEW_HINT_NONE);
+    // JS glue and runtime are initialized inside webview::run or backend constructor
     w.init(embedded_js);
     w.run();
     return 0;

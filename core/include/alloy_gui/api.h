@@ -42,6 +42,7 @@ typedef enum {
   ALLOY_PROP_ENABLED,
   ALLOY_PROP_VISIBLE,
   ALLOY_PROP_LABEL,
+  ALLOY_PROP_TITLE,
 } alloy_prop_id_t;
 
 typedef void (*alloy_event_cb_t)(alloy_component_t handle,
@@ -78,9 +79,11 @@ ALLOY_API double          alloy_signal_get_double(alloy_signal_t s);
 ALLOY_API int             alloy_signal_get_int(alloy_signal_t s);
 ALLOY_API int             alloy_signal_get_bool(alloy_signal_t s);
 
+typedef void (*alloy_compute_cb_t)(alloy_signal_t *deps, size_t dep_count, void *out, void *userdata);
+
 ALLOY_API alloy_computed_t alloy_computed_create(
     alloy_signal_t *deps, size_t dep_count,
-    void (*compute)(alloy_signal_t *deps, size_t dep_count, void *out, void *userdata),
+    alloy_compute_cb_t compute,
     void *userdata);
 
 ALLOY_API alloy_effect_t  alloy_effect_create(
@@ -101,8 +104,7 @@ ALLOY_API alloy_error_t   alloy_unbind_property(alloy_component_t component,
 
 // ── Component lifecycle ────────────────────────────────────────────────────
 
-ALLOY_API alloy_component_t alloy_create_window(const char *title,
-                                                 int width, int height);
+ALLOY_API alloy_component_t alloy_create_window(const char *title, int width, int height);
 ALLOY_API alloy_component_t alloy_create_button(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_textfield(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_textarea(alloy_component_t parent);
@@ -111,6 +113,7 @@ ALLOY_API alloy_component_t alloy_create_checkbox(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_radiobutton(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_combobox(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_slider(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_spinner(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_progressbar(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_tabview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_listview(alloy_component_t parent);
@@ -119,14 +122,40 @@ ALLOY_API alloy_component_t alloy_create_webview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_vstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_hstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_scrollview(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_menu(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_menubar(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_toolbar(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_statusbar(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_splitter(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_dialog(const char *title, int width, int height);
+ALLOY_API alloy_component_t alloy_create_filedialog(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_colorpicker(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_datepicker(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_timepicker(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_divider(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_image(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_icon(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_separator(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_groupbox(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_accordion(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_popover(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_contextmenu(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_switch(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_badge(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_chip(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_loading_indicator(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_card(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_link(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_rating(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_richtexteditor(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_codeeditor(alloy_component_t parent);
 
 ALLOY_API alloy_error_t     alloy_destroy(alloy_component_t handle);
 
 // ── Property getters/setters ───────────────────────────────────────────────
 
 ALLOY_API alloy_error_t alloy_set_text(alloy_component_t h, const char *text);
-ALLOY_API alloy_error_t alloy_get_text(alloy_component_t h,
-                                        char *buf, size_t buf_len);
+ALLOY_API int           alloy_get_text(alloy_component_t h, char *buf, size_t buf_len);
 ALLOY_API alloy_error_t alloy_set_checked(alloy_component_t h, int checked);
 ALLOY_API int           alloy_get_checked(alloy_component_t h);
 ALLOY_API alloy_error_t alloy_set_value(alloy_component_t h, double value);
@@ -135,13 +164,11 @@ ALLOY_API alloy_error_t alloy_set_enabled(alloy_component_t h, int enabled);
 ALLOY_API int           alloy_get_enabled(alloy_component_t h);
 ALLOY_API alloy_error_t alloy_set_visible(alloy_component_t h, int visible);
 ALLOY_API int           alloy_get_visible(alloy_component_t h);
-ALLOY_API alloy_error_t alloy_set_style(alloy_component_t h,
-                                         const alloy_style_t *style);
+ALLOY_API alloy_error_t alloy_set_style(alloy_component_t h, const alloy_style_t *style);
 
 // ── Layout ─────────────────────────────────────────────────────────────────
 
-ALLOY_API alloy_error_t alloy_add_child(alloy_component_t container,
-                                         alloy_component_t child);
+ALLOY_API alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child);
 ALLOY_API alloy_error_t alloy_set_flex(alloy_component_t h, float flex);
 ALLOY_API alloy_error_t alloy_set_padding(alloy_component_t h,
                                            float top, float right,
