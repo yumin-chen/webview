@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
+/* #include <mquickjs.h> // Required for MicroQuickJS integration */
 
 #ifdef _WIN32
 #include <windows.h>
@@ -24,7 +25,21 @@ void alloy_spawn(const char *id, const char *req, void *arg) {
 
 void alloy_secure_eval(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    // MicroQuickJS Secure Eval Stub
+
+    /*
+     * In a full implementation, we would use MicroQuickJS:
+     * JSRuntime *rt = JS_NewRuntime();
+     * JSContext *ctx = JS_NewContext(rt);
+     * JSValue val = JS_Eval(ctx, req, strlen(req), "<input>", JS_EVAL_TYPE_GLOBAL);
+     * const char *result_str = JS_ToCString(ctx, val);
+     * webview_return(w, id, 0, result_str);
+     * JS_FreeCString(ctx, result_str);
+     * JS_FreeValue(ctx, val);
+     * JS_FreeContext(ctx);
+     * JS_FreeRuntime(rt);
+     */
+
+    // MicroQuickJS Secure Eval Stub (echoes back for now)
     webview_return(w, id, 0, req);
 }
 
