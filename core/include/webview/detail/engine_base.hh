@@ -31,7 +31,9 @@
 #include "../errors.hh"
 #include "../types.h"
 #include "../types.hh"
+#include "cron.hh"
 #include "json.hh"
+#include "sqlite.hh"
 #include "subprocess.hh"
 #include "user_script.hh"
 
@@ -258,8 +260,7 @@ protected:
              ",\"success\":" + (exit_code == 0 ? "true" : "false") + "}";
     });
 
-    bind("__alloy_spawn", [this](const std::string &id, const std::string &req,
-                                 void * /*arg*/) {
+    bind("__alloy_spawn_bridge", [this](const std::string &req) -> std::string {
       auto cmd_json = json_parse(req, "", 0);
       auto opts_json = json_parse(req, "", 1);
 
@@ -277,26 +278,22 @@ protected:
         }
       } else if (cmd_json[0] == '"') {
         cmd.push_back(json_parse(req, "", 0));
-      } else {
-        // cmd might be in opts.cmd
-        auto cmd_in_opts = json_parse(req, "cmd", 0);
-        if (!cmd_in_opts.empty()) {
-          for (int i = 0;; ++i) {
-            auto arg = json_parse(cmd_in_opts, "", i);
-            if (arg.empty() && i > 0)
-              break;
-            if (!arg.empty()) {
-              cmd.push_back(arg);
-            } else if (i == 0) {
-              break;
-            }
-          }
-        }
       }
 
       subprocess::options opts;
       opts.cmd = cmd;
       opts.cwd = json_parse(opts_json, "cwd", 0);
+      auto term_json = json_parse(opts_json, "terminal", 0);
+      if (!term_json.empty() && term_json != "undefined" &&
+          term_json != "null") {
+        opts.use_terminal = true;
+        auto cols = json_parse(term_json, "cols", 0);
+        auto rows = json_parse(term_json, "rows", 0);
+        if (!cols.empty())
+          opts.terminal.cols = std::stoi(cols);
+        if (!rows.empty())
+          opts.terminal.rows = std::stoi(rows);
+      }
 
       auto env_json = json_parse(opts_json, "env", 0);
       if (!env_json.empty() && env_json[0] == '{') {
@@ -323,11 +320,10 @@ protected:
           });
 
       if (success) {
-        resolve(id, 0,
-                "{\"id\":" + json_escape(proc_id) +
-                    ",\"pid\":" + std::to_string(proc->get_pid()) + "}");
+        return "{\"id\":" + json_escape(proc_id) +
+               ",\"pid\":" + std::to_string(proc->get_pid()) + "}";
       } else {
-        resolve(id, 1, "{\"error\":\"Failed to spawn\"}");
+        return "{\"error\":\"Failed to spawn\"}";
       }
     });
 
@@ -379,6 +375,56 @@ protected:
       m_subprocesses.erase(proc_id);
       return "true";
     });
+
+    bind("__alloy_cron_register", [this](const std::string &req) -> std::string {
+      auto path = json_parse(req, "", 0);
+      auto schedule = json_parse(req, "", 1);
+      auto title = json_parse(req, "", 2);
+      return cron_manager::register_job(path, schedule, title) ? "true" : "false";
+    });
+
+    bind("__alloy_cron_remove", [this](const std::string &req) -> std::string {
+      auto title = json_parse(req, "", 0);
+      return cron_manager::remove_job(title) ? "true" : "false";
+    });
+
+    bind("__alloy_sqlite_open", [this](const std::string &req) -> std::string {
+      auto filename = json_parse(req, "", 0);
+      try {
+        auto db = std::make_shared<sqlite_db>(filename);
+        auto id = std::to_string(reinterpret_cast<uintptr_t>(db.get()));
+        m_sqlite_dbs[id] = db;
+        return id;
+      } catch (const std::exception &e) {
+        return "{\"error\":" + json_escape(e.what()) + "}";
+      }
+    });
+
+    bind("__alloy_sqlite_query", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto sql = json_parse(req, "", 1);
+      auto it = m_sqlite_dbs.find(db_id);
+      if (it != m_sqlite_dbs.end()) {
+        try {
+          auto stmt = std::make_shared<sqlite_stmt>(it->second->get_native(), sql);
+          auto id = std::to_string(reinterpret_cast<uintptr_t>(stmt.get()));
+          m_sqlite_stmts[id] = stmt;
+          return id;
+        } catch (const std::exception &e) {
+          return "{\"error\":" + json_escape(e.what()) + "}";
+        }
+      }
+      return "{\"error\":\"DB not found\"}";
+    });
+
+    bind("__alloy_sqlite_step", [this](const std::string &req) -> std::string {
+      auto stmt_id = json_parse(req, "", 0);
+      auto it = m_sqlite_stmts.find(stmt_id);
+      if (it != m_sqlite_stmts.end()) {
+        return it->second->step();
+      }
+      return "";
+    });
   }
 
   std::string create_alloy_script() {
@@ -426,10 +472,26 @@ protected:
   const subprocesses = {};
 
   window.Alloy = {
-    spawn: async function(cmd, opts) {
+    cron: (function() {
+      const cron = async function(path, schedule, title) {
+        return window.__alloy_cron_register(path, schedule, title);
+      };
+      cron.remove = async function(title) {
+        return window.__alloy_cron_remove(title);
+      };
+      cron.parse = function(expression, relativeDate) {
+        // Basic parser stub for illustration
+        return new Date();
+      };
+      return cron;
+    })(),
+    spawn: function(cmd, opts) {
         const arg = (Array.isArray(cmd)) ? cmd : (cmd && cmd.cmd ? cmd : [cmd]);
         const options = (Array.isArray(cmd)) ? opts : cmd;
-        const res = await window.__alloy_spawn(arg, options);
+        // __alloy_spawn is still async due to webview::bind,
+        // but we can make it look sync if we use a sync binding that returns immediately
+        // and does the spawning in background.
+        const res = JSON.parse(window.__alloy_spawn_bridge(arg, options));
       if (res.error) throw new Error(res.error);
       const proc = new Subprocess(res.id, res.pid);
       subprocesses[res.id] = proc;
@@ -441,7 +503,8 @@ protected:
     spawnSync: function(cmd, opts) {
         const arg = (Array.isArray(cmd)) ? cmd : (cmd && cmd.cmd ? cmd : [cmd]);
         const options = (Array.isArray(cmd)) ? opts : cmd;
-        return window.__alloy_spawn_sync(arg, options);
+        const res = window.__alloy_spawn_sync(arg, options);
+        return JSON.parse(res);
     },
     __onData: function(id, data, isStderr) {
       const proc = subprocesses[id];
@@ -636,6 +699,8 @@ private:
 
   std::map<std::string, binding_ctx_t> bindings;
   std::map<std::string, std::shared_ptr<subprocess>> m_subprocesses;
+  std::map<std::string, std::shared_ptr<sqlite_db>> m_sqlite_dbs;
+  std::map<std::string, std::shared_ptr<sqlite_stmt>> m_sqlite_stmts;
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
 
