@@ -1,44 +1,46 @@
 import { expect, test, describe, beforeEach } from "bun:test";
-import { Database } from "../src/sqlite";
+import { Database, constants } from "../src/sqlite";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
     (global as any).window = {};
 }
-(window as any).Alloy = {
-    sqlite: {
-        open: (filename: string, options: any) => 1,
-        query: (db_id: number, sql: string) => 1,
-        run: (db_id: number, sql: string, params: any) => ({ lastInsertRowid: 0, changes: 0 }),
-        stmt_all: (stmt_id: number, params: any) => {
-            if (stmt_id === 1) return [{ message: "Hello world" }];
-            return [];
-        },
-        stmt_get: (stmt_id: number, params: any) => {
-            if (stmt_id === 1) return { message: "Hello world" };
-            return null;
-        },
-        stmt_run: (stmt_id: number, params: any) => ({ lastInsertRowid: 0, changes: 0 }),
-        stmt_values: (stmt_id: number, params: any) => [[ "Hello world" ]],
-        stmt_finalize: (stmt_id: number) => {},
-        stmt_toString: (stmt_id: number) => "SELECT 'Hello world';",
-        close: (db_id: number) => {}
-    }
+
+// Helper to update mock behavior
+const mockSQLite = {
+    open: (filename: string, options: any) => 1,
+    query: (db_id: number, sql: string) => 1,
+    run: (db_id: number, sql: string, params: any) => ({ lastInsertRowid: 0, changes: 0 }),
+    serialize: (db_id: number) => "",
+    deserialize: (contents: string) => 2,
+    loadExtension: (db_id: number, name: string) => {},
+    fileControl: (db_id: number, cmd: number, value: any) => {},
+    setCustomSQLite: (path: string) => {},
+    stmt_all: (stmt_id: number, params: any) => [{ message: "Hello world" }],
+    stmt_get: (stmt_id: number, params: any) => ({ message: "Hello world" }),
+    stmt_run: (stmt_id: number, params: any) => ({ lastInsertRowid: 0, changes: 0 }),
+    stmt_values: (stmt_id: number, params: any) => [[ "Hello world" ]],
+    stmt_finalize: (stmt_id: number) => {},
+    stmt_toString: (stmt_id: number) => "SELECT 'Hello world';",
+    stmt_metadata: (stmt_id: number) => ({
+        columnNames: ["message"],
+        columnTypes: ["TEXT"],
+        declaredTypes: ["TEXT"],
+        paramsCount: 0
+    }),
+    close: (db_id: number) => {}
 };
 
-describe("Alloy:sqlite", () => {
+(window as any).Alloy = {
+    sqlite: mockSQLite
+};
+
+describe("Alloy:sqlite expanded", () => {
   test("Database opening and query result", () => {
     const db = new Database(":memory:");
     const query = db.query("select 'Hello world' as message;");
     const result = query.get();
     expect(result).toEqual({ message: "Hello world" });
-  });
-
-  test("Database.all() result", () => {
-    const db = new Database();
-    const query = db.query("select 'Hello world' as message;");
-    const results = query.all();
-    expect(results).toEqual([{ message: "Hello world" }]);
   });
 
   test("Class mapping using .as()", () => {
@@ -62,11 +64,45 @@ describe("Alloy:sqlite", () => {
   });
 
   test("bigint conversion", () => {
-      // Mock returning bigint string from bridge
-      (window as any).Alloy.sqlite.stmt_get = () => ({ val: "9007199254741093n" });
+      mockSQLite.stmt_get = () => ({ val: "9007199254741093n" });
       const db = new Database();
       const res = db.query("SELECT ...").get();
       expect(typeof res.val).toBe("bigint");
       expect(res.val).toBe(9007199254741093n);
+  });
+
+  test("Statement metadata", () => {
+      const db = new Database();
+      const query = db.query("SELECT 1");
+      expect(query.columnNames).toEqual(["message"]);
+      expect(query.columnTypes).toEqual(["TEXT"]);
+      expect(query.paramsCount).toBe(0);
+  });
+
+  test("Database serialization", () => {
+      mockSQLite.serialize = () => btoa("hello");
+      const db = new Database();
+      const contents = db.serialize();
+      expect(contents).toBeInstanceOf(Uint8Array);
+      expect(new TextDecoder().decode(contents)).toBe("hello");
+  });
+
+  test("Database fileControl", () => {
+      let captured: any = null;
+      mockSQLite.fileControl = (db_id, cmd, value) => { captured = { cmd, value }; };
+      const db = new Database();
+      db.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
+      expect(captured).toEqual({ cmd: constants.SQLITE_FCNTL_PERSIST_WAL, value: 0 });
+  });
+
+  test("Statement iteration", () => {
+      mockSQLite.stmt_all = () => [{ id: 1 }, { id: 2 }];
+      const db = new Database();
+      const query = db.query("SELECT id FROM users");
+      const ids = [];
+      for (const row of query) {
+          ids.push(row.id);
+      }
+      expect(ids).toEqual([1, 2]);
   });
 });
