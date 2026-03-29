@@ -36,4 +36,6 @@ if(WEBVIEW_BUILD)
     if(WEBVIEW_ENABLE_PACKAGING)
         add_subdirectory(packaging)
     endif()
+
+    add_subdirectory(alloy)
 endif()
