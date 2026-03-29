@@ -21,3 +21,4 @@ export const secureEval = (code: string): string => {
 };
 
 export * from "./sqlite";
+export * from "./gui";

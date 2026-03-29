@@ -9,6 +9,7 @@ The AlloyScript runtime is a high-performance, secure JavaScript environment bui
 3.  **Bridge**: Communication between JS and C via `window.Alloy`.
 4.  **Secure Evaluation**: `window.eval` is replaced with `secureEval` which runs [MicroQuickJS](https://github.com/bellard/mquickjs) within an OCI-compatible, chainguarded containerized Linux kernel for ultimate isolation.
 5.  **SQLite Driver**: A high-performance driver with transactions, prepared statement caching, and `bigint` support.
+6.  **Native GUI Framework (`alloy:gui`)**: A declarative component framework (ASX) that wraps native OS controls (Win32/Cocoa/GTK) using the Yoga layout engine.
 
 ## Security
 
