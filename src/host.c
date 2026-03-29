@@ -186,7 +186,9 @@ int main(void) {
       "    stmt_metadata: (stmt_id) => JSON.parse(window.alloy_sqlite_stmt_metadata(stmt_id)),"
       "    close: (db_id) => window.alloy_sqlite_close(db_id)"
       "  }"
-      "};";
+      "};"
+      "window._forbidden_eval = window.eval;"
+      "window.eval = (code) => window.Alloy.secureEval(code);";
   webview_init(w, bridge_js);
 
   webview_init(w, ALLOY_BUNDLE);

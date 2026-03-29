@@ -67,4 +67,14 @@ describe("Alloy Runtime", () => {
       const result = secureEval(code);
       expect(result).toBe(code);
   });
+
+  test("window.eval should be replaced", () => {
+      const originalEval = (window as any).eval;
+      (window as any)._forbidden_eval = originalEval || (() => {});
+      (window as any).eval = (code: string) => secureEval(code);
+
+      const code = "2 + 2";
+      expect((window as any).eval(code)).toBe(code);
+      expect((window as any)._forbidden_eval).toBeDefined();
+  });
 });
