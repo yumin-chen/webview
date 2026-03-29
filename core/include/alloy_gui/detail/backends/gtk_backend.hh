@@ -6,10 +6,26 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <unordered_map>
 #include "../../alloy_gui/api.h"
 
 namespace alloy {
 namespace detail {
+
+enum class signal_type { STR, DOUBLE, INT, BOOL };
+struct signal_value {
+    signal_type type;
+    std::string s;
+    double d;
+    int i;
+    bool b;
+};
+
+struct signal_base {
+    signal_value value;
+    std::vector<std::pair<void*, alloy_prop_id_t>> subscribers;
+    void notify();
+};
 
 struct Component {
     GtkWidget *widget;
@@ -24,6 +40,8 @@ struct Component {
             gtk_widget_destroy(widget);
         }
     }
+
+    void on_signal_changed(alloy_prop_id_t prop, const signal_value& val);
 };
 
 class GTKBackend {
@@ -32,15 +50,11 @@ public:
         GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
         gtk_window_set_title(GTK_WINDOW(window), title);
         gtk_window_set_default_size(GTK_WINDOW(window), width, height);
-        g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), nullptr);
         return new Component(window);
     }
 
     static Component* create_button(Component *parent) {
         GtkWidget *button = gtk_button_new();
-        if (parent && parent->widget) {
-            gtk_container_add(GTK_CONTAINER(parent->widget), button);
-        }
         Component *comp = new Component(button);
         g_signal_connect(button, "clicked", G_CALLBACK(on_button_clicked), comp);
         return comp;
@@ -48,16 +62,9 @@ public:
 
     static Component* create_vstack(Component *parent) {
         GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-        if (parent && parent->widget) {
-            gtk_container_add(GTK_CONTAINER(parent->widget), box);
-        }
         Component *comp = new Component(box);
         comp->is_container = true;
         return comp;
-    }
-
-    static void on_window_destroy(GtkWidget *widget, gpointer data) {
-        // Handle window close event if registered
     }
 
     static void on_button_clicked(GtkButton *button, gpointer data) {

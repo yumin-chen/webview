@@ -165,8 +165,19 @@ void AlloyRuntime::setup_bindings() {
 
     WV->bind("__alloy_sqlite_step", [this](const std::string& seq, const std::string& req, void* /*arg*/) {
         auto stmt_id = webview::detail::json_parse(req, "", 0);
+        auto params_json = webview::detail::json_parse(req, "", 1);
         auto it = m_statements.find(stmt_id);
         if (it != m_statements.end()) {
+            it->second->reset();
+            // Bind params
+            for (int i = 0; ; ++i) {
+                std::string p = webview::detail::json_parse(params_json, "", i);
+                if (p.empty()) break;
+                // Basic type detection for shim
+                if (p == "null") it->second->bind_null(i + 1);
+                else if (p[0] == '"') it->second->bind(i + 1, webview::detail::json_parse(params_json, "", i));
+                else it->second->bind(i + 1, std::stod(p));
+            }
             int res = sqlite3_step(it->second->get());
             if (res == SQLITE_ROW) {
                 std::stringstream ss;

@@ -20,6 +20,12 @@ public:
 
         sqlite3_stmt* get() const { return m_stmt; }
 
+        void bind(int index, int64_t val) { sqlite3_bind_int64(m_stmt, index, val); }
+        void bind(int index, double val) { sqlite3_bind_double(m_stmt, index, val); }
+        void bind(int index, const std::string& val) { sqlite3_bind_text(m_stmt, index, val.c_str(), -1, SQLITE_TRANSIENT); }
+        void bind_null(int index) { sqlite3_bind_null(m_stmt, index); }
+        void reset() { sqlite3_reset(m_stmt); sqlite3_clear_bindings(m_stmt); }
+
     private:
         sqlite3_stmt* m_stmt;
     };
