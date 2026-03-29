@@ -32,6 +32,7 @@
 #include "../types.h"
 #include "../types.hh"
 #include "alloyscript_runtime.hh"
+#include "sqlite_runtime.hh"
 #include "json.hh"
 #include "user_script.hh"
 
@@ -307,6 +308,143 @@ protected:
            }).detach();
          },
          nullptr);
+
+    bind("Alloy_sqlite_open", [this](const std::string &req) -> std::string {
+      auto filename = json_parse(req, "", 0);
+      auto options = json_parse(req, "", 1);
+      bool readonly = !json_parse(options, "readonly", 0).empty();
+      bool create = !json_parse(options, "create", 0).empty();
+      bool safeIntegers = !json_parse(options, "safeIntegers", 0).empty();
+      bool strict = !json_parse(options, "strict", 0).empty();
+
+      try {
+        return m_sqlite.open(filename, readonly, create, safeIntegers, strict);
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
+
+    bind("Alloy_sqlite_close", [this](const std::string &req) -> std::string {
+      auto id = json_parse(req, "", 0);
+      m_sqlite.close(id);
+      return "true";
+    });
+
+    bind("Alloy_sqlite_prepare", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto sql = json_parse(req, "", 1);
+      auto use_cache = json_parse(req, "", 2) == "true";
+
+      auto db = m_sqlite.get_db(db_id);
+      if (!db) return "error:Database not found";
+
+      try {
+        auto stmt = db->prepare(sql, use_cache);
+        std::string result = "{";
+        result += "\"paramsCount\":" + std::to_string(stmt->get_params_count()) + ",";
+        result += "\"columnNames\":[";
+        auto names = stmt->get_column_names();
+        for (size_t i = 0; i < names.size(); ++i) {
+          if (i > 0) result += ",";
+          result += json_escape(names[i]);
+        }
+        result += "]}";
+        return result;
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
+
+    bind("Alloy_sqlite_bind_and_execute", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto sql = json_parse(req, "", 1);
+      auto params_json = json_parse(req, "", 2);
+      auto mode = json_parse(req, "", 3);
+
+      auto db = m_sqlite.get_db(db_id);
+      if (!db) return "error:Database not found";
+
+      try {
+        auto stmt = db->prepare(sql, true);
+        stmt->bind(params_json, db->is_strict());
+        return stmt->execute(mode, db->is_safe_integers());
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
+
+    bind("Alloy_sqlite_file_control", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto cmd = std::stoi(json_parse(req, "", 1));
+      auto value_str = json_parse(req, "", 2);
+
+      auto db = m_sqlite.get_db(db_id);
+      if (!db) return "error:Database not found";
+
+      // Minimal implementation for value
+      int val = 0;
+      if (!value_str.empty() && value_str != "null") {
+          val = std::stoi(value_str);
+      }
+      return std::to_string(db->file_control(cmd, &val));
+    });
+
+    bind("Alloy_sqlite_serialize", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto db = m_sqlite.get_db(db_id);
+      if (!db) return "error:Database not found";
+      return db->serialize();
+    });
+
+    bind("Alloy_sqlite_deserialize", [this](const std::string &req) -> std::string {
+      auto data_json = json_parse(req, "", 0);
+      // data_json is a JSON array of numbers
+      std::vector<unsigned char> data;
+      int i = 0;
+      while (true) {
+        std::string val = json_parse(data_json, "", i++);
+        if (val.empty()) break;
+        data.push_back((unsigned char)std::stoi(val));
+      }
+      try {
+        return m_sqlite.open_from_data(data);
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
+
+    bind("Alloy_sqlite_load_extension", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto path = json_parse(req, "", 1);
+      auto db = m_sqlite.get_db(db_id);
+      if (!db) return "error:Database not found";
+      try {
+        db->load_extension(path);
+        return "true";
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
+
+    bind("Alloy_sqlite_step", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto sql = json_parse(req, "", 1);
+      auto params_json = json_parse(req, "", 2);
+      auto is_reset = json_parse(req, "", 3) == "true";
+
+      auto db = m_sqlite.get_db(db_id);
+      if (!db) return "error:Database not found";
+
+      try {
+        auto stmt = db->prepare(sql, true);
+        if (is_reset) {
+          stmt->bind(params_json, db->is_strict());
+        }
+        return stmt->step(db->is_safe_integers());
+      } catch (const std::exception &e) {
+        return "error:" + std::string(e.what());
+      }
+    });
   }
 
   std::string create_alloy_script() {
@@ -439,8 +577,134 @@ protected:
         proc.signalCode = signalCode;
         if (proc._resolveExit) proc._resolveExit(exitCode);
       }
-    }
+    },
+    sqlite: (function() {
+      class Statement {
+        constructor(db, sql, options = {}) {
+          this.db = db;
+          this.sql = sql;
+          this.use_cache = options.cache !== false;
+        }
+
+        _execute(mode, params) {
+          const paramsJson = JSON.stringify(params, (k, v) => typeof v === 'bigint' ? v.toString() + 'n' : v);
+          const res = window.Alloy_sqlite_bind_and_execute(this.db.id, this.sql, paramsJson, mode);
+          if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
+          let data = JSON.parse(res);
+          data = this._reviveSpecial(data);
+          if (this._Class) {
+            if (Array.isArray(data)) return data.map(r => this._instantiate(r));
+            if (data && typeof data === 'object') return this._instantiate(data);
+          }
+          return data;
+        }
+
+        _reviveSpecial(obj) {
+          if (typeof obj === 'string') {
+            if (obj.endsWith('n')) return BigInt(obj.substring(0, obj.length - 1));
+            if (obj.startsWith('base64:')) {
+              const b64 = obj.substring(7);
+              const bin = atob(b64);
+              const arr = new Uint8Array(bin.length);
+              for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+              return arr;
+            }
+          }
+          if (Array.isArray(obj)) return obj.map(x => this._reviveSpecial(x));
+          if (obj && typeof obj === 'object') {
+            for (let k in obj) obj[k] = this._reviveSpecial(obj[k]);
+          }
+          return obj;
+        }
+
+        _instantiate(obj) {
+          const instance = Object.create(this._Class.prototype);
+          Object.assign(instance, obj);
+          return instance;
+        }
+
+        all(...params) { return this._execute('all', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        get(...params) { return this._execute('get', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        run(...params) { return this._execute('run', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        values(...params) { return this._execute('values', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+
+        as(Class) { this._Class = Class; return this; }
+        finalize() {}
+        toString() { return this.sql; }
+
+        [Symbol.iterator]() { return this.iterate(); }
+        *iterate(...params) {
+          const paramsJson = JSON.stringify(params.length === 1 && typeof params[0] === 'object' ? params[0] : params, (k, v) => typeof v === 'bigint' ? v.toString() + 'n' : v);
+          let first = true;
+          while (true) {
+            const res = window.Alloy_sqlite_step(this.db.id, this.sql, paramsJson, first);
+            first = false;
+            if (res === 'done') break;
+            if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
+            let data = JSON.parse(res);
+            yield this._reviveSpecial(data);
+          }
+        }
+      }
+
+      class Database {
+        constructor(filename = ':memory:', options = {}) {
+          if (typeof options === 'number') options = { flags: options };
+          this.safeIntegers = options.safeIntegers || false;
+          this.id = window.Alloy_sqlite_open(filename, options.readonly || false, options.create || false, this.safeIntegers, options.strict || false);
+          if (this.id.startsWith('error:')) throw new Error(this.id.substring(6));
+        }
+
+        query(sql) { return new Statement(this, sql, { cache: true }); }
+        prepare(sql) { return new Statement(this, sql, { cache: false }); }
+        run(sql, params) { return this.query(sql).run(params); }
+        close() { window.Alloy_sqlite_close(this.id); }
+        transaction(fn) {
+          const wrapper = (...args) => {
+            this.run("BEGIN");
+            try {
+              const res = fn.apply(this, args);
+              this.run("COMMIT");
+              return res;
+            } catch (e) {
+              this.run("ROLLBACK");
+              throw e;
+            }
+          };
+          wrapper.deferred = (...args) => { this.run("BEGIN DEFERRED"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch(e) { this.run("ROLLBACK"); throw e; } };
+          wrapper.immediate = (...args) => { this.run("BEGIN IMMEDIATE"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch(e) { this.run("ROLLBACK"); throw e; } };
+          wrapper.exclusive = (...args) => { this.run("BEGIN EXCLUSIVE"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch(e) { this.run("ROLLBACK"); throw e; } };
+          return wrapper;
+        }
+        serialize() { return new Uint8Array(JSON.parse(window.Alloy_sqlite_serialize(this.id))); }
+        fileControl(cmd, val) { return window.Alloy_sqlite_file_control(this.id, cmd, val); }
+        loadExtension(path) {
+          const res = window.Alloy_sqlite_load_extension(this.id, path);
+          if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
+        }
+        static deserialize(data) {
+          const db = new Database(':memory:'); // Dummy open to get instance
+          window.Alloy_sqlite_close(db.id);
+          const res = window.Alloy_sqlite_deserialize(JSON.stringify(Array.from(data)));
+          if (res.startsWith('error:')) throw new Error(res.substring(6));
+          db.id = res;
+          return db;
+        }
+        [Symbol.dispose]() { this.close(); }
+      }
+
+      return { Database };
+    })()
   };
+
+  const script = document.createElement('script');
+  script.type = 'importmap';
+  script.textContent = JSON.stringify({
+    imports: {
+      "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database;"
+    }
+  });
+  document.head.appendChild(script);
 })();
 )js";
   }
@@ -614,6 +878,7 @@ private:
   std::list<user_script> m_user_scripts;
 
   alloyscript_runtime m_alloy;
+  sqlite_runtime m_sqlite;
   std::map<std::string, std::shared_ptr<alloyscript_runtime::shared_state>>
       m_subprocesses;
 

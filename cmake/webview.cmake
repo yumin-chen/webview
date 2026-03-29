@@ -71,6 +71,9 @@ macro(webview_find_dependencies)
 
         list(APPEND WEBVIEW_DEPENDENCIES PkgConfig::WEBVIEW_WEBKITGTK PkgConfig::WEBVIEW_GTK dl)
     endif()
+
+    find_package(SQLite3 REQUIRED)
+    list(APPEND WEBVIEW_DEPENDENCIES SQLite3::SQLite3)
 endmacro()
 
 function(webview_fetch_mswebview2 VERSION)
