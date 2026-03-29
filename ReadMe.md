@@ -1,4 +1,4 @@
-# @alloyscript/runtime
+# AlloyScript
 
 The AlloyScript runtime is a high-performance, secure JavaScript environment built for WebView applications. It uses **Bun** for development and bundling, and a **C host program** for native capabilities.
 
