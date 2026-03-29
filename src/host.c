@@ -120,6 +120,26 @@ void alloy_sqlite_close(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, "0");
 }
 
+// --- GUI Framework Bindings ---
+
+void alloy_gui_create(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // req: { type: "Button", props: { ... } }
+    // Platform-specific logic here (Win32/Cocoa/GTK)
+    // For now we just return a component_id = 1
+    webview_return(w, id, 0, "1");
+}
+
+void alloy_gui_update(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    webview_return(w, id, 0, "0");
+}
+
+void alloy_gui_destroy(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    webview_return(w, id, 0, "0");
+}
+
 // --- Main Loop ---
 
 #ifdef _WIN32
@@ -141,6 +161,11 @@ int main(void) {
   webview_bind(w, "alloy_sqlite_stmt_all", alloy_sqlite_stmt_all, w);
   webview_bind(w, "alloy_sqlite_close", alloy_sqlite_close, w);
 
+  // GUI bindings
+  webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
+  webview_bind(w, "alloy_gui_update", alloy_gui_update, w);
+  webview_bind(w, "alloy_gui_destroy", alloy_gui_destroy, w);
+
   const char* bridge_js =
       "window.Alloy = {"
       "  spawn: async (cmd, args) => await window.alloy_spawn(cmd, args),"
@@ -156,6 +181,11 @@ int main(void) {
       "    stmt_toString: (stmt_id) => 'SELECT ...',"
       "    stmt_finalize: (stmt_id) => {},"
       "    close: (db_id) => window.alloy_sqlite_close(db_id)"
+      "  },"
+      "  gui: {"
+      "    create: (type, props) => window.alloy_gui_create(type, props),"
+      "    update: (id, props) => window.alloy_gui_update(id, props),"
+      "    destroy: (id) => window.alloy_gui_destroy(id)"
       "  }"
       "};"
       "window._forbidden_eval = window.eval;"
