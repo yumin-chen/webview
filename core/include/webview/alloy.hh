@@ -1,5 +1,5 @@
-#ifndef WEBVIEW_META_HH
-#define WEBVIEW_META_HH
+#ifndef WEBVIEW_ALLOY_HH
+#define WEBVIEW_ALLOY_HH
 
 #include "macros.h"
 #include "types.hh"
@@ -138,10 +138,10 @@ private:
 };
 #endif
 
-class meta_runtime {
+class alloy_runtime {
 public:
     using dispatcher_t = std::function<noresult(std::function<void()>)>;
-    meta_runtime(dispatcher_t dispatcher, std::function<void(const std::string&)> evaluator)
+    alloy_runtime(dispatcher_t dispatcher, std::function<void(const std::string&)> evaluator)
         : m_dispatcher(dispatcher), m_evaluator(evaluator) {}
 
     int spawn(const std::string& id, const std::vector<std::string>& cmd, const spawn_options& opts) {
@@ -269,13 +269,13 @@ private:
             std::thread([this, id, proc]() {
                 char b[4096]; DWORD n;
                 while (ReadFile(proc->get_stdout(), b, sizeof(b), &n, NULL) && n > 0) {
-                    std::string d(b, n); m_dispatcher([this, id, d]() { m_evaluator("window.meta.__on_data(" + json_escape(id) + ", 'stdout', " + json_escape(base64_encode(d)) + ", true)"); return noresult{}; });
+                    std::string d(b, n); m_dispatcher([this, id, d]() { m_evaluator("window.alloy.__on_data(" + json_escape(id) + ", 'stdout', " + json_escape(base64_encode(d)) + ", true)"); return noresult{}; });
                 }
             }).detach();
         }
         std::thread([this, id, proc]() {
             WaitForSingleObject(proc->get_process(), INFINITE); DWORD ec; GetExitCodeProcess(proc->get_process(), &ec);
-            m_dispatcher([this, id, ec]() { m_evaluator("window.meta.__on_exit(" + json_escape(id) + ", " + std::to_string(ec) + ", {})"); { std::lock_guard<std::mutex> lock(m_mutex); m_subprocesses.erase(id); } return noresult{}; });
+            m_dispatcher([this, id, ec]() { m_evaluator("window.alloy.__on_exit(" + json_escape(id) + ", " + std::to_string(ec) + ", {})"); { std::lock_guard<std::mutex> lock(m_mutex); m_subprocesses.erase(id); } return noresult{}; });
         }).detach();
     }
 #else
@@ -287,7 +287,7 @@ private:
                 char b[4096]; ssize_t n;
                 while ((n = read(fd, b, sizeof(b))) > 0) {
                     std::string d(b, n); m_dispatcher([this, id, stream, d]() {
-                        m_evaluator("window.meta.__on_data(" + json_escape(id) + ", " + json_escape(stream) + ", " + json_escape(base64_encode(d)) + ", true)");
+                        m_evaluator("window.alloy.__on_data(" + json_escape(id) + ", " + json_escape(stream) + ", " + json_escape(base64_encode(d)) + ", true)");
                         return noresult{};
                     });
                 }
@@ -305,7 +305,7 @@ private:
                 mr /= 1024;
 #endif
                 std::string uj = "{\"maxRSS\":" + std::to_string(mr) + "}";
-                m_evaluator("window.meta.__on_exit(" + json_escape(id) + ", " + std::to_string(ec) + ", " + uj + ")");
+                m_evaluator("window.alloy.__on_exit(" + json_escape(id) + ", " + std::to_string(ec) + ", " + uj + ")");
                 { std::lock_guard<std::mutex> lock(m_mutex); m_subprocesses.erase(id); }
                 return noresult{};
             });
@@ -317,4 +317,4 @@ private:
 } // namespace detail
 } // namespace webview
 
-#endif // WEBVIEW_META_HH
+#endif // WEBVIEW_ALLOY_HH

@@ -1,10 +1,10 @@
-#ifndef WEBVIEW_META_JS_HH
-#define WEBVIEW_META_JS_HH
+#ifndef WEBVIEW_ALLOY_JS_HH
+#define WEBVIEW_ALLOY_JS_HH
 
 namespace webview {
 namespace detail {
 
-const char* meta_bootstrap_js = R"js(
+const char* alloy_bootstrap_js = R"js(
 (function() {
     'use strict';
 
@@ -50,10 +50,10 @@ const char* meta_bootstrap_js = R"js(
             this.options = options;
             this.closed = false;
         }
-        write(data) { callNative('__meta_terminal_write', this.id, data); }
-        resize(cols, rows) { callNative('__meta_terminal_resize', this.id, cols, rows); }
-        setRawMode(enabled) { callNative('__meta_terminal_set_raw_mode', this.id, enabled); }
-        close() { callNative('__meta_terminal_close', this.id); this.closed = true; }
+        write(data) { callNative('__alloy_terminal_write', this.id, data); }
+        resize(cols, rows) { callNative('__alloy_terminal_resize', this.id, cols, rows); }
+        setRawMode(enabled) { /* TODO if needed */ }
+        close() { /* TODO if needed */ this.closed = true; }
         ref() {}
         unref() {}
     }
@@ -83,8 +83,8 @@ const char* meta_bootstrap_js = R"js(
                     this._pipeStdin(options.stdin);
                 } else if (options.stdin === 'pipe') {
                     this.stdin = {
-                        write: (data) => { callNative('__meta_stdin_write', this.id, data); },
-                        end: () => { callNative('__meta_stdin_close', this.id); },
+                        write: (data) => { callNative('__alloy_stdin_write', this.id, data); },
+                        end: () => { callNative('__alloy_stdin_close', this.id); },
                         flush: () => {}
                     };
                 }
@@ -97,16 +97,16 @@ const char* meta_bootstrap_js = R"js(
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    await callNative('__meta_stdin_write', this.id, value);
+                    await callNative('__alloy_stdin_write', this.id, value);
                 }
             } finally {
-                await callNative('__meta_stdin_close', this.id);
+                await callNative('__alloy_stdin_close', this.id);
             }
         }
 
-        kill(signal = 'SIGTERM') { callNative('__meta_kill', this.id, signal); this.killed = true; }
-        send(message) { callNative('__meta_ipc_send', this.id, JSON.stringify(message)); }
-        disconnect() { callNative('__meta_ipc_disconnect', this.id); }
+        kill(signal = 'SIGTERM') { callNative('__alloy_kill', this.id, signal); this.killed = true; }
+        send(message) { callNative('__alloy_ipc_send', this.id, JSON.stringify(message)); }
+        disconnect() { callNative('__alloy_ipc_disconnect', this.id); }
         resourceUsage() { return this._resourceUsage; }
         unref() {}
         ref() {}
@@ -114,7 +114,7 @@ const char* meta_bootstrap_js = R"js(
 
     const _subprocesses = new Map();
 
-    window.meta = {
+    window.alloy = {
         spawn: function(cmd, options = {}) {
             let actualCmd = Array.isArray(cmd) ? cmd : (cmd.cmd || [cmd]);
             let opts = Object.assign({ stdout: 'pipe', stderr: 'inherit', stdin: 'none', serialization: 'advanced' },
@@ -127,7 +127,7 @@ const char* meta_bootstrap_js = R"js(
             let nativeStdin = opts.stdin;
             if (opts.stdin instanceof ReadableStream) nativeStdin = 'pipe';
 
-            callNative('__meta_spawn', procId, actualCmd, Object.assign({}, opts, { stdin: nativeStdin })).then(result => {
+            callNative('__alloy_spawn', procId, actualCmd, Object.assign({}, opts, { stdin: nativeStdin })).then(result => {
                 if (result) {
                     const parsed = JSON.parse(result);
                     if (parsed.pid) proc.pid = parsed.pid;
@@ -137,11 +137,27 @@ const char* meta_bootstrap_js = R"js(
         },
 
         spawnSync: function(cmd, options = {}) {
-             // Sync implementation would require synchronous C++ binding.
-             // Currently returning a promise for compatibility.
              let actualCmd = Array.isArray(cmd) ? cmd : (cmd.cmd || [cmd]);
              let opts = Object.assign({}, typeof cmd === 'object' && !Array.isArray(cmd) ? cmd : options);
-             return callNative('__meta_spawnSync', actualCmd, opts).then(res => JSON.parse(res));
+             return callNative('__alloy_spawnSync', actualCmd, opts).then(res => {
+                 const parsed = JSON.parse(res);
+                 if (parsed.isBase64) {
+                     const dec = new TextDecoder();
+                     if (parsed.stdout) {
+                        const bin = atob(parsed.stdout);
+                        const b = new Uint8Array(bin.length);
+                        for(let i=0; i<bin.length; i++) b[i] = bin.charCodeAt(i);
+                        parsed.stdout = b;
+                     }
+                     if (parsed.stderr) {
+                        const bin = atob(parsed.stderr);
+                        const b = new Uint8Array(bin.length);
+                        for(let i=0; i<bin.length; i++) b[i] = bin.charCodeAt(i);
+                        parsed.stderr = b;
+                     }
+                 }
+                 return parsed;
+             });
         },
 
         __on_data: function(id, stream, data, isBase64) {
@@ -193,11 +209,11 @@ const char* meta_bootstrap_js = R"js(
             return res;
         };
     }
-    window.meta.Terminal = Terminal;
+    window.alloy.Terminal = Terminal;
 })();
 )js";
 
 } // namespace detail
 } // namespace webview
 
-#endif // WEBVIEW_META_JS_HH
+#endif // WEBVIEW_ALLOY_JS_HH

@@ -6,7 +6,7 @@ const char html[] = R"html(
 <!DOCTYPE html>
 <html>
 <body>
-    <h1>MetaScript Demo</h1>
+    <h1>AlloyScript Demo</h1>
     <button onclick="runCommand()">Run 'ls -l'</button>
     <pre id="output"></pre>
     <script>
@@ -14,7 +14,7 @@ const char html[] = R"html(
             const output = document.getElementById('output');
             output.textContent = "Running...\n";
             try {
-                const proc = meta.spawn(["ls", "-l"]);
+                const proc = alloy.spawn(["ls", "-l"]);
                 const text = await proc.stdout.text();
                 output.textContent += text;
                 const exitCode = await proc.exited;
@@ -22,7 +22,7 @@ const char html[] = R"html(
 
                 const usage = proc.resourceUsage();
                 if (usage) {
-                    output.textContent += "\nMax RSS: " + usage.maxRSS + " bytes";
+                    output.textContent += "\nMax RSS: " + usage.maxRSS + " KB (normalized)";
                 }
             } catch (e) {
                 output.textContent += "\nError: " + e.message;
@@ -41,7 +41,7 @@ int main() {
 #endif
   try {
     webview::webview w(true, nullptr);
-    w.set_title("MetaScript Demo");
+    w.set_title("AlloyScript Demo");
     w.set_size(800, 600, WEBVIEW_HINT_NONE);
     w.set_html(html);
     w.run();
