@@ -14,3 +14,5 @@ export const spawn = async (command: string, args: string[]): Promise<number> =>
 export const spawnSync = (command: string, args: string[]): number => {
   return window.Alloy.spawnSync(command, args);
 };
+
+export * from "./sqlite";

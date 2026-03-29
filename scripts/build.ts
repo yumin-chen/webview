@@ -34,7 +34,7 @@ async function runBuild() {
     // In a real build environment, 'webview' would be available through pkg-config
     // For this draft, we'll try to find the webview.h in its original location
     const includePath = "-Icore/include -I.";
-    const compileCmd = `gcc -O2 src/host.c build/bundle.c ${includePath} -o build/alloy-runtime -ldl -lpthread`;
+    const compileCmd = `gcc -O2 src/host.c build/bundle.c ${includePath} -o build/alloy-runtime -lsqlite3 -ldl -lpthread`;
     console.log(`Running: ${compileCmd}`);
     // execSync(compileCmd);
     console.log("Compilation step skipped for this draft - but command is ready.");
