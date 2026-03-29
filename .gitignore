@@ -1,2 +1,4 @@
 # Build artifacts
 /build
+node_modules/
+bun.lockb
