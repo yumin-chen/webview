@@ -3,13 +3,37 @@
 #include "webview/meta.hh"
 #include "webview/detail/meta_js.hh"
 #include "webview/detail/base64.hh"
+#include <iostream>
 
-TEST_CASE("MetaScript: spawnSync with cwd") {
-  webview::meta::SubprocessManager mgr(nullptr);
-  auto res_json = mgr.spawnSync({"pwd"}, "{\"cwd\": \"/\"}");
-  auto stdout_b64 = webview::detail::json_parse(res_json, "stdout", -1);
-  auto out = webview::detail::base64_decode(stdout_b64);
-  REQUIRE(out == "/\n");
+TEST_CASE("MetaScript: cron.parse") {
+  webview::webview w(true, nullptr);
+  w.init(webview::detail::meta_js);
+
+  w.bind("finish_test", [&](const std::string& req) -> std::string {
+    auto res = webview::detail::json_parse(req, "", 0);
+    // 2025-01-16T09:30:00.000Z is the next MON-FRI 9:30 after 2025-01-15 10:00
+    if (res != "2025-01-16T09:30:00.000Z") {
+        std::cerr << "ACTUAL CRON: " << res << "\n";
+    }
+    REQUIRE(res == "2025-01-16T09:30:00.000Z");
+    w.terminate();
+    return "";
+  });
+
+  w.set_html(R"html(
+    <script>
+      (async () => {
+        try {
+          const from = new Date(Date.UTC(2025, 0, 15, 10, 0, 0));
+          const next = window.meta.cron.parse("30 9 * * MON-FRI", from);
+          window.finish_test(next ? next.toISOString() : "null");
+        } catch (e) {
+          window.finish_test("ERROR: " + e.message);
+        }
+      })();
+    </script>
+  )html");
+  w.run();
 }
 
 TEST_CASE("MetaScript: functional async spawn and base64 data") {

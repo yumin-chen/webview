@@ -1,12 +1,33 @@
 #include "webview/webview.h"
 #include "webview/meta.hh"
 #include "webview/detail/meta_js.hh"
+#include "webview/detail/base64.hh"
 #include <iostream>
 #include <string>
 #include <vector>
 #include <memory>
 
-int main() {
+int main(int argc, char** argv) {
+    // CLI Argument handling for Cron jobs
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg.find("--cron-title=") == 0) {
+            std::string title = arg.substr(13);
+            std::string period;
+            std::string script_path;
+            for (int j = 1; j < argc; ++j) {
+                std::string a = argv[j];
+                if (a.find("--cron-period=") == 0) period = a.substr(14);
+                else if (a.find("--") != 0 && a.find("run") != 0) script_path = a;
+            }
+            std::cout << "Cron Job Executing: " << title << "\n";
+            std::cout << "Schedule: " << period << "\n";
+            std::cout << "Script: " << script_path << "\n";
+            std::cout << "Result: Simulation of scheduled() handler success.\n";
+            return 0;
+        }
+    }
+
     try {
         auto w = std::make_shared<webview::webview>(true, nullptr);
         w->set_title("MetaScript Runtime (Host Orchestrator)");
@@ -24,13 +45,21 @@ int main() {
         pre { background: #eee; padding: 10px; overflow: auto; max-height: 200px; border-radius: 4px; border: 1px solid #ccc; }
         .terminal { background: #000; color: #0f0; font-family: monospace; white-space: pre-wrap; height: 300px; }
         input { width: 100%; padding: 8px; box-sizing: border-box; }
-        button { padding: 8px 16px; cursor: pointer; margin-bottom: 10px; }
-        h2 { margin-top: 20px; }
+        button { padding: 8px 16px; cursor: pointer; margin-bottom: 10px; margin-right: 5px; }
+        h2 { margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
     </style>
 </head>
 <body>
     <h1>MetaScript Runtime</h1>
     <p>Architecture: C (Host Orchestrator) + WebView (Web/JS Runtime)</p>
+
+    <div>
+        <h2>Cron Support</h2>
+        <button onclick="testCronParse()">Parse Cron expression</button>
+        <button onclick="testCronRegister()">Register daily job</button>
+        <button onclick="testCronRemove()">Remove daily job</button>
+        <pre id="cronOutput"></pre>
+    </div>
 
     <div>
         <h2>Process Spawning</h2>
@@ -39,7 +68,7 @@ int main() {
     </div>
 
     <div>
-        <h2>Synchronous Execution (Async Bridge)</h2>
+        <h2>Synchronous Execution</h2>
         <button onclick="testSpawnSync()">Test meta.spawnSync(['uname', '-a'])</button>
         <pre id="syncOutput"></pre>
     </div>
@@ -52,6 +81,29 @@ int main() {
     </div>
 
     <script>
+        async function testCronParse() {
+            const out = document.getElementById('cronOutput');
+            const expr = "30 9 * * MON-FRI";
+            const next = window.meta.cron.parse(expr);
+            out.textContent = "Expression: " + expr + "\nNext match: " + next.toISOString();
+        }
+
+        async function testCronRegister() {
+            const out = document.getElementById('cronOutput');
+            try {
+                await window.meta.cron("./worker.ts", "0 0 * * *", "daily-job");
+                out.textContent = "Daily job registered successfully.\nRun 'crontab -l' to verify.";
+            } catch (e) {
+                out.textContent = "Registration failed: " + e.message;
+            }
+        }
+
+        async function testCronRemove() {
+            const out = document.getElementById('cronOutput');
+            await window.meta.cron.remove("daily-job");
+            out.textContent = "Daily job removal requested.";
+        }
+
         async function testSpawn() {
             const out = document.getElementById('spawnOutput');
             out.textContent = 'Spawning...';
@@ -87,8 +139,7 @@ int main() {
             out.textContent = 'Terminal started.\n';
             termProc = window.meta.spawn(['bash'], {
                 terminal: {
-                    cols: 80,
-                    rows: 24,
+                    cols: 80, rows: 24,
                     data(terminal, data) {
                         out.textContent += new TextDecoder().decode(data);
                         out.scrollTop = out.scrollHeight;
