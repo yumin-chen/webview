@@ -8,7 +8,8 @@ constexpr const auto html = R"html(
 <body>
   <h1>Alloy Shell Test</h1>
   <div id="output"></div>
-  <button onclick="testEcho()">Test Echo</button>
+  <button onclick="testEcho()">Test Echo (Built-in)</button>
+  <button onclick="testLs()">Test Ls (Built-in)</button>
   <button onclick="testPipe()">Test Pipe (echo | wc)</button>
   <button onclick="testCwd()">Test CWD (pwd)</button>
   <button onclick="testBraces()">Test Braces expansion</button>
@@ -21,9 +22,16 @@ constexpr const auto html = R"html(
       output.innerHTML += '<pre>' + text + '</pre>';
     }
 
+    async function testLs() {
+      const output = document.getElementById('output');
+      output.innerHTML += '<p>Running ls...</p>';
+      const text = await Alloy.$`ls`.text();
+      output.innerHTML += '<pre>' + text + '</pre>';
+    }
+
     async function testPipe() {
       const output = document.getElementById('output');
-      output.innerHTML += '<p>Running pipe: echo | wc -c</p>';
+      output.innerHTML += '<p>Running pipe: echo "12345" | wc -c</p>';
       const text = await Alloy.$`echo "12345" | wc -c`.text();
       output.innerHTML += '<pre>Result: ' + text + '</pre>';
     }

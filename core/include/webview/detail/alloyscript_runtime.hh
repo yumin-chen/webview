@@ -43,6 +43,7 @@
 #include <sstream>
 #include <algorithm>
 #include <deque>
+#include <fstream>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -50,11 +51,14 @@
 #endif
 #include <windows.h>
 #include <process.h>
+#include <direct.h>
 #else
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include <spawn.h>
 #ifdef WEBVIEW_PLATFORM_LINUX
 #include <pty.h>
@@ -128,15 +132,10 @@ public:
     }
   };
 
-  struct terminal_state {
-#ifndef _WIN32
-    int master_fd{-1};
-    pid_t pid{-1};
-#endif
-    bool closed{false};
-    std::atomic<bool> monitoring{false};
-    std::function<void(const std::string&)> on_data;
-    std::function<void(int, const std::string&)> on_exit;
+  struct shell_result {
+    int exit_code;
+    std::string stdout_data;
+    std::string stderr_data;
   };
 
   alloyscript_runtime() = default;
@@ -178,6 +177,202 @@ public:
     }
     if (!token.empty()) tokens.push_back(token);
     return tokens;
+  }
+
+  static shell_result builtin_echo(const std::vector<std::string>& args) {
+      std::string out;
+      for (size_t i = 1; i < args.size(); ++i) {
+          out += args[i] + (i == args.size() - 1 ? "" : " ");
+      }
+      return {0, out + "\n", ""};
+  }
+
+  static shell_result builtin_pwd() {
+      char buf[4096];
+#ifdef _WIN32
+      if (_getcwd(buf, sizeof(buf))) return {0, std::string(buf) + "\n", ""};
+#else
+      if (getcwd(buf, sizeof(buf))) return {0, std::string(buf) + "\n", ""};
+#endif
+      return {1, "", "pwd failed\n"};
+  }
+
+  static shell_result builtin_ls(const std::vector<std::string>& args) {
+      std::string path = ".";
+      if (args.size() > 1) path = args[1];
+      std::string out;
+#ifdef _WIN32
+      WIN32_FIND_DATA findFileData;
+      HANDLE hFind = FindFirstFile((path + "\\*").c_str(), &findFileData);
+      if (hFind == INVALID_HANDLE_VALUE) return {1, "", "ls: " + path + ": No such file or directory\n"};
+      do {
+          out += std::string(findFileData.cFileName) + "\n";
+      } while (FindNextFile(hFind, &findFileData) != 0);
+      FindClose(hFind);
+#else
+      DIR *dir = opendir(path.c_str());
+      if (!dir) return {1, "", "ls: " + path + ": No such file or directory\n"};
+      struct dirent *ent;
+      while ((ent = readdir(dir)) != nullptr) {
+          out += std::string(ent->d_name) + "\n";
+      }
+      closedir(dir);
+#endif
+      return {0, out, ""};
+  }
+
+  static shell_result builtin_mkdir(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "mkdir: missing operand\n"};
+#ifdef _WIN32
+      if (_mkdir(args[1].c_str()) == 0) return {0, "", ""};
+#else
+      if (mkdir(args[1].c_str(), 0755) == 0) return {0, "", ""};
+#endif
+      return {1, "", "mkdir failed\n"};
+  }
+
+  static shell_result builtin_rm(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "rm: missing operand\n"};
+      if (remove(args[1].c_str()) == 0) return {0, "", ""};
+      return {1, "", "rm failed\n"};
+  }
+
+  shell_result shell(const std::string &command, const std::string &cwd = "") {
+    std::vector<std::string> pipe_segments;
+    bool in_quotes = false;
+    char quote_char = 0;
+    size_t last = 0;
+    for (size_t i = 0; i < command.length(); ++i) {
+        char c = command[i];
+        if (c == '"' || c == '\'') {
+            if (!in_quotes) { in_quotes = true; quote_char = c; }
+            else if (c == quote_char) { in_quotes = false; }
+        } else if (c == '|' && !in_quotes) {
+            pipe_segments.push_back(command.substr(last, i - last));
+            last = i + 1;
+        }
+    }
+    pipe_segments.push_back(command.substr(last));
+
+    if (!cwd.empty()) {
+#ifdef _WIN32
+        _chdir(cwd.c_str());
+#else
+        (void)chdir(cwd.c_str());
+#endif
+    }
+
+    if (pipe_segments.size() == 1) {
+        std::vector<std::string> args = tokenize(pipe_segments[0]);
+        if (args.empty()) return {0, "", ""};
+
+        const std::string& cmd = args[0];
+        if (cmd == "echo") return builtin_echo(args);
+        if (cmd == "pwd") return builtin_pwd();
+        if (cmd == "ls") return builtin_ls(args);
+        if (cmd == "mkdir") return builtin_mkdir(args);
+        if (cmd == "rm") return builtin_rm(args);
+        if (cmd == "true") return {0, "", ""};
+        if (cmd == "false") return {1, "", ""};
+        if (cmd == "cd") {
+            if (args.size() > 1) {
+#ifdef _WIN32
+                if (_chdir(args[1].c_str()) == 0) return {0, "", ""};
+#else
+                if (chdir(args[1].c_str()) == 0) return {0, "", ""};
+#endif
+                return {1, "", "cd: " + args[1] + ": No such file or directory\n"};
+            }
+            return {0, "", ""};
+        }
+    }
+
+#ifdef _WIN32
+    // Windows pipe chains not fully implemented in this refined version, fallback to single command
+    std::vector<std::string> args = tokenize(pipe_segments[0]);
+    auto state = spawn(args, cwd);
+    if (!state) return {127, "", "Alloy: command not found: " + args[0] + "\n"};
+#else
+    int num_cmds = static_cast<int>(pipe_segments.size());
+    std::vector<int> pipes(2 * (num_cmds - 1));
+    for (int i = 0; i < num_cmds - 1; i++) {
+        if (pipe(pipes.data() + 2 * i) < 0) return {1, "", "pipe failed\n"};
+    }
+
+    int stdout_pipe[2];
+    int stderr_pipe[2];
+    if (pipe(stdout_pipe) < 0 || pipe(stderr_pipe) < 0) return {1, "", "pipe failed\n"};
+
+    std::vector<pid_t> pids;
+    for (int i = 0; i < num_cmds; i++) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            if (i > 0) dup2(pipes[2 * (i - 1)], STDIN_FILENO);
+            if (i < num_cmds - 1) dup2(pipes[2 * i + 1], STDOUT_FILENO);
+            else dup2(stdout_pipe[1], STDOUT_FILENO);
+            dup2(stderr_pipe[1], STDERR_FILENO);
+
+            for (int j = 0; j < 2 * (num_cmds - 1); j++) close(pipes[j]);
+            close(stdout_pipe[0]); close(stdout_pipe[1]);
+            close(stderr_pipe[0]); close(stderr_pipe[1]);
+
+            std::vector<std::string> args = tokenize(pipe_segments[i]);
+            if (args.empty()) _exit(0);
+            std::vector<char*> c_args;
+            for (const auto& arg : args) c_args.push_back(const_cast<char*>(arg.c_str()));
+            c_args.push_back(nullptr);
+            execvp(c_args[0], c_args.data());
+            _exit(127);
+        }
+        pids.push_back(pid);
+    }
+
+    for (int i = 0; i < 2 * (num_cmds - 1); i++) close(pipes[i]);
+    close(stdout_pipe[1]);
+    close(stderr_pipe[1]);
+
+    std::string stdout_acc, stderr_acc;
+    char buffer[4096];
+    struct pollfd fds[2];
+    fds[0].fd = stdout_pipe[0]; fds[0].events = POLLIN;
+    fds[1].fd = stderr_pipe[0]; fds[1].events = POLLIN;
+    bool out_eof = false, err_eof = false;
+    while (!out_eof || !err_eof) {
+        if (poll(fds, 2, 100) < 0) break;
+        if (fds[0].revents & POLLIN) {
+            ssize_t n = read(stdout_pipe[0], buffer, sizeof(buffer));
+            if (n > 0) stdout_acc.append(buffer, n);
+            else out_eof = true;
+        } else if (fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
+        if (fds[1].revents & POLLIN) {
+            ssize_t n = read(stderr_pipe[0], buffer, sizeof(buffer));
+            if (n > 0) stderr_acc.append(buffer, n);
+            else err_eof = true;
+        } else if (fds[1].revents & (POLLHUP | POLLERR)) err_eof = true;
+    }
+
+    int last_status = 0;
+    for (pid_t pid : pids) {
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status)) last_status = WEXITSTATUS(status);
+    }
+    close(stdout_pipe[0]);
+    close(stderr_pipe[0]);
+    return {last_status, stdout_acc, stderr_acc};
+#endif
+
+    // Rest of the logic for Windows or single command sync execution if needed
+    std::string stdout_acc, stderr_acc;
+    state->on_stdout = [&](const std::string &data) { stdout_acc += data; };
+    state->on_stderr = [&](const std::string &data) { stderr_acc += data; };
+    bool done = false;
+    int exit_code = 0;
+    state->on_exit = [&](int code, int sig) { (void)sig; exit_code = code; done = true; };
+
+    start_monitoring(state);
+    while (!done) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    return {exit_code, stdout_acc, stderr_acc};
   }
 
   std::shared_ptr<shared_state> spawn(const std::vector<std::string> &args,
@@ -280,7 +475,6 @@ public:
                 if (state->on_stdout) state->on_stdout(std::string(buffer, bytesRead));
             } else break;
         }
-        // Simplified monitoring for stderr and exit on Windows
         WaitForSingleObject(state->hProcess, INFINITE);
         DWORD exitCode;
         GetExitCodeProcess(state->hProcess, &exitCode);
