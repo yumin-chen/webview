@@ -1,5 +1,6 @@
 #include "webview.h"
 #include "webview/detail/json.hh"
+#include "alloy/api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,25 +33,8 @@ sqlite3 *g_dbs[MAX_DBS] = {NULL};
 sqlite3_stmt *g_stmts[MAX_STMTS] = {NULL};
 
 // --- GUI Component Management ---
-struct NativeComponent {
-    std::string type;
-    void* handle;
-    int id;
-};
-
-std::map<int, NativeComponent> g_components;
+std::map<int, alloy_component_t> g_components;
 int g_next_component_id = 1;
-
-// --- Helpers ---
-#ifdef _WIN32
-std::wstring utf8_to_utf16(const std::string& utf8) {
-    if (utf8.empty()) return L"";
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), NULL, 0);
-    std::wstring wstrTo(size_needed, 0);
-    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), &wstrTo[0], size_needed);
-    return wstrTo;
-}
-#endif
 
 // --- Process Management ---
 
@@ -142,197 +126,34 @@ extern "C" void alloy_sqlite_close(const char *id, const char *req, void *arg) {
 
 // --- GUI Framework Bindings ---
 
-// Helper to create native components
-void* create_native_control(const std::string& type, const std::string& props, void* parent) {
-    int x = 0, y = 0, width = 100, height = 30;
-
-    std::string x_str = webview::detail::json_parse(props, "x", 0);
-    std::string y_str = webview::detail::json_parse(props, "y", 0);
-    std::string width_str = webview::detail::json_parse(props, "width", 0);
-    std::string height_str = webview::detail::json_parse(props, "height", 0);
-
-    if (!x_str.empty()) x = std::stoi(x_str);
-    if (!y_str.empty()) y = std::stoi(y_str);
-    if (!width_str.empty()) width = std::stoi(width_str);
-    if (!height_str.empty()) height = std::stoi(height_str);
-
-#ifdef _WIN32
-    INITCOMMONCONTROLSEX icex;
-    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    icex.dwICC = ICC_WIN95_CLASSES | ICC_BAR_CLASSES;
-    InitCommonControlsEx(&icex);
-
-    HWND hwndParent = (HWND)parent;
-    if (type == "Button") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        std::wstring wlabel = utf8_to_utf16(label);
-        return CreateWindowExW(0, L"BUTTON", wlabel.c_str(), WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "TextField") {
-        return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "TextArea") {
-        return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_MULTILINE | ES_WANTRETURN | WS_VSCROLL,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "Label") {
-        std::string label = webview::detail::json_parse(props, "text", 0);
-        std::wstring wlabel = utf8_to_utf16(label);
-        return CreateWindowExW(0, L"STATIC", wlabel.c_str(), WS_CHILD | WS_VISIBLE | SS_LEFT,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "CheckBox") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        std::wstring wlabel = utf8_to_utf16(label);
-        return CreateWindowExW(0, L"BUTTON", wlabel.c_str(), WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "RadioButton") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        std::wstring wlabel = utf8_to_utf16(label);
-        return CreateWindowExW(0, L"BUTTON", wlabel.c_str(), WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_RADIOBUTTON,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "ComboBox") {
-        return CreateWindowExW(0, L"COMBOBOX", L"", WS_TABSTOP | WS_VISIBLE | WS_CHILD | CBS_DROPDOWN,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "Slider") {
-        return CreateWindowExW(0, TRACKBAR_CLASSW, L"", WS_TABSTOP | WS_VISIBLE | WS_CHILD | TBS_AUTOTICKS | TBS_HORZ,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    } else if (type == "ProgressBar") {
-        return CreateWindowExW(0, PROGRESS_CLASSW, L"", WS_VISIBLE | WS_CHILD | PBS_SMOOTH,
-                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
-    }
-#elif defined(__APPLE__)
-    id pool = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSAutoreleasePool"), sel_registerName("new"));
-    id nsWindow = (id)parent;
-    id parentView = ((id (*)(id, SEL))objc_msgSend)(nsWindow, sel_registerName("contentView"));
-
-    if (type == "Button") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        id btn = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSButton"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(btn, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
-        ((void (*)(id, SEL, id))objc_msgSend)(btn, sel_registerName("setTitle:"), str);
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), btn);
-        return btn;
-    } else if (type == "TextField") {
-        id field = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSTextField"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(field, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), field);
-        return field;
-    } else if (type == "Label") {
-        std::string label = webview::detail::json_parse(props, "text", 0);
-        id field = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSTextField"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(field, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(field, sel_registerName("setEditable:"), NO);
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(field, sel_registerName("setBezeled:"), NO);
-        ((void (*)(id, SEL, id))objc_msgSend)(field, sel_registerName("setDrawsBackground:"), NO);
-        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
-        ((void (*)(id, SEL, id))objc_msgSend)(field, sel_registerName("setStringValue:"), str);
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), field);
-        return field;
-    } else if (type == "CheckBox") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        id btn = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSButton"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(btn, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, long))objc_msgSend)(btn, sel_registerName("setButtonType:"), 3); // NSButtonTypeSwitch
-        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
-        ((void (*)(id, SEL, id))objc_msgSend)(btn, sel_registerName("setTitle:"), str);
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), btn);
-        return btn;
-    } else if (type == "RadioButton") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        id btn = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSButton"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(btn, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, long))objc_msgSend)(btn, sel_registerName("setButtonType:"), 4); // NSButtonTypeRadio
-        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
-        ((void (*)(id, SEL, id))objc_msgSend)(btn, sel_registerName("setTitle:"), str);
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), btn);
-        return btn;
-    } else if (type == "ComboBox") {
-        id cb = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSComboBox"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(cb, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), cb);
-        return cb;
-    } else if (type == "Slider") {
-        id slider = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSSlider"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(slider, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), slider);
-        return slider;
-    } else if (type == "ProgressBar") {
-        id bar = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSProgressIndicator"), sel_registerName("alloc"));
-        ((id (*)(id, SEL, NSRect))objc_msgSend)(bar, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(bar, sel_registerName("setIndeterminate:"), NO);
-        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), bar);
-        return bar;
-    }
-    ((void (*)(id, SEL))objc_msgSend)(pool, sel_registerName("drain"));
-#else
-    GtkWidget* gtk_parent = (GtkWidget*)parent;
-    if (type == "Button") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        GtkWidget* btn = gtk_button_new_with_label(label.c_str());
-        gtk_widget_set_size_request(btn, width, height);
-        gtk_widget_show(btn);
-        return btn;
-    } else if (type == "TextField") {
-        GtkWidget* entry = gtk_entry_new();
-        gtk_widget_set_size_request(entry, width, height);
-        gtk_widget_show(entry);
-        return entry;
-    } else if (type == "TextArea") {
-        GtkWidget* textview = gtk_text_view_new();
-        gtk_widget_set_size_request(textview, width, height);
-        gtk_widget_show(textview);
-        return textview;
-    } else if (type == "Label") {
-        std::string label = webview::detail::json_parse(props, "text", 0);
-        GtkWidget* lbl = gtk_label_new(label.c_str());
-        gtk_widget_set_size_request(lbl, width, height);
-        gtk_widget_show(lbl);
-        return lbl;
-    } else if (type == "CheckBox") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        GtkWidget* cb = gtk_check_button_new_with_label(label.c_str());
-        gtk_widget_set_size_request(cb, width, height);
-        gtk_widget_show(cb);
-        return cb;
-    } else if (type == "RadioButton") {
-        std::string label = webview::detail::json_parse(props, "label", 0);
-        GtkWidget* rb = gtk_radio_button_new_with_label(NULL, label.c_str());
-        gtk_widget_set_size_request(rb, width, height);
-        gtk_widget_show(rb);
-        return rb;
-    } else if (type == "ComboBox") {
-        GtkWidget* cb = gtk_combo_box_text_new();
-        gtk_widget_set_size_request(cb, width, height);
-        gtk_widget_show(cb);
-        return cb;
-    } else if (type == "Slider") {
-        GtkWidget* slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-        gtk_widget_set_size_request(slider, width, height);
-        gtk_widget_show(slider);
-        return slider;
-    } else if (type == "ProgressBar") {
-        GtkWidget* pb = gtk_progress_bar_new();
-        gtk_widget_set_size_request(pb, width, height);
-        gtk_widget_show(pb);
-        return pb;
-    }
-#endif
-    return nullptr;
-}
-
 extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     std::string request(req);
 
-    // req is expected to be a JSON array: [type, props]
     std::string type = webview::detail::json_parse(request, "", 0);
     std::string props = webview::detail::json_parse(request, "", 1);
 
     int component_id = g_next_component_id++;
-    void* parent = webview_get_window(w);
-    void* handle = create_native_control(type, props, parent);
+    // Opaque parent for webview
+    alloy_component_t comp = nullptr;
 
-    g_components[component_id] = {type, handle, component_id};
+    if (type == "Button") comp = alloy_create_button(nullptr);
+    else if (type == "TextField") comp = alloy_create_textfield(nullptr);
+    else if (type == "TextArea") comp = alloy_create_textarea(nullptr);
+    else if (type == "Label") comp = alloy_create_label(nullptr);
+    else if (type == "CheckBox") comp = alloy_create_checkbox(nullptr);
+    else if (type == "RadioButton") comp = alloy_create_radiobutton(nullptr);
+    else if (type == "ComboBox") comp = alloy_create_combobox(nullptr);
+    else if (type == "Slider") comp = alloy_create_slider(nullptr);
+    else if (type == "ProgressBar") comp = alloy_create_progressbar(nullptr);
+
+    g_components[component_id] = comp;
+
+    if (comp) {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        if (label.empty()) label = webview::detail::json_parse(props, "text", 0);
+        if (!label.empty()) alloy_set_text(comp, label.c_str());
+    }
 
     char buf[16];
     sprintf(buf, "%d", component_id);
@@ -342,43 +163,15 @@ extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
 extern "C" void alloy_gui_update(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     std::string request(req);
-    // req: [component_id, props]
     std::string id_str = webview::detail::json_parse(request, "", 0);
     std::string props = webview::detail::json_parse(request, "", 1);
     int comp_id = std::stoi(id_str);
 
     if (g_components.count(comp_id)) {
-        NativeComponent& comp = g_components[comp_id];
-#ifdef _WIN32
-        if (comp.type == "Button") {
-            std::string label = webview::detail::json_parse(props, "label", 0);
-            if (!label.empty()) {
-                std::wstring wlabel = utf8_to_utf16(label);
-                SetWindowTextW((HWND)comp.handle, wlabel.c_str());
-            }
-        } else if (comp.type == "TextField") {
-            std::string val = webview::detail::json_parse(props, "value", 0);
-            if (!val.empty()) {
-                std::wstring wval = utf8_to_utf16(val);
-                SetWindowTextW((HWND)comp.handle, wval.c_str());
-            }
-        }
-#elif defined(__APPLE__)
-        if (comp.type == "Button") {
-            std::string label = webview::detail::json_parse(props, "label", 0);
-            if (!label.empty()) {
-                id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
-                ((void (*)(id, SEL, id))objc_msgSend)((id)comp.handle, sel_registerName("setTitle:"), str);
-            }
-        }
-#else
-        if (comp.type == "Button") {
-            std::string label = webview::detail::json_parse(props, "label", 0);
-            if (!label.empty()) {
-                gtk_button_set_label(GTK_BUTTON(comp.handle), label.c_str());
-            }
-        }
-#endif
+        alloy_component_t comp = g_components[comp_id];
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        if (label.empty()) label = webview::detail::json_parse(props, "text", 0);
+        if (!label.empty()) alloy_set_text(comp, label.c_str());
     }
 
     webview_return(w, id, 0, "0");
@@ -387,26 +180,11 @@ extern "C" void alloy_gui_update(const char *id, const char *req, void *arg) {
 extern "C" void alloy_gui_destroy(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     std::string request(req);
-    // req: [component_id]
     std::string id_str = webview::detail::json_parse(request, "", 0);
     int comp_id = std::stoi(id_str);
 
     if (g_components.count(comp_id)) {
-        void* handle = g_components[comp_id].handle;
-#ifdef _WIN32
-        if (handle) {
-            DestroyWindow((HWND)handle);
-        }
-#elif defined(__APPLE__)
-        if (handle) {
-            ((void (*)(id, SEL))objc_msgSend)((id)handle, sel_registerName("removeFromSuperview"));
-            ((void (*)(id, SEL))objc_msgSend)((id)handle, sel_registerName("release"));
-        }
-#else
-        if (handle) {
-            gtk_widget_destroy(GTK_WIDGET(handle));
-        }
-#endif
+        alloy_destroy(g_components[comp_id]);
         g_components.erase(comp_id);
     }
     webview_return(w, id, 0, "0");
