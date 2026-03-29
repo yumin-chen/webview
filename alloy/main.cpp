@@ -40,18 +40,31 @@ int main(int argc, char** argv) {
         std::cout << "Executing cron job: " << cron_title << " (" << cron_period << ") with script: " << script_path << std::endl;
 
         char current_path[4096];
-        if (getcwd(current_path, sizeof(current_path)) == nullptr) {
-            return 1;
-        }
-        std::string wrapper_path = std::string(current_path) + "/executor_wrapper.js";
-
-        std::string cmd = "node \"" + wrapper_path + "\" \"" + cron_title + "\" \"" + cron_period + "\" \"" + script_path + "\"";
-        int ret = system(cmd.c_str());
 #ifdef _WIN32
-        return ret;
+        GetModuleFileName(NULL, current_path, sizeof(current_path));
+        std::string alloy_exe = std::string(current_path);
+        std::string dir = alloy_exe.substr(0, alloy_exe.find_last_of("\\/"));
+        std::string wrapper_path = dir + "\\executor_wrapper.js";
+#elif defined(__APPLE__)
+        uint32_t size = sizeof(current_path);
+        _NSGetExecutablePath(current_path, &size);
+        std::string alloy_exe = std::string(current_path);
+        std::string dir = alloy_exe.substr(0, alloy_exe.find_last_of("/"));
+        std::string wrapper_path = dir + "/executor_wrapper.js";
 #else
-        return WEXITSTATUS(ret);
+        readlink("/proc/self/exe", current_path, sizeof(current_path));
+        std::string alloy_exe = std::string(current_path);
+        std::string dir = alloy_exe.substr(0, alloy_exe.find_last_of("/"));
+        std::string wrapper_path = dir + "/executor_wrapper.js";
 #endif
+
+        std::vector<std::string> node_cmd = {"node", wrapper_path, cron_title, cron_period, script_path};
+        alloy::spawn_options options;
+        options.stdout_mode = "inherit";
+        options.stderr_mode = "inherit";
+
+        alloy::subprocess proc(node_cmd, options);
+        return proc.wait();
     }
 
     try {
@@ -63,6 +76,7 @@ int main(int argc, char** argv) {
 
         w.set_html("<h1>AlloyScript Runtime</h1><p>Open devtools to interact with <code>window.Alloy.cron</code></p>");
         w.run();
+        alloy::runtime::stop();
     } catch (const webview::exception &e) {
         std::cerr << e.what() << '\n';
         return 1;

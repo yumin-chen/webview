@@ -64,6 +64,8 @@ public:
 
     void send(const std::string& message);
 
+    static ssize_t read_pipe(pipe_handle_t fd, char* buf, size_t sz);
+
 private:
     std::vector<std::string> m_cmd;
     spawn_options m_options;

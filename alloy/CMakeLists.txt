@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(alloy LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17) # Updated to C++17 for std::filesystem
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ALLOY_SOURCES
@@ -10,6 +10,11 @@ set(ALLOY_SOURCES
     cron_parser.cpp
     subprocess.cpp
     process_manager.cpp
+    shell_lexer.cpp
+    shell_parser.cpp
+    shell_builtins.cpp
+    shell_interpreter.cpp
+    shell_glob.cpp
 )
 
 if(APPLE)

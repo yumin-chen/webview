@@ -98,14 +98,33 @@ void cron_manager::register_job(const std::string& path, const std::string& sche
     ofs << ss.str();
     ofs.close();
 
-    std::string cmd = "schtasks /create /xml " + xml_path + " /tn \"Alloy-cron-" + title + "\" /f";
-    system(cmd.c_str());
-    unlink(xml_path.c_str());
+    std::string cmd_line = "schtasks /create /xml \"" + xml_path + "\" /tn \"Alloy-cron-" + title + "\" /f";
+
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+    if (CreateProcess(NULL, (LPSTR)cmd_line.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+    DeleteFile(xml_path.c_str());
 }
 
 void cron_manager::remove_job(const std::string& title) {
-    std::string cmd = "schtasks /delete /tn \"Alloy-cron-" + title + "\" /f 2>NUL";
-    system(cmd.c_str());
+    std::string task_name = "Alloy-cron-" + title;
+    std::string cmd_line = "schtasks /delete /tn \"" + task_name + "\" /f";
+
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+    if (CreateProcess(NULL, (LPSTR)cmd_line.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
 }
 
 } // namespace alloy

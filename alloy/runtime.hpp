@@ -9,6 +9,7 @@ namespace alloy {
 class runtime {
 public:
     static void init(webview::webview& w);
+    static void stop();
 };
 
 } // namespace alloy

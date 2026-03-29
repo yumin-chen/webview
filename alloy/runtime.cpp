@@ -3,14 +3,23 @@
 #include "cron_manager.hpp"
 #include "subprocess.hpp"
 #include "process_manager.hpp"
+#include "shell_lexer.hpp"
+#include "shell_parser.hpp"
+#include "shell_interpreter.hpp"
 #include "webview/json_deprecated.hh"
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 #include <thread>
-#include <poll.h>
+#include <atomic>
 
 namespace alloy {
+
+static std::atomic<bool> g_runtime_running{true};
+
+void runtime::stop() {
+    g_runtime_running = false;
+}
 
 void runtime::init(webview::webview& w) {
     w.bind("Alloy_cron_parse", [&](const std::string& req) -> std::string {
@@ -107,6 +116,35 @@ void runtime::init(webview::webview& w) {
         return "false";
     });
 
+    w.bind("Alloy_shell_exec", [&](const std::string& req) -> std::string {
+        try {
+            std::string cmd_str = webview::json_parse(req, "", 0);
+            std::string placeholders_json = webview::json_parse(req, "", 1);
+            std::string options_json = webview::json_parse(req, "", 2);
+
+            std::vector<std::string> placeholders;
+            for(int i=0; ; ++i) {
+                std::string p = webview::json_parse(placeholders_json, "", i);
+                if (p.empty()) break;
+                placeholders.push_back(p);
+            }
+
+            auto tokens = shell_lexer::tokenize(cmd_str);
+            auto pipeline = shell_parser::parse(tokens);
+
+            std::map<std::string, std::string> env;
+            std::string cwd = webview::json_parse(options_json, "cwd", -1);
+
+            auto res = shell_interpreter::execute(pipeline, env, cwd, placeholders);
+
+            std::ostringstream oss;
+            oss << "{\"exitCode\":" << res.exit_code
+                << ",\"stdout\":\"" << webview::detail::json_escape(res.stdout_data) << "\""
+                << ",\"stderr\":\"" << webview::detail::json_escape(res.stderr_data) << "\"}";
+            return oss.str();
+        } catch (...) { return "null"; }
+    });
+
     w.bind("Alloy_proc_stdin_write", [&](const std::string& req) -> std::string {
         std::string id = webview::json_parse(req, "", 0);
         std::string data = webview::json_parse(req, "", 1);
@@ -116,37 +154,43 @@ void runtime::init(webview::webview& w) {
     });
 
     std::thread([&w]() {
-        while (true) {
+        while (g_runtime_running) {
             auto procs = process_manager::instance().get_all_procs();
             if (procs.empty()) { std::this_thread::sleep_for(std::chrono::milliseconds(100)); continue; }
-            std::vector<pollfd> fds;
-            std::vector<std::string> ids;
-            std::vector<std::string> streams;
+
             for (auto& pair : procs) {
-                if (pair.second->get_stdout_fd() != -1) { fds.push_back({pair.second->get_stdout_fd(), POLLIN, 0}); ids.push_back(pair.first); streams.push_back("stdout"); }
-                if (pair.second->get_stderr_fd() != -1) { fds.push_back({pair.second->get_stderr_fd(), POLLIN, 0}); ids.push_back(pair.first); streams.push_back("stderr"); }
-            }
-            if (poll(fds.data(), fds.size(), 100) > 0) {
-                for (size_t i = 0; i < fds.size(); ++i) {
-                    if (fds[i].revents & POLLIN) {
-                        char buf[4096];
-                        ssize_t n = read(fds[i].fd, buf, sizeof(buf));
-                        if (n > 0) {
-                            std::string data(buf, n);
-                            std::string js = "window.Alloy._onProcData('" + ids[i] + "', '" + streams[i] + "', " + webview::detail::json_escape(data) + ")";
-                            w.dispatch([&w, js]() { w.eval(js); });
-                        }
+                auto id = pair.first;
+                auto proc = pair.second;
+
+                auto check_stream = [&](pipe_handle_t fd, const std::string& stream_name) {
+                    if (fd == -1) return;
+                    char buf[4096];
+                    // Non-blocking check would be better, but for simplicity we use read_pipe
+                    // with a mechanism that doesn't block forever if possible.
+                    // On POSIX, we could use fcntl O_NONBLOCK.
+#ifndef _WIN32
+                    int flags = fcntl(fd, F_GETFL, 0);
+                    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+#endif
+                    ssize_t n = subprocess::read_pipe(fd, buf, sizeof(buf));
+                    if (n > 0) {
+                        std::string data(buf, n);
+                        std::string js = "window.Alloy._onProcData('" + id + "', '" + stream_name + "', " + webview::detail::json_escape(data) + ")";
+                        w.dispatch([&w, js]() { w.eval(js); });
                     }
-                }
-            }
-            for (auto it = procs.begin(); it != procs.end(); ++it) {
-                if (!it->second->is_alive()) {
-                    int code = it->second->wait();
-                    std::string js = "window.Alloy._onProcExit('" + it->first + "', " + std::to_string(code) + ")";
+                };
+
+                check_stream(proc->get_stdout_fd(), "stdout");
+                check_stream(proc->get_stderr_fd(), "stderr");
+
+                if (!proc->is_alive()) {
+                    int code = proc->wait();
+                    std::string js = "window.Alloy._onProcExit('" + id + "', " + std::to_string(code) + ")";
                     w.dispatch([&w, js]() { w.eval(js); });
-                    process_manager::instance().unregister_proc(it->first);
+                    process_manager::instance().unregister_proc(id);
                 }
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }).detach();
 
@@ -169,6 +213,53 @@ void runtime::init(webview::webview& w) {
             return proc;
         };
         window.Alloy.spawnSync = function(cmd, options) { return JSON.parse(window.Alloy_spawnSync(cmd, options)); };
+        window.Alloy.$ = function(strings, ...values) {
+            let cmd = strings[0];
+            const placeholders = [];
+            for (let i = 0; i < values.length; i++) {
+                placeholders.push(String(values[i]));
+                cmd += "${" + i + "}" + strings[i + 1];
+            }
+            return new window.Alloy.ShellPromise(cmd, placeholders);
+        };
+
+        window.Alloy.ShellPromise = class {
+            constructor(cmd, placeholders) {
+                this._cmd = cmd;
+                this._placeholders = placeholders;
+                this._options = { cwd: "", env: {} };
+                this._quiet = false;
+                this._nothrow = false;
+            }
+            quiet() { this._quiet = true; return this; }
+            nothrow() { this._nothrow = true; return this; }
+            cwd(path) { this._options.cwd = path; return this; }
+            env(env) { this._options.env = env; return this; }
+            async text() {
+                this.quiet();
+                const res = await this._exec();
+                return res.stdout;
+            }
+            async json() {
+                const text = await this.text();
+                return JSON.parse(text);
+            }
+            then(resolve, reject) {
+                return this._exec().then(resolve, reject);
+            }
+            async _exec() {
+                const res = JSON.parse(window.Alloy_shell_exec(this._cmd, this._placeholders, this._options));
+                if (!this._quiet) {
+                    if (res.stdout) console.log(res.stdout);
+                    if (res.stderr) console.error(res.stderr);
+                }
+                if (!this._nothrow && res.exitCode !== 0) {
+                    throw new Error(`Shell command failed with code ${res.exitCode}`);
+                }
+                return res;
+            }
+        };
+
         window.Alloy.Subprocess = class {
             constructor(id, pid) {
                 this.id = id; this.pid = pid;

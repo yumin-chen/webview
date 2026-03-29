@@ -310,4 +310,14 @@ void subprocess::terminal_resize(int cols, int rows) {
 #endif
 }
 
+ssize_t subprocess::read_pipe(pipe_handle_t fd, char* buf, size_t sz) {
+#ifdef _WIN32
+    DWORD read_bytes;
+    if (ReadFile(fd, buf, (DWORD)sz, &read_bytes, NULL)) return (ssize_t)read_bytes;
+    return -1;
+#else
+    return read(fd, buf, sz);
+#endif
+}
+
 } // namespace alloy
