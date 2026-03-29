@@ -1,14 +1,15 @@
-# @alloyscript/runtime
+# AlloyScript Engine
 
-The AlloyScript runtime is a high-performance, secure JavaScript environment built for WebView applications. It uses **Bun** for development and bundling, and a **C host program** for native capabilities.
+The AlloyScript engine is a high-performance, secure JavaScript environment built using WebView as streamlined cross-platform JS runtime for desktop applications. It uses **Bun** for development and bundling, and a **C host program** for native capabilities.
 
 ## Architecture
 
 1.  **TypeScript Library**: Provides typed APIs for SQLite, Spawn, and SecureEval.
-2.  **C Host Program**: A native wrapper that initializes a WebView window and exposes a bridge to the JS context.
+2.  **C Host Program**: A native wrapper that initialises a [WebView](docs/webview.md) window and exposes a bridge to the JS context.
 3.  **Bridge**: Communication between JS and C via `window.Alloy`.
 4.  **Secure Evaluation**: `window.eval` is replaced with `secureEval` which runs [MicroQuickJS](https://github.com/bellard/mquickjs) within an OCI-compatible, chainguarded containerized Linux kernel for ultimate isolation.
 5.  **SQLite Driver**: A high-performance driver with transactions, prepared statement caching, and `bigint` support.
+6.  **Native GUI Framework (`alloy:gui`)**: A declarative component framework (ASX) that wraps native OS controls (Win32/Cocoa/GTK) using the Yoga layout engine.
 
 ## Security
 
