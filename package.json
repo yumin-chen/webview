@@ -1,0 +1,15 @@
+{
+  "name": "@alloyscript/runtime",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "test": "bun test"
+  }
+}
