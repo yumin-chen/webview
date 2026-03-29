@@ -1,4 +1,5 @@
 #include "webview.h"
+#include "gui/alloy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,96 +7,14 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <commctrl.h>
-#elif defined(__APPLE__)
-#include <objc/objc-runtime.h>
 #else
-#include <gtk/gtk.h>
+#include <unistd.h>
 #endif
 
 // The bundled JS will be injected here by the build script
 extern const char* ALLOY_BUNDLE;
 
-// --- Native Handle Management ---
-#define MAX_COMPONENTS 1024
-typedef struct {
-    void* handle;
-    char type[32];
-} component_t;
-
-component_t g_components[MAX_COMPONENTS] = {0};
-
-int register_component(void* handle, const char* type) {
-    for (int i = 0; i < MAX_COMPONENTS; i++) {
-        if (!g_components[i].handle) {
-            g_components[i].handle = handle;
-            strncpy(g_components[i].type, type, 31);
-            return i + 1;
-        }
-    }
-    return 0;
-}
-
-// --- GUI Framework Bindings (Platform Specific) ---
-
-void alloy_gui_create(const char *id, const char *req, void *arg) {
-    webview_t w = (webview_t)arg;
-    void* native_handle = NULL;
-    char type[64] = {0};
-
-    // In a real implementation, we parse req JSON for type and props
-    // For this draft, we simulate based on "type" string
-    if (strstr(req, "\"type\":\"Button\"")) {
-        strcpy(type, "Button");
-#ifdef _WIN32
-        native_handle = CreateWindowExW(0, L"BUTTON", L"Button", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 100, 30, (HWND)webview_get_window(w), NULL, NULL, NULL);
-#elif defined(__APPLE__)
-        // Cocoa implementation via objc-runtime
-#else
-        native_handle = gtk_button_new_with_label("Button");
-        gtk_widget_show(GTK_WIDGET(native_handle));
-#endif
-    } else if (strstr(req, "\"type\":\"TextField\"")) {
-        strcpy(type, "TextField");
-#ifdef _WIN32
-        native_handle = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL, 0, 0, 200, 25, (HWND)webview_get_window(w), NULL, NULL, NULL);
-#elif defined(__APPLE__)
-        // Cocoa implementation via objc-runtime
-#else
-        native_handle = gtk_entry_new();
-        gtk_widget_show(GTK_WIDGET(native_handle));
-#endif
-    }
-
-    int cid = register_component(native_handle, type);
-    char buf[16];
-    sprintf(buf, "%d", cid);
-    webview_return(w, id, 0, buf);
-}
-
-void alloy_gui_update(const char *id, const char *req, void *arg) {
-    webview_t w = (webview_t)arg;
-    // req: { id: number, props: { label: string, ... } }
-    webview_return(w, id, 0, "0");
-}
-
-void alloy_gui_destroy(const char *id, const char *req, void *arg) {
-    webview_t w = (webview_t)arg;
-    int cid = atoi(req);
-    if (cid > 0 && cid <= MAX_COMPONENTS && g_components[cid-1].handle) {
-#ifdef _WIN32
-        DestroyWindow((HWND)g_components[cid-1].handle);
-#elif defined(__APPLE__)
-        // Cocoa cleanup
-#else
-        gtk_widget_destroy(GTK_WIDGET(g_components[cid-1].handle));
-#endif
-        g_components[cid-1].handle = NULL;
-    }
-    webview_return(w, id, 0, "0");
-}
-
-// --- Legacy Bindings ---
+// --- Process Management ---
 void alloy_spawn(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     webview_return(w, id, 0, "0");
@@ -134,6 +53,47 @@ void alloy_sqlite_close(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, "0");
 }
 
+// --- GUI Framework Bindings (Using alloy.h) ---
+
+void alloy_gui_create(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    alloy_component_t component = NULL;
+    alloy_error_t err = ALLOY_OK;
+
+    // Use current main window as parent (simulated)
+    alloy_component_t parent = (alloy_component_t)webview_get_window(w);
+
+    if (strstr(req, "\"type\":\"Button\"")) {
+        err = alloy_create_button(parent, &component);
+    } else if (strstr(req, "\"type\":\"TextField\"")) {
+        err = alloy_create_textfield(parent, &component);
+    } else if (strstr(req, "\"type\":\"Window\"")) {
+        err = alloy_create_window("New Window", 400, 300, &component);
+    }
+
+    if (err == ALLOY_OK && component) {
+        char buf[32];
+        sprintf(buf, "%p", component); // Use address as handle for JS
+        webview_return(w, id, 0, buf);
+    } else {
+        webview_return(w, id, 1, alloy_error_message(err));
+    }
+}
+
+void alloy_gui_update(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    webview_return(w, id, 0, "0");
+}
+
+void alloy_gui_destroy(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // req is the handle address as string
+    void *ptr = NULL;
+    sscanf(req, "%p", &ptr);
+    if (ptr) alloy_destroy((alloy_component_t)ptr);
+    webview_return(w, id, 0, "0");
+}
+
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
                    int nCmdShow) {
@@ -141,7 +101,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
 int main(void) {
 #endif
   webview_t w = webview_create(0, NULL);
-  webview_set_title(w, "AlloyScript Native Runtime");
+  webview_set_title(w, "AlloyScript Final Runtime");
   webview_set_size(w, 800, 600, WEBVIEW_HINT_NONE);
 
   webview_bind(w, "alloy_spawn", alloy_spawn, w);
@@ -183,7 +143,7 @@ int main(void) {
 
   webview_init(w, bridge_js);
   webview_init(w, ALLOY_BUNDLE);
-  webview_set_html(w, "<h1>AlloyScript Native Runtime</h1><p>Ready.</p>");
+  webview_set_html(w, "<h1>AlloyScript Final Runtime</h1><p>Ready.</p>");
   webview_run(w);
   webview_destroy(w);
   return 0;
