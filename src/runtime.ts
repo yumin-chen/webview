@@ -3,7 +3,6 @@
 (function() {
   'use strict';
 
-  // Helper: Base64 to Uint8Array
   function b64ToUint8(b64: string): Uint8Array {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
@@ -11,7 +10,6 @@
     return bytes;
   }
 
-  // Helper: Uint8Array to Base64
   function uint8ToB64(uint8: Uint8Array): string {
     let bin = '';
     const len = uint8.byteLength;
@@ -22,26 +20,16 @@
     return btoa(bin);
   }
 
-  // Cron Parser
+  // --- Cron ---
   const CRON_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   const CRON_DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const CRON_NICKNAMES: Record<string, string> = {
-    "@yearly": "0 0 1 1 *",
-    "@annually": "0 0 1 1 *",
-    "@monthly": "0 0 1 * *",
-    "@weekly": "0 0 * * 0",
-    "@daily": "0 0 * * *",
-    "@midnight": "0 0 * * *",
-    "@hourly": "0 * * * *"
+    "@yearly": "0 0 1 1 *", "@annually": "0 0 1 1 *", "@monthly": "0 0 1 * *",
+    "@weekly": "0 0 * * 0", "@daily": "0 0 * * *", "@midnight": "0 0 * * *", "@hourly": "0 * * * *"
   };
 
   class CronParser {
-    min: Set<number> | null;
-    hour: Set<number> | null;
-    dom: Set<number> | null;
-    month: Set<number> | null;
-    dow: Set<number> | null;
-
+    min: Set<number> | null; hour: Set<number> | null; dom: Set<number> | null; month: Set<number> | null; dow: Set<number> | null;
     constructor(expr: string) {
       expr = CRON_NICKNAMES[expr] || expr;
       const fields = expr.split(/\s+/);
@@ -53,7 +41,6 @@
       this.dow = this.parseField(fields[4], 0, 7, CRON_DAYS);
       if (this.dow && this.dow.has(7)) this.dow.add(0);
     }
-
     private parseField(field: string, min: number, max: number, names?: string[]): Set<number> | null {
       if (field === '*') return null;
       const result = new Set<number>();
@@ -61,20 +48,15 @@
         let [range, stepStr] = part.split('/');
         const step = stepStr ? parseInt(stepStr, 10) : 1;
         let start: number, end: number;
-        if (range === '*') {
-          start = min; end = max;
-        } else if (range.includes('-')) {
+        if (range === '*') { start = min; end = max; }
+        else if (range.includes('-')) {
           let [s, e] = range.split('-');
-          start = this.parseValue(s, names);
-          end = this.parseValue(e, names);
-        } else {
-          start = end = this.parseValue(range, names);
-        }
+          start = this.parseValue(s, names); end = this.parseValue(e, names);
+        } else { start = end = this.parseValue(range, names); }
         for (let i = start; i <= end; i += step) result.add(i);
       }
       return result;
     }
-
     private parseValue(val: string, names?: string[]): number {
       if (names) {
         const idx = names.indexOf(val.toUpperCase().substring(0, 3));
@@ -82,126 +64,102 @@
       }
       return parseInt(val, 10);
     }
-
     next(from?: Date | number): Date | null {
       let curr = new Date(from || Date.now());
-      curr.setUTCSeconds(0, 0);
-      curr.setUTCMinutes(curr.getUTCMinutes() + 1);
+      curr.setUTCSeconds(0, 0); curr.setUTCMinutes(curr.getUTCMinutes() + 1);
       const startYear = curr.getUTCFullYear();
       while (curr.getUTCFullYear() < startYear + 5) {
         if (this.month && !this.month.has(curr.getUTCMonth() + 1)) {
-          curr.setUTCMonth(curr.getUTCMonth() + 1, 1);
-          curr.setUTCHours(0, 0, 0, 0);
-          continue;
+          curr.setUTCMonth(curr.getUTCMonth() + 1, 1); curr.setUTCHours(0, 0, 0, 0); continue;
         }
-        const domSet = this.dom !== null;
-        const dowSet = this.dow !== null;
+        const domSet = this.dom !== null, dowSet = this.dow !== null;
         let matchDay = false;
-        if (domSet && dowSet) {
-          matchDay = this.dom!.has(curr.getUTCDate()) || this.dow!.has(curr.getUTCDay());
-        } else if (domSet) {
-          matchDay = this.dom!.has(curr.getUTCDate());
-        } else if (dowSet) {
-          matchDay = this.dow!.has(curr.getUTCDay());
-        } else {
-          matchDay = true;
-        }
-        if (!matchDay) {
-          curr.setUTCDate(curr.getUTCDate() + 1);
-          curr.setUTCHours(0, 0, 0, 0);
-          continue;
-        }
-        if (this.hour && !this.hour.has(curr.getUTCHours())) {
-          curr.setUTCHours(curr.getUTCHours() + 1, 0, 0, 0);
-          continue;
-        }
-        if (this.min && !this.min.has(curr.getUTCMinutes())) {
-          curr.setUTCMinutes(curr.getUTCMinutes() + 1, 0, 0);
-          continue;
-        }
+        if (domSet && dowSet) matchDay = this.dom!.has(curr.getUTCDate()) || this.dow!.has(curr.getUTCDay());
+        else if (domSet) matchDay = this.dom!.has(curr.getUTCDate());
+        else if (dowSet) matchDay = this.dow!.has(curr.getUTCDay());
+        else matchDay = true;
+        if (!matchDay) { curr.setUTCDate(curr.getUTCDate() + 1); curr.setUTCHours(0, 0, 0, 0); continue; }
+        if (this.hour && !this.hour.has(curr.getUTCHours())) { curr.setUTCHours(curr.getUTCHours() + 1, 0, 0, 0); continue; }
+        if (this.min && !this.min.has(curr.getUTCMinutes())) { curr.setUTCMinutes(curr.getUTCMinutes() + 1, 0, 0); continue; }
         return curr;
       }
       return null;
     }
   }
 
+  // --- Subprocess ---
   class Subprocess {
-    handle: string;
-    pid: number | null = null;
-    options: any;
-    exited: Promise<number>;
+    handle: string; pid: number | null = null; options: any; exited: Promise<number>;
     private _exited_resolve!: (code: number) => void;
-    exitCode: number | null = null;
-    signalCode: number | null = null;
-    killed = false;
-    terminal: Terminal | null = null;
-    stdout: ReadableStream | null = null;
-    stderr: ReadableStream | null = null;
-    stdin: any = null;
+    exitCode: number | null = null; signalCode: string | null = null; killed = false;
+    terminal: Terminal | null = null; stdout: ReadableStream | null = null; stderr: ReadableStream | null = null; stdin: any = null;
     private _stdout_controller: ReadableStreamDefaultController | null = null;
     private _stderr_controller: ReadableStreamDefaultController | null = null;
 
     constructor(handle: string, options: any) {
-      this.handle = handle;
-      this.options = options || {};
+      this.handle = handle; this.options = options || {};
       this.exited = new Promise(resolve => { this._exited_resolve = resolve; });
-
-      if (this.options.terminal) {
-        this.terminal = new Terminal(this);
-      } else {
+      if (this.options.terminal) { this.terminal = new Terminal(this); } else {
         this.stdout = new ReadableStream({ start: (c) => { this._stdout_controller = c; } });
         this.stderr = new ReadableStream({ start: (c) => { this._stderr_controller = c; } });
         this.stdin = {
-          write: (data: string | Uint8Array) => { (window as any).meta._write(this.handle, data); },
+          write: (data: any) => { (window as any).meta._write(this.handle, data); },
           end: () => { (window as any).meta._closeStdin(this.handle); },
           flush: () => {}
         };
       }
     }
-
-    kill(sig?: string | number) {
-      this.killed = true;
-      (window as any).meta._kill(this.handle, sig || 'SIGTERM');
-    }
+    kill(sig?: string | number) { this.killed = true; (window as any).meta._kill(this.handle, sig || 'SIGTERM'); }
     ref() {} unref() {}
-    resourceUsage() { return { maxRSS: 0, cpuTime: { user: 0, system: 0 } }; }
-
+    resourceUsage() { return { maxRSS: 0, cpuTime: { user: 0, system: 0, total: 0 }, contextSwitches: { voluntary: 0, involuntary: 0 }, ops: { in: 0, out: 0 } }; }
     _onData(type: string, encodedData: string) {
         const data = b64ToUint8(encodedData);
         if (type === 'stdout' && this._stdout_controller) this._stdout_controller.enqueue(data);
         else if (type === 'stderr' && this._stderr_controller) this._stderr_controller.enqueue(data);
         else if (type === 'terminal' && this.options.terminal?.data) this.options.terminal.data(this.terminal, data);
     }
-
     _onExit(exitCode: number, signalCode: number) {
-        this.exitCode = exitCode; this.signalCode = signalCode;
+        this.exitCode = exitCode; this.signalCode = signalCode ? "SIG" + signalCode : null;
         if (this._stdout_controller) try { this._stdout_controller.close(); } catch(e) {}
         if (this._stderr_controller) try { this._stderr_controller.close(); } catch(e) {}
-        if (this.options.onExit) this.options.onExit(this, exitCode, signalCode);
+        if (this.options.onExit) this.options.onExit(this, exitCode, this.signalCode);
         if (this.options.terminal?.exit) this.options.terminal.exit(this.terminal, 0, null);
         this._exited_resolve(exitCode);
     }
   }
 
   class Terminal {
-    proc?: Subprocess;
-    handle: string;
-    options?: any;
-    closed = false;
+    proc?: Subprocess; handle: string; options?: any; closed = false;
     constructor(options_or_proc: any) {
-      if (options_or_proc instanceof Subprocess) {
-        this.proc = options_or_proc;
-        this.handle = this.proc.handle;
-      } else {
-        this.options = options_or_proc || {};
-        this.handle = "term_" + (++(window as any).meta._handleCounter);
-      }
+      if (options_or_proc instanceof Subprocess) { this.proc = options_or_proc; this.handle = this.proc.handle; }
+      else { this.options = options_or_proc || {}; this.handle = "term_" + (++(window as any).meta._handleCounter); }
     }
-    write(data: string | Uint8Array) { (window as any).meta._write(this.handle, data); }
+    write(data: any) { (window as any).meta._write(this.handle, data); }
     resize(c: number, r: number) { (window as any).meta._resize(this.handle, c, r); }
-    setRawMode(e: boolean) {}
-    close() { this.closed = true; }
-    ref() {} unref() {}
+    setRawMode(e: boolean) {} close() { this.closed = true; } ref() {} unref() {}
+  }
+
+  // --- GUI ---
+  class NativeComponent {
+    handle: string; type: string; props: any; children: NativeComponent[] = [];
+    constructor(type: string, props: any) {
+      this.type = type; this.props = props || {};
+      this.handle = "gui_" + (++(window as any).meta._handleCounter);
+      (window as any).meta._widgets[this.handle] = this;
+      (window as any).__meta_gui_create(this.handle, this.type, JSON.stringify(this.props));
+    }
+    append(child: NativeComponent) {
+      this.children.push(child);
+      (window as any).__meta_gui_append(this.handle, child.handle);
+    }
+    setText(text: string) { (window as any).__meta_gui_set_text(this.handle, text); }
+    addEventListener(event: string, handler: Function) {
+      if (!this.props.handlers) this.props.handlers = {};
+      this.props.handlers[event] = handler;
+    }
+    _trigger(event: string) {
+      if (this.props.handlers && this.props.handlers[event]) this.props.handlers[event]();
+    }
   }
 
   const meta: any = async function(path: string, schedule: string, title: string) {
@@ -209,6 +167,7 @@
   };
 
   meta._processes = {} as Record<string, Subprocess>;
+  meta._widgets = {} as Record<string, NativeComponent>;
   meta._handleCounter = 0;
   meta.Terminal = Terminal;
   meta.spawn = function(cmd: string[], opts: any) {
@@ -224,41 +183,44 @@
     })();
     return proc;
   };
-
   meta.spawnSync = async function(cmd: string[], opts: any) {
-    const res = await (window as any).__meta_spawnSync(JSON.stringify(cmd), JSON.stringify(opts || {}));
+    const res_raw = await (window as any).__meta_spawnSync(JSON.stringify(cmd), JSON.stringify(opts || {}));
+    const res = typeof res_raw === 'string' ? JSON.parse(res_raw) : res_raw;
     if (res.stdout) res.stdout = b64ToUint8(res.stdout);
     if (res.stderr) res.stderr = b64ToUint8(res.stderr);
     return res;
   };
-
   meta.cron = meta;
   meta.cron.parse = function(expr: string, relativeDate?: Date | number) {
     try { return new CronParser(expr).next(relativeDate); } catch (e) { return null; }
   };
-  meta.cron.remove = async function(title: string) {
-    await (window as any).__meta_cron_remove(title);
+  meta.cron.remove = async function(title: string) { await (window as any).__meta_cron_remove(title); };
+
+  meta.gui = {
+    Window: function(props: any) { return new NativeComponent("Window", props); },
+    Button: function(props: any) { return new NativeComponent("Button", props); },
+    Label: function(props: any) { return new NativeComponent("Label", props); },
+    VStack: function(props: any) { return new NativeComponent("VStack", props); },
+    HStack: function(props: any) { return new NativeComponent("HStack", props); },
+    TextField: function(props: any) { return new NativeComponent("TextField", props); },
+    _onEvent: function(handle: string, event: string) {
+      const comp = meta._widgets[handle];
+      if (comp) comp._trigger(event);
+    }
   };
 
   meta._onData = function(handle: string, type: string, data_b64: string) {
     const proc = this._processes[handle];
     if (proc) proc._onData(type, data_b64);
   };
-
   meta._onExit = function(handle: string, exitCode: number, signalCode: number) {
     const proc = this._processes[handle];
-    if (proc) {
-        proc._onExit(exitCode, signalCode);
-        delete this._processes[handle];
-        (window as any).__meta_cleanup(handle);
-    }
+    if (proc) { proc._onExit(exitCode, signalCode); delete this._processes[handle]; (window as any).__meta_cleanup(handle); }
   };
-
   meta._write = function(h: string, d: any) {
     if (h === null) return;
     let b64;
-    if (typeof d === 'string') b64 = btoa(d);
-    else b64 = uint8ToB64(new Uint8Array(d));
+    if (typeof d === 'string') b64 = btoa(d); else b64 = uint8ToB64(new Uint8Array(d));
     (window as any).__meta_write(h, b64);
   };
   meta._closeStdin = function(h: string) { if (h !== null) (window as any).__meta_closeStdin(h); };
@@ -267,16 +229,12 @@
 
   if (!ReadableStream.prototype.hasOwnProperty('text')) {
     (ReadableStream.prototype as any).text = async function() {
-      const reader = this.getReader();
-      let decoder = new TextDecoder();
-      let result = '';
+      const reader = this.getReader(); let decoder = new TextDecoder(); let result = '';
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await reader.read(); if (done) break;
         result += decoder.decode(value, { stream: true });
       }
-      result += decoder.decode();
-      return result;
+      result += decoder.decode(); return result;
     };
   }
 

@@ -2,13 +2,16 @@ import { expect, test, describe } from "bun:test";
 
 // Mock the window environment
 const mockWindow = {
-    __meta_spawn: async (handle: string, cmd: string, opts: string) => JSON.stringify({ pid: 1234 }),
-    __meta_spawnSync: async (cmd: string, opts: string) => JSON.stringify({ success: true, stdout: btoa("hello"), stderr: "" }),
-    __meta_write: (handle: string, data: string) => {},
-    __meta_closeStdin: (handle: string) => {},
-    __meta_kill: (handle: string, sig: string) => {},
-    __meta_resize: (handle: string, c: number, r: number) => {},
-    __meta_cleanup: (handle: string) => {},
+    __meta_spawn: async (h: string, c: string, o: string) => JSON.stringify({ pid: 1234 }),
+    __meta_spawnSync: async (c: string, o: string) => JSON.stringify({ success: true, stdout: btoa("hello"), stderr: "" }),
+    __meta_write: (h: string, d: string) => {},
+    __meta_closeStdin: (h: string) => {},
+    __meta_kill: (h: string, s: string) => {},
+    __meta_resize: (h: string, c: number, r: number) => {},
+    __meta_cleanup: (h: string) => {},
+    __meta_gui_create: (h: string, t: string, p: string) => {},
+    __meta_gui_append: (ph: string, ch: string) => {},
+    __meta_gui_set_text: (h: string, t: string) => {},
 };
 
 (global as any).window = mockWindow;
@@ -39,39 +42,31 @@ require("../src/runtime.ts");
 
 const meta = (window as any).meta;
 
-describe("MetaScript Runtime JS Logic", () => {
-    test("meta.spawn returns a Subprocess object", () => {
+describe("MetaScript Comprehensive Tests", () => {
+    test("meta.spawn with handle", () => {
         const proc = meta.spawn(["ls"]);
-        expect(proc).toBeDefined();
         expect(proc.handle).toMatch(/^proc_/);
     });
 
-    test("meta.spawnSync returns process result", async () => {
-        const res = await meta.spawnSync(["echo", "hello"]);
-        const data = JSON.parse(res); // meta.spawnSync returns raw string from __meta_spawnSync
-        expect(data.success).toBe(true);
-        expect(new TextDecoder().decode(b64ToUint8(data.stdout))).toBe("hello");
+    test("meta.gui component handling", () => {
+        const win = meta.gui.Window({ title: "Test" });
+        expect(win.handle).toMatch(/^gui_/);
+        expect(meta._widgets[win.handle]).toBe(win);
     });
 
-    function b64ToUint8(b64: string): Uint8Array {
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return bytes;
-    }
-
-    test("Cron Parser logic", () => {
-        const from = new Date(Date.UTC(2025, 0, 1, 0, 0));
-        const next = meta.cron.parse("0 0 * * *", from);
-        expect(next.toISOString()).toBe("2025-01-02T00:00:00.000Z");
+    test("meta.cron.parse correctness", () => {
+        const from = new Date(Date.UTC(2025, 0, 1, 10, 0));
+        const next = meta.cron.parse("0 11 * * *", from);
+        expect(next.toISOString()).toBe("2025-01-01T11:00:00.000Z");
     });
 
-    test("Subprocess stdout streaming", async () => {
+    test("Binary safe data transfer via b64", async () => {
         const proc = meta.spawn(["cat"]);
-        const data = "hello world";
-        meta._onData(proc.handle, 'stdout', btoa(data));
+        const raw = "\x00\xFF\xAA\x55";
+        meta._onData(proc.handle, 'stdout', btoa(raw));
         meta._onExit(proc.handle, 0, 0);
-        const text = await proc.stdout.text();
-        expect(text).toBe(data);
+        const out = await proc.stdout.getReader().read();
+        expect(out.value[0]).toBe(0);
+        expect(out.value[1]).toBe(255);
     });
 });

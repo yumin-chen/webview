@@ -1,7 +1,7 @@
 import { build } from "bun";
 import { spawnSync } from "child_process";
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
-import { join, basename } from "path";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
+import { join, basename, resolve } from "path";
 
 async function run() {
     const entry = process.argv[2] || "index.ts";
@@ -14,24 +14,33 @@ async function run() {
 
     console.log("Building MetaScript bundle...");
 
-    // Bundle runtime + user code
+    // Create a temporary entry point that imports the runtime and the user code
+    const tempEntry = ".metascript_entry.ts";
+    const entryRel = "./" + basename(entry);
+    const runtimeRel = "./src/runtime.ts";
+
+    writeFileSync(tempEntry, `
+import "${runtimeRel}";
+import userCode from "${entryRel}";
+(window as any).defaultExport = userCode;
+`);
+
+    // Bundle everything
     const result = await build({
-        entrypoints: ["src/runtime.ts", entry],
+        entrypoints: [tempEntry],
         minify: true,
-        outdir: "dist/bundle",
-        naming: "[name].js"
+        outdir: "dist",
+        naming: "bundle.js"
     });
+
+    unlinkSync(tempEntry);
 
     if (!result.success) {
         console.error("Bundle failed", result.logs);
         process.exit(1);
     }
 
-    // Combine runtime and entry into one script
-    const runtimeJs = readFileSync("dist/bundle/runtime.js", "utf-8");
-    const entryBase = basename(entry).replace(/\.[^/.]+$/, "");
-    const entryJs = readFileSync(`dist/bundle/${entryBase}.js`, "utf-8");
-    const bundledJs = runtimeJs + "\n" + entryJs;
+    const bundledJs = readFileSync("dist/bundle.js", "utf-8");
 
     // Generate C header
     console.log("Generating host bundle...");
@@ -43,8 +52,16 @@ async function run() {
 
     // Compile C++ host
     console.log("Compiling binary...");
-    const cflags = spawnSync("pkg-config", ["--cflags", "gtk+-3.0", "webkit2gtk-4.1"]).stdout.toString().trim().split(" ");
-    const libs = spawnSync("pkg-config", ["--libs", "gtk+-3.0", "webkit2gtk-4.1"]).stdout.toString().trim().split(" ");
+
+    let cflags: string[] = [];
+    let libs: string[] = [];
+
+    try {
+        cflags = spawnSync("pkg-config", ["--cflags", "gtk+-3.0", "webkit2gtk-4.1"]).stdout.toString().trim().split(/\s+/);
+        libs = spawnSync("pkg-config", ["--libs", "gtk+-3.0", "webkit2gtk-4.1"]).stdout.toString().trim().split(/\s+/);
+    } catch (e) {
+        console.error("pkg-config failed, trying default paths...");
+    }
 
     const compileArgs = [
         "-std=c++11",
@@ -53,9 +70,9 @@ async function run() {
         "src/host.cpp",
         "core/src/webview.cc",
         "-o", output,
-        "-lutil", // for forkpty
-        ...cflags,
-        ...libs
+        "-lutil",
+        ...cflags.filter(s => s.length > 0),
+        ...libs.filter(s => s.length > 0)
     ];
 
     const compile = spawnSync("c++", compileArgs);

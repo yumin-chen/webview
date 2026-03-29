@@ -23,6 +23,8 @@
 #include <utmp.h>
 #elif defined(__APPLE__)
 #include <util.h>
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
 #endif
 
 #include <termios.h>
@@ -32,8 +34,6 @@
 #ifdef WEBVIEW_GTK
 #include <gtk/gtk.h>
 #endif
-
-extern char **environ;
 
 namespace webview {
 namespace meta {
@@ -55,6 +55,14 @@ struct ProcessInfo {
 #endif
 };
 
+#ifdef WEBVIEW_GTK
+struct WidgetInfo {
+    std::string handle;
+    std::string type;
+    GtkWidget* widget;
+};
+#endif
+
 class SubprocessManager : public std::enable_shared_from_this<SubprocessManager> {
 public:
     SubprocessManager(::webview::webview* w) : m_webview(w) {}
@@ -67,34 +75,30 @@ public:
             if (!info->exited && info->pid > 0) kill(info->pid, SIGTERM);
             cleanup_monitoring(info);
         }
+#ifdef WEBVIEW_GTK
+        for (auto& pair : m_widgets) {
+            if (pair.second.type == "Window" && GTK_IS_WINDOW(pair.second.widget)) {
+                gtk_window_close(GTK_WINDOW(pair.second.widget));
+            }
+        }
+#endif
     }
 
     void bind(::webview::webview& w) {
         m_webview = &w;
         auto self = shared_from_this();
+
         w.bind("__meta_spawn", [self](const std::string& id, const std::string& req, void*) {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string cmd_j = ::webview::detail::json_parse(req, "", 1);
             std::string opt_j = ::webview::detail::json_parse(req, "", 2);
-            std::vector<std::string> cmd;
-            for (int i = 0; ; ++i) {
-                std::string s = ::webview::detail::json_parse(cmd_j, "", i);
-                if (s.empty()) break;
-                cmd.push_back(s);
-            }
-            self->m_webview->resolve(id, 0, self->spawn(h, cmd, opt_j));
+            self->m_webview->resolve(id, 0, self->spawn(h, parse_array(cmd_j), opt_j));
         }, nullptr);
 
         w.bind("__meta_spawnSync", [self](const std::string& id, const std::string& req, void*) {
             std::string cmd_j = ::webview::detail::json_parse(req, "", 0);
             std::string opt_j = ::webview::detail::json_parse(req, "", 1);
-            std::vector<std::string> cmd;
-            for (int i = 0; ; ++i) {
-                std::string s = ::webview::detail::json_parse(cmd_j, "", i);
-                if (s.empty()) break;
-                cmd.push_back(s);
-            }
-            self->m_webview->resolve(id, 0, self->spawnSync(cmd, opt_j));
+            self->m_webview->resolve(id, 0, self->spawnSync(parse_array(cmd_j), opt_j));
         }, nullptr);
 
         w.bind("__meta_write", [self](const std::string& req) -> std::string {
@@ -146,11 +150,36 @@ public:
             std::string t = ::webview::detail::json_parse(req, "", 0);
             self->m_webview->resolve(id, 0, self->removeCronJob(t));
         }, nullptr);
+
+#ifdef WEBVIEW_GTK
+        w.bind("__meta_gui_create", [self](const std::string& id, const std::string& req, void*) {
+            std::string h = ::webview::detail::json_parse(req, "", 0);
+            std::string t = ::webview::detail::json_parse(req, "", 1);
+            std::string p = ::webview::detail::json_parse(req, "", 2);
+            self->gui_create(h, t, p);
+            self->m_webview->resolve(id, 0, "true");
+        }, nullptr);
+
+        w.bind("__meta_gui_append", [self](const std::string& id, const std::string& req, void*) {
+            std::string ph = ::webview::detail::json_parse(req, "", 0);
+            std::string ch = ::webview::detail::json_parse(req, "", 1);
+            self->gui_append(ph, ch);
+            self->m_webview->resolve(id, 0, "true");
+        }, nullptr);
+
+        w.bind("__meta_gui_set_text", [self](const std::string& req) -> std::string {
+            std::string h = ::webview::detail::json_parse(req, "", 0);
+            std::string t = ::webview::detail::json_parse(req, "", 1);
+            self->gui_set_text(h, t);
+            return "";
+        });
+#endif
     }
 
     std::string spawn(const std::string& handle, const std::vector<std::string>& cmd, const std::string& options_json) {
         bool terminal = ::webview::detail::json_parse(options_json, "terminal", -1) != "";
         std::string cwd = ::webview::detail::json_parse(options_json, "cwd", -1);
+        std::string env_json = ::webview::detail::json_parse(options_json, "env", -1);
         auto info = std::make_shared<ProcessInfo>();
         info->handle = handle;
         pid_t pid;
@@ -161,6 +190,7 @@ public:
             if (pid < 0) return "{\"error\": \"forkpty failed\"}";
             if (pid == 0) {
                 if (!cwd.empty()) { if(chdir(cwd.c_str())){}}
+                apply_env(env_json);
                 std::vector<char*> argv;
                 for (const auto& s : cmd) argv.push_back(const_cast<char*>(s.c_str()));
                 argv.push_back(nullptr);
@@ -176,6 +206,7 @@ public:
             if (pid < 0) return "{\"error\": \"fork failed\"}";
             if (pid == 0) {
                 if (!cwd.empty()) { if(chdir(cwd.c_str())){}}
+                apply_env(env_json);
                 dup2(in_pipe[0], STDIN_FILENO);
                 dup2(out_pipe[1], STDOUT_FILENO);
                 dup2(err_pipe[1], STDERR_FILENO);
@@ -200,12 +231,14 @@ public:
 
     std::string spawnSync(const std::vector<std::string>& cmd, const std::string& options_json) {
         std::string cwd = ::webview::detail::json_parse(options_json, "cwd", -1);
+        std::string env_json = ::webview::detail::json_parse(options_json, "env", -1);
         int out_pipe[2], err_pipe[2];
         if (pipe(out_pipe) < 0 || pipe(err_pipe) < 0) return "{\"success\": false}";
         pid_t pid = fork();
         if (pid < 0) return "{\"success\": false}";
         if (pid == 0) {
             if (!cwd.empty()) { if(chdir(cwd.c_str())){}}
+            apply_env(env_json);
             dup2(out_pipe[1], STDOUT_FILENO); dup2(err_pipe[1], STDERR_FILENO);
             close(out_pipe[0]); close(err_pipe[0]);
             std::vector<char*> argv;
@@ -227,6 +260,44 @@ public:
                ", \"stdout\": \""+ ::webview::detail::base64_encode(stdout_str) + "\"" +
                ", \"stderr\": \""+ ::webview::detail::base64_encode(stderr_str) + "\"" +
                ", \"pid\": " + std::to_string(pid) + "}";
+    }
+
+    static std::vector<std::string> parse_array(const std::string& json) {
+        std::vector<std::string> result;
+        for (int i = 0; ; ++i) {
+            const char *value; size_t valuesz;
+            if (::webview::detail::json_parse_c(json.c_str(), json.length(), nullptr, i, &value, &valuesz) != 0) break;
+            if (value[0] == '"') {
+                int n = ::webview::detail::json_unescape(value, valuesz, nullptr);
+                if (n >= 0) {
+                    char *decoded = new char[n + 1];
+                    ::webview::detail::json_unescape(value, valuesz, decoded);
+                    result.push_back(std::string(decoded, n));
+                    delete[] decoded;
+                }
+            } else result.push_back(std::string(value, valuesz));
+        }
+        return result;
+    }
+
+    void apply_env(const std::string& env_json) {
+        if (env_json.empty() || env_json == "null" || env_json == "{}") return;
+        // Simple robust object parsing
+        size_t pos = 0;
+        while ((pos = env_json.find('"', pos)) != std::string::npos) {
+            size_t k_end = env_json.find('"', pos + 1);
+            if (k_end == std::string::npos) break;
+            std::string key = env_json.substr(pos + 1, k_end - pos - 1);
+            size_t colon = env_json.find(':', k_end + 1);
+            if (colon == std::string::npos) break;
+            size_t v_start = env_json.find('"', colon + 1);
+            if (v_start == std::string::npos) break;
+            size_t v_end = env_json.find('"', v_start + 1);
+            if (v_end == std::string::npos) break;
+            std::string val = env_json.substr(v_start + 1, v_end - v_start - 1);
+            setenv(key.c_str(), val.c_str(), 1);
+            pos = v_end + 1;
+        }
     }
 
     void writeStdin(const std::string& h, const std::string& d) {
@@ -271,16 +342,13 @@ public:
         std::string meta_path = get_executable_path();
         std::string entry = schedule + " '" + meta_path + "' run --cron-title='" + title + "' --cron-period='" + schedule + "' '" + script_path + "'";
         std::string marker = "# Meta-cron: " + title;
-
-        // Simple crontab update
-        system(("crontab -l | grep -v '# Meta-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
+        system(("crontab -l 2>/dev/null | grep -v '# Meta-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
         std::ofstream out("/tmp/crontab.tmp", std::ios::app);
         out << marker << "\n" << entry << "\n";
         out.close();
         system("crontab /tmp/crontab.tmp && rm /tmp/crontab.tmp");
         return "true";
 #elif defined(__APPLE__)
-        // launchd plist logic
         return "true";
 #else
         return "false";
@@ -289,7 +357,7 @@ public:
 
     std::string removeCronJob(const std::string& title) {
 #if defined(__linux__)
-        system(("crontab -l | grep -v '# Meta-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
+        system(("crontab -l 2>/dev/null | grep -v '# Meta-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
         system("crontab /tmp/crontab.tmp && rm /tmp/crontab.tmp");
         return "true";
 #elif defined(__APPLE__)
@@ -312,6 +380,70 @@ public:
 #endif
         return "";
     }
+
+#ifdef WEBVIEW_GTK
+    struct GUIEventData { std::weak_ptr<SubprocessManager> manager; std::string handle; };
+    void gui_create(const std::string& handle, const std::string& type, const std::string& props_json) {
+        GtkWidget* widget = nullptr;
+        if (type == "Window") {
+            widget = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+            std::string title = ::webview::detail::json_parse(props_json, "title", -1);
+            if (!title.empty()) gtk_window_set_title(GTK_WINDOW(widget), title.c_str());
+        } else if (type == "Button") {
+            widget = gtk_button_new();
+            std::string label = ::webview::detail::json_parse(props_json, "label", -1);
+            if (!label.empty()) gtk_button_set_label(GTK_BUTTON(widget), label.c_str());
+            auto self = shared_from_this();
+            auto* ed = new GUIEventData{self, handle};
+            g_signal_connect(widget, "clicked", G_CALLBACK(+[](GtkButton*, gpointer data) {
+                auto* ed = static_cast<GUIEventData*>(data);
+                auto mgr = ed->manager.lock();
+                if (mgr && mgr->m_webview) {
+                    mgr->m_webview->dispatch([mgr, h = ed->handle] {
+                        mgr->m_webview->eval("window.meta.gui._onEvent(" + ::webview::detail::json_escape(h) + ", 'click')");
+                    });
+                }
+            }), ed);
+        } else if (type == "Label") {
+            std::string text = ::webview::detail::json_parse(props_json, "text", -1);
+            widget = gtk_label_new(text.c_str());
+        } else if (type == "VStack") {
+            widget = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+        } else if (type == "HStack") {
+            widget = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+        } else if (type == "TextField") {
+            widget = gtk_entry_new();
+        }
+
+        if (widget) {
+            gtk_widget_show(widget);
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_widgets[handle] = {handle, type, widget};
+        }
+    }
+
+    void gui_append(const std::string& parent_handle, const std::string& child_handle) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it_p = m_widgets.find(parent_handle);
+        auto it_c = m_widgets.find(child_handle);
+        if (it_p != m_widgets.end() && it_c != m_widgets.end()) {
+            if (GTK_IS_CONTAINER(it_p->second.widget)) {
+                gtk_container_add(GTK_CONTAINER(it_p->second.widget), it_c->second.widget);
+                gtk_widget_show_all(it_p->second.widget);
+            }
+        }
+    }
+
+    void gui_set_text(const std::string& handle, const std::string& text) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_widgets.find(handle);
+        if (it != m_widgets.end()) {
+            if (GTK_IS_LABEL(it->second.widget)) gtk_label_set_text(GTK_LABEL(it->second.widget), text.c_str());
+            else if (GTK_IS_BUTTON(it->second.widget)) gtk_button_set_label(GTK_BUTTON(it->second.widget), text.c_str());
+            else if (GTK_IS_ENTRY(it->second.widget)) gtk_entry_set_text(GTK_ENTRY(it->second.widget), text.c_str());
+        }
+    }
+#endif
 
 private:
     struct WatchData { std::weak_ptr<SubprocessManager> manager; std::string handle; bool is_stderr; };
@@ -399,6 +531,9 @@ private:
 
     ::webview::webview* m_webview;
     std::map<std::string, std::shared_ptr<ProcessInfo>> m_processes;
+#ifdef WEBVIEW_GTK
+    std::map<std::string, WidgetInfo> m_widgets;
+#endif
     std::mutex m_mutex;
 };
 
