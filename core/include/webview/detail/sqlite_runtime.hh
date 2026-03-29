@@ -1,28 +1,3 @@
-/*
- * MIT License
- *
- * Copyright (c) 2017 Serge Zaitsev
- * Copyright (c) 2022 Steffen André Langnes
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
 #ifndef WEBVIEW_DETAIL_SQLITE_RUNTIME_HH
 #define WEBVIEW_DETAIL_SQLITE_RUNTIME_HH
 
@@ -285,6 +260,41 @@ public:
 
         int get_params_count() {
             return sqlite3_bind_parameter_count(m_stmt);
+        }
+
+        std::string get_metadata() {
+            int count = sqlite3_column_count(m_stmt);
+            std::string out = "{";
+            out += "\"columnNames\":[";
+            for (int i = 0; i < count; ++i) {
+                if (i > 0) out += ",";
+                out += json_escape(sqlite3_column_name(m_stmt, i));
+            }
+            out += "],";
+            out += "\"declaredTypes\":[";
+            for (int i = 0; i < count; ++i) {
+                if (i > 0) out += ",";
+                const char* type = sqlite3_column_decltype(m_stmt, i);
+                out += type ? json_escape(type) : "null";
+            }
+            out += "],";
+            out += "\"columnTypes\":[";
+            for (int i = 0; i < count; ++i) {
+                if (i > 0) out += ",";
+                int type = sqlite3_column_type(m_stmt, i);
+                switch (type) {
+                    case SQLITE_INTEGER: out += "\"INTEGER\""; break;
+                    case SQLITE_FLOAT: out += "\"FLOAT\""; break;
+                    case SQLITE_TEXT: out += "\"TEXT\""; break;
+                    case SQLITE_BLOB: out += "\"BLOB\""; break;
+                    case SQLITE_NULL:
+                    default: out += "\"NULL\""; break;
+                }
+            }
+            out += "],";
+            out += "\"paramsCount\":" + std::to_string(sqlite3_bind_parameter_count(m_stmt));
+            out += "}";
+            return out;
         }
 
     private:

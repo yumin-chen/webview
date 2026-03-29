@@ -112,4 +112,15 @@ TEST_CASE("SQLite Runtime") {
         REQUIRE(db->prepare("SELECT * FROM t2", false) != nullptr);
         runtime.close(id);
     }
+
+    SECTION("Metadata and Declared Types") {
+        std::string id = runtime.open(":memory:", false, true, false, false);
+        runtime.exec(id, "CREATE TABLE t (i INTEGER, f FLOAT, t TEXT, b BLOB, n)");
+        auto db = runtime.get_db(id);
+        auto stmt = db->prepare("SELECT * FROM t", false);
+        std::string meta = stmt->get_metadata();
+        REQUIRE(meta.find("\"columnNames\":[\"i\",\"f\",\"t\",\"b\",\"n\"]") != std::string::npos);
+        REQUIRE(meta.find("\"declaredTypes\":[\"INTEGER\",\"FLOAT\",\"TEXT\",\"BLOB\",null]") != std::string::npos);
+        runtime.close(id);
+    }
 }

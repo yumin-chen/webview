@@ -351,16 +351,7 @@ protected:
 
       try {
         auto stmt = db->prepare(sql, use_cache);
-        std::string result = "{";
-        result += "\"paramsCount\":" + std::to_string(stmt->get_params_count()) + ",";
-        result += "\"columnNames\":[";
-        auto names = stmt->get_column_names();
-        for (size_t i = 0; i < names.size(); ++i) {
-          if (i > 0) result += ",";
-          result += json_escape(names[i]);
-        }
-        result += "]}";
-        return result;
+        return stmt->get_metadata();
       } catch (const std::exception &e) {
         return "error:" + std::string(e.what());
       }
@@ -590,17 +581,36 @@ protected:
       }
     },
     sqlite: (function() {
+      const constants = {
+        SQLITE_FCNTL_PERSIST_WAL: 10,
+        // Add more constants as needed
+      };
+
       class Statement {
         constructor(db, sql, options = {}) {
           this.db = db;
           this.sql = sql;
           this.use_cache = options.cache !== false;
+
+          const meta = window.Alloy_sqlite_prepare(this.db.id, this.sql, this.use_cache);
+          if (meta.startsWith('error:')) throw new Error(meta.substring(6));
+          const data = JSON.parse(meta);
+          this.columnNames = data.columnNames;
+          this.declaredTypes = data.declaredTypes;
+          this.columnTypes = data.columnTypes;
+          this.paramsCount = data.paramsCount;
         }
 
         _execute(mode, params) {
           const paramsJson = JSON.stringify(params, (k, v) => typeof v === 'bigint' ? v.toString() + 'n' : v);
           const res = window.Alloy_sqlite_bind_and_execute(this.db.id, this.sql, paramsJson, mode);
           if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
+
+          // Update metadata after execution if we fetched a row
+          const meta = window.Alloy_sqlite_prepare(this.db.id, this.sql, true);
+          const metaData = JSON.parse(meta);
+          this.columnTypes = metaData.columnTypes;
+
           let data = JSON.parse(res);
           data = this._reviveSpecial(data);
           if (this._Class) {
@@ -656,6 +666,7 @@ protected:
             yield this._reviveSpecial(data);
           }
         }
+        [Symbol.dispose]() { this.finalize(); }
       }
 
       class Database {
@@ -668,6 +679,7 @@ protected:
 
         query(sql) { return new Statement(this, sql, { cache: true }); }
         prepare(sql) { return new Statement(this, sql, { cache: false }); }
+        as(Class) { return this.query(sql).as(Class); } // For query.as(MyClass) usage? Wait, query returns statement.
         run(sql, params) {
           if (params === undefined) {
             const res = window.Alloy_sqlite_exec(this.id, sql);
@@ -710,6 +722,7 @@ protected:
           return db;
         }
         static open(filename, options) { return new Database(filename, options); }
+        static setCustomSQLite(path) {}
         [Symbol.dispose]() { this.close(); }
       }
 
@@ -721,8 +734,8 @@ protected:
   script.type = 'importmap';
   script.textContent = JSON.stringify({
     imports: {
-      "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database;",
-      "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database;"
+      "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
+      "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;"
     }
   });
   document.head.appendChild(script);
