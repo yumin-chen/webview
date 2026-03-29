@@ -11,6 +11,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <stringapiset.h>
+#include <commctrl.h>
 #elif defined(__APPLE__)
 #include <objc/objc-runtime.h>
 #include <objc/message.h>
@@ -156,6 +157,11 @@ void* create_native_control(const std::string& type, const std::string& props, v
     if (!height_str.empty()) height = std::stoi(height_str);
 
 #ifdef _WIN32
+    INITCOMMONCONTROLSEX icex;
+    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icex.dwICC = ICC_WIN95_CLASSES | ICC_BAR_CLASSES;
+    InitCommonControlsEx(&icex);
+
     HWND hwndParent = (HWND)parent;
     if (type == "Button") {
         std::string label = webview::detail::json_parse(props, "label", 0);
@@ -165,10 +171,32 @@ void* create_native_control(const std::string& type, const std::string& props, v
     } else if (type == "TextField") {
         return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
                               x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
+    } else if (type == "TextArea") {
+        return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_MULTILINE | ES_WANTRETURN | WS_VSCROLL,
+                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
     } else if (type == "Label") {
         std::string label = webview::detail::json_parse(props, "text", 0);
         std::wstring wlabel = utf8_to_utf16(label);
         return CreateWindowExW(0, L"STATIC", wlabel.c_str(), WS_CHILD | WS_VISIBLE | SS_LEFT,
+                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
+    } else if (type == "CheckBox") {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        std::wstring wlabel = utf8_to_utf16(label);
+        return CreateWindowExW(0, L"BUTTON", wlabel.c_str(), WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
+                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
+    } else if (type == "RadioButton") {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        std::wstring wlabel = utf8_to_utf16(label);
+        return CreateWindowExW(0, L"BUTTON", wlabel.c_str(), WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_RADIOBUTTON,
+                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
+    } else if (type == "ComboBox") {
+        return CreateWindowExW(0, L"COMBOBOX", L"", WS_TABSTOP | WS_VISIBLE | WS_CHILD | CBS_DROPDOWN,
+                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
+    } else if (type == "Slider") {
+        return CreateWindowExW(0, TRACKBAR_CLASSW, L"", WS_TABSTOP | WS_VISIBLE | WS_CHILD | TBS_AUTOTICKS | TBS_HORZ,
+                              x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
+    } else if (type == "ProgressBar") {
+        return CreateWindowExW(0, PROGRESS_CLASSW, L"", WS_VISIBLE | WS_CHILD | PBS_SMOOTH,
                               x, y, width, height, hwndParent, NULL, (HINSTANCE)GetWindowLongPtr(hwndParent, GWLP_HINSTANCE), NULL);
     }
 #elif defined(__APPLE__)
@@ -189,6 +217,51 @@ void* create_native_control(const std::string& type, const std::string& props, v
         ((id (*)(id, SEL, NSRect))objc_msgSend)(field, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
         ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), field);
         return field;
+    } else if (type == "Label") {
+        std::string label = webview::detail::json_parse(props, "text", 0);
+        id field = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSTextField"), sel_registerName("alloc"));
+        ((id (*)(id, SEL, NSRect))objc_msgSend)(field, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(field, sel_registerName("setEditable:"), NO);
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(field, sel_registerName("setBezeled:"), NO);
+        ((void (*)(id, SEL, id))objc_msgSend)(field, sel_registerName("setDrawsBackground:"), NO);
+        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
+        ((void (*)(id, SEL, id))objc_msgSend)(field, sel_registerName("setStringValue:"), str);
+        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), field);
+        return field;
+    } else if (type == "CheckBox") {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        id btn = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSButton"), sel_registerName("alloc"));
+        ((id (*)(id, SEL, NSRect))objc_msgSend)(btn, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
+        ((void (*)(id, SEL, long))objc_msgSend)(btn, sel_registerName("setButtonType:"), 3); // NSButtonTypeSwitch
+        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
+        ((void (*)(id, SEL, id))objc_msgSend)(btn, sel_registerName("setTitle:"), str);
+        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), btn);
+        return btn;
+    } else if (type == "RadioButton") {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        id btn = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSButton"), sel_registerName("alloc"));
+        ((id (*)(id, SEL, NSRect))objc_msgSend)(btn, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
+        ((void (*)(id, SEL, long))objc_msgSend)(btn, sel_registerName("setButtonType:"), 4); // NSButtonTypeRadio
+        id str = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), label.c_str());
+        ((void (*)(id, SEL, id))objc_msgSend)(btn, sel_registerName("setTitle:"), str);
+        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), btn);
+        return btn;
+    } else if (type == "ComboBox") {
+        id cb = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSComboBox"), sel_registerName("alloc"));
+        ((id (*)(id, SEL, NSRect))objc_msgSend)(cb, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
+        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), cb);
+        return cb;
+    } else if (type == "Slider") {
+        id slider = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSSlider"), sel_registerName("alloc"));
+        ((id (*)(id, SEL, NSRect))objc_msgSend)(slider, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
+        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), slider);
+        return slider;
+    } else if (type == "ProgressBar") {
+        id bar = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSProgressIndicator"), sel_registerName("alloc"));
+        ((id (*)(id, SEL, NSRect))objc_msgSend)(bar, sel_registerName("initWithFrame:"), (NSRect){{(double)x, (double)y}, {(double)width, (double)height}});
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(bar, sel_registerName("setIndeterminate:"), NO);
+        ((void (*)(id, SEL, id))objc_msgSend)(parentView, sel_registerName("addSubview:"), bar);
+        return bar;
     }
     ((void (*)(id, SEL))objc_msgSend)(pool, sel_registerName("drain"));
 #else
@@ -197,8 +270,6 @@ void* create_native_control(const std::string& type, const std::string& props, v
         std::string label = webview::detail::json_parse(props, "label", 0);
         GtkWidget* btn = gtk_button_new_with_label(label.c_str());
         gtk_widget_set_size_request(btn, width, height);
-        // Note: For absolute positioning in GTK, one usually needs a GtkFixed or similar.
-        // Assuming the main window container is suitable or using an overlay.
         gtk_widget_show(btn);
         return btn;
     } else if (type == "TextField") {
@@ -206,6 +277,44 @@ void* create_native_control(const std::string& type, const std::string& props, v
         gtk_widget_set_size_request(entry, width, height);
         gtk_widget_show(entry);
         return entry;
+    } else if (type == "TextArea") {
+        GtkWidget* textview = gtk_text_view_new();
+        gtk_widget_set_size_request(textview, width, height);
+        gtk_widget_show(textview);
+        return textview;
+    } else if (type == "Label") {
+        std::string label = webview::detail::json_parse(props, "text", 0);
+        GtkWidget* lbl = gtk_label_new(label.c_str());
+        gtk_widget_set_size_request(lbl, width, height);
+        gtk_widget_show(lbl);
+        return lbl;
+    } else if (type == "CheckBox") {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        GtkWidget* cb = gtk_check_button_new_with_label(label.c_str());
+        gtk_widget_set_size_request(cb, width, height);
+        gtk_widget_show(cb);
+        return cb;
+    } else if (type == "RadioButton") {
+        std::string label = webview::detail::json_parse(props, "label", 0);
+        GtkWidget* rb = gtk_radio_button_new_with_label(NULL, label.c_str());
+        gtk_widget_set_size_request(rb, width, height);
+        gtk_widget_show(rb);
+        return rb;
+    } else if (type == "ComboBox") {
+        GtkWidget* cb = gtk_combo_box_text_new();
+        gtk_widget_set_size_request(cb, width, height);
+        gtk_widget_show(cb);
+        return cb;
+    } else if (type == "Slider") {
+        GtkWidget* slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+        gtk_widget_set_size_request(slider, width, height);
+        gtk_widget_show(slider);
+        return slider;
+    } else if (type == "ProgressBar") {
+        GtkWidget* pb = gtk_progress_bar_new();
+        gtk_widget_set_size_request(pb, width, height);
+        gtk_widget_show(pb);
+        return pb;
     }
 #endif
     return nullptr;
