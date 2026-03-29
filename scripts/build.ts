@@ -34,8 +34,16 @@ async function runBuild() {
     // In a real build environment, 'webview' would be available through pkg-config
     // For this draft, we'll try to find the webview.h in its original location
     const includePath = "-Icore/include -I.";
-    // For a production build, link against the forked MicroQuickJS library
-    const compileCmd = `gcc -O2 src/host.c build/bundle.c ${includePath} -o build/alloy-runtime -lsqlite3 -lmquickjs -ldl -lpthread`;
+    // For a production build, link against forked libraries and platform-specific GUI libs
+    let platformLibs = "-ldl -lpthread";
+    if (process.platform === "win32") {
+        platformLibs += " -lcomctl32 -mwindows";
+    } else if (process.platform === "linux") {
+        platformLibs += " `pkg-config --cflags --libs gtk+-3.0`";
+    } else if (process.platform === "darwin") {
+        platformLibs += " -framework Cocoa";
+    }
+    const compileCmd = `gcc -O2 src/host.c build/bundle.c ${includePath} -o build/alloy-runtime -lsqlite3 -lmquickjs ${platformLibs}`;
     console.log(`Running: ${compileCmd}`);
     // execSync(compileCmd);
     console.log("Compilation step skipped for this draft - but command is ready.");
