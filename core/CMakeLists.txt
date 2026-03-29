@@ -32,6 +32,16 @@ if(WEBVIEW_BUILD_SHARED_LIBRARY)
         src/components/combobox.cpp
         src/components/slider.cpp
         src/components/progressbar.cpp
+        src/components/window.cpp
+        src/components/spinner.cpp
+        src/components/switch.cpp
+        src/components/tabview.cpp
+        src/components/listview.cpp
+        src/components/treeview.cpp
+        src/components/webview.cpp
+        src/components/vstack.cpp
+        src/components/hstack.cpp
+        src/components/scrollview.cpp
     )
     target_link_libraries(webview_core_shared PUBLIC webview_core_headers)
     set_target_properties(webview_core_shared PROPERTIES
@@ -67,6 +77,16 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
         src/components/combobox.cpp
         src/components/slider.cpp
         src/components/progressbar.cpp
+        src/components/window.cpp
+        src/components/spinner.cpp
+        src/components/switch.cpp
+        src/components/tabview.cpp
+        src/components/listview.cpp
+        src/components/treeview.cpp
+        src/components/webview.cpp
+        src/components/vstack.cpp
+        src/components/hstack.cpp
+        src/components/scrollview.cpp
     )
     target_link_libraries(webview_core_static PUBLIC webview_core_headers)
     set_target_properties(webview_core_static PROPERTIES

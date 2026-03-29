@@ -131,9 +131,42 @@ export interface SliderProps extends ControlProps {
     max?: number;
 }
 
+export interface SpinnerProps extends ControlProps {
+    value: number;
+    min?: number;
+    max?: number;
+}
+
+export interface SwitchProps extends ControlProps {
+    checked: boolean;
+}
+
 export interface ProgressBarProps extends ComponentProps {
     value?: number;
     indeterminate?: boolean;
+}
+
+export interface ListViewProps extends ControlProps {
+    items: any[];
+}
+
+export interface TreeViewProps extends ControlProps {
+    root: any;
+}
+
+export interface TabViewProps extends ControlProps {
+    tabs: any[];
+}
+
+export interface WebViewProps extends ControlProps {
+    src?: string;
+    html?: string;
+}
+
+export interface ScrollViewProps extends ComponentProps {
+    horizontal?: boolean;
+    vertical?: boolean;
+    children: ReactNode;
 }
 
 // Containers
@@ -160,6 +193,13 @@ export function CheckBox(props: CheckBoxProps): any { return { type: "CheckBox",
 export function RadioButton(props: RadioButtonProps): any { return { type: "RadioButton", props }; }
 export function ComboBox(props: ComboBoxProps): any { return { type: "ComboBox", props }; }
 export function Slider(props: SliderProps): any { return { type: "Slider", props }; }
+export function Spinner(props: SpinnerProps): any { return { type: "Spinner", props }; }
+export function Switch(props: SwitchProps): any { return { type: "Switch", props }; }
 export function ProgressBar(props: ProgressBarProps): any { return { type: "ProgressBar", props }; }
+export function ListView(props: ListViewProps): any { return { type: "ListView", props }; }
+export function TreeView(props: TreeViewProps): any { return { type: "TreeView", props }; }
+export function TabView(props: TabViewProps): any { return { type: "TabView", props }; }
+export function WebView(props: WebViewProps): any { return { type: "WebView", props }; }
 export function VStack(props: StackProps): any { return { type: "VStack", props }; }
 export function HStack(props: StackProps): any { return { type: "HStack", props }; }
+export function ScrollView(props: ScrollViewProps): any { return { type: "ScrollView", props }; }

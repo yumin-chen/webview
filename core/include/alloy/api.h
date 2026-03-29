@@ -103,6 +103,8 @@ ALLOY_API alloy_component_t alloy_create_checkbox(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_radiobutton(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_combobox(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_slider(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_spinner(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_switch(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_progressbar(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_tabview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_listview(alloy_component_t parent);
@@ -137,6 +139,8 @@ ALLOY_API alloy_error_t alloy_set_padding(alloy_component_t h,
 ALLOY_API alloy_error_t alloy_set_margin(alloy_component_t h,
                                           float top, float right,
                                           float bottom, float left);
+ALLOY_API alloy_error_t alloy_set_width(alloy_component_t h, float width);
+ALLOY_API alloy_error_t alloy_set_height(alloy_component_t h, float height);
 ALLOY_API alloy_error_t alloy_layout(alloy_component_t window);
 
 ALLOY_API alloy_error_t alloy_set_event_callback(alloy_component_t handle,

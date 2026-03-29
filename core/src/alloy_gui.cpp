@@ -74,4 +74,44 @@ alloy_error_t alloy_destroy(alloy_component_t h) {
     return ALLOY_OK;
 }
 
+alloy_error_t alloy_set_event_callback(alloy_component_t handle,
+                                       alloy_event_type_t event,
+                                       alloy_event_cb_t callback,
+                                       void *userdata) {
+    if (!handle) return ALLOY_ERROR_INVALID_ARGUMENT;
+    static_cast<alloy::detail::component_base*>(handle)->set_event_callback(event, callback, userdata);
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
+    if (!container || !child) return ALLOY_ERROR_INVALID_ARGUMENT;
+    auto c = static_cast<alloy::detail::component_base*>(container);
+    if (!c->is_container()) return ALLOY_ERROR_INVALID_ARGUMENT;
+
+    // Platform-specific child addition
+#if defined(_WIN32)
+    HWND child_hwnd = (HWND)static_cast<alloy::detail::component_base*>(child)->native_handle();
+    SetParent(child_hwnd, (HWND)c->native_handle());
+#elif defined(__APPLE__)
+    id child_view = (id)static_cast<alloy::detail::component_base*>(child)->native_handle();
+    ((void (*)(id, SEL, id))objc_msgSend)((id)c->native_handle(), sel_registerName("addSubview:"), child_view);
+#else
+    // GTK addition logic
+    // gtk_container_add(GTK_CONTAINER(c->native_handle()), (GtkWidget*)static_cast<alloy::detail::component_base*>(child)->native_handle());
+#endif
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_set_flex(alloy_component_t h, float flex) { return ALLOY_OK; }
+alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+alloy_error_t alloy_set_width(alloy_component_t h, float width) { return ALLOY_OK; }
+alloy_error_t alloy_set_height(alloy_component_t h, float height) { return ALLOY_OK; }
+
+alloy_error_t alloy_layout(alloy_component_t window) {
+    if (!window) return ALLOY_ERROR_INVALID_ARGUMENT;
+    // Yoga layout calculation entry point
+    return ALLOY_OK;
+}
+
 }

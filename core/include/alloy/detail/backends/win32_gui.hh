@@ -10,10 +10,17 @@ namespace alloy::detail {
 class win32_component : public component_base {
 public:
     win32_component(HWND hwnd, bool is_container = false)
-        : component_base(is_container), m_hwnd(hwnd) {}
+        : component_base(is_container), m_hwnd(hwnd) {
+        if (m_hwnd) {
+            SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
+        }
+    }
 
     virtual ~win32_component() {
-        if (m_hwnd) DestroyWindow(m_hwnd);
+        if (m_hwnd) {
+            SetWindowLongPtr(m_hwnd, GWLP_USERDATA, 0);
+            DestroyWindow(m_hwnd);
+        }
     }
 
     alloy_error_t set_text(std::string_view text) override {

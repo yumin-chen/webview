@@ -134,18 +134,39 @@ extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
     std::string props = webview::detail::json_parse(request, "", 1);
 
     int component_id = g_next_component_id++;
-    // Opaque parent for webview
+    void* native_parent = webview_get_window(w);
+    // Wrap native webview window as an alloy component to serve as root parent
+    static alloy_component_t root_parent = nullptr;
+    if (!root_parent) {
+#if defined(_WIN32)
+        root_parent = new alloy::detail::win32_component((HWND)native_parent, true);
+#elif defined(__APPLE__)
+        root_parent = new alloy::detail::cocoa_component((id)native_parent, true);
+#else
+        root_parent = new alloy::detail::gtk_component((GtkWidget*)native_parent, true);
+#endif
+    }
+
     alloy_component_t comp = nullptr;
 
-    if (type == "Button") comp = alloy_create_button(nullptr);
-    else if (type == "TextField") comp = alloy_create_textfield(nullptr);
-    else if (type == "TextArea") comp = alloy_create_textarea(nullptr);
-    else if (type == "Label") comp = alloy_create_label(nullptr);
-    else if (type == "CheckBox") comp = alloy_create_checkbox(nullptr);
-    else if (type == "RadioButton") comp = alloy_create_radiobutton(nullptr);
-    else if (type == "ComboBox") comp = alloy_create_combobox(nullptr);
-    else if (type == "Slider") comp = alloy_create_slider(nullptr);
-    else if (type == "ProgressBar") comp = alloy_create_progressbar(nullptr);
+    if (type == "Button") comp = alloy_create_button(root_parent);
+    else if (type == "TextField") comp = alloy_create_textfield(root_parent);
+    else if (type == "TextArea") comp = alloy_create_textarea(root_parent);
+    else if (type == "Label") comp = alloy_create_label(root_parent);
+    else if (type == "CheckBox") comp = alloy_create_checkbox(root_parent);
+    else if (type == "RadioButton") comp = alloy_create_radiobutton(root_parent);
+    else if (type == "ComboBox") comp = alloy_create_combobox(root_parent);
+    else if (type == "Slider") comp = alloy_create_slider(root_parent);
+    else if (type == "Spinner") comp = alloy_create_spinner(root_parent);
+    else if (type == "Switch") comp = alloy_create_switch(root_parent);
+    else if (type == "ProgressBar") comp = alloy_create_progressbar(root_parent);
+    else if (type == "ListView") comp = alloy_create_listview(root_parent);
+    else if (type == "TreeView") comp = alloy_create_treeview(root_parent);
+    else if (type == "TabView") comp = alloy_create_tabview(root_parent);
+    else if (type == "WebView") comp = alloy_create_webview(root_parent);
+    else if (type == "VStack") comp = alloy_create_vstack(root_parent);
+    else if (type == "HStack") comp = alloy_create_hstack(root_parent);
+    else if (type == "ScrollView") comp = alloy_create_scrollview(root_parent);
 
     g_components[component_id] = comp;
 
@@ -153,6 +174,13 @@ extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
         std::string label = webview::detail::json_parse(props, "label", 0);
         if (label.empty()) label = webview::detail::json_parse(props, "text", 0);
         if (!label.empty()) alloy_set_text(comp, label.c_str());
+
+        std::string w_str = webview::detail::json_parse(props, "width", 0);
+        std::string h_str = webview::detail::json_parse(props, "height", 0);
+        if (!w_str.empty()) alloy_set_width(comp, std::stof(w_str));
+        if (!h_str.empty()) alloy_set_height(comp, std::stof(h_str));
+
+        alloy_add_child(root_parent, comp);
     }
 
     char buf[16];

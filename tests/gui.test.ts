@@ -1,5 +1,5 @@
 import { expect, test, describe, spyOn } from "bun:test";
-import { createComponent, updateComponent, destroyComponent, Window, Button, TextField, Color, VStack, HStack, TextArea, Label, CheckBox, RadioButton, ComboBox, Slider, ProgressBar } from "../src/gui";
+import { createComponent, updateComponent, destroyComponent, Window, Button, TextField, Color, VStack, HStack, TextArea, Label, CheckBox, RadioButton, ComboBox, Slider, Spinner, Switch, ProgressBar, ListView, TreeView, TabView, WebView, ScrollView } from "../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -70,7 +70,14 @@ describe("Alloy:gui", () => {
             { fn: RadioButton, props: { label: "radio", name: "g1" }, type: "RadioButton" },
             { fn: ComboBox, props: { options: [] }, type: "ComboBox" },
             { fn: Slider, props: { value: 50 }, type: "Slider" },
-            { fn: ProgressBar, props: { value: 0.5 }, type: "ProgressBar" }
+            { fn: Spinner, props: { value: 10 }, type: "Spinner" },
+            { fn: Switch, props: { checked: true }, type: "Switch" },
+            { fn: ProgressBar, props: { value: 0.5 }, type: "ProgressBar" },
+            { fn: ListView, props: { items: [] }, type: "ListView" },
+            { fn: TreeView, props: { root: {} }, type: "TreeView" },
+            { fn: TabView, props: { tabs: [] }, type: "TabView" },
+            { fn: WebView, props: { src: "url" }, type: "WebView" },
+            { fn: ScrollView, props: { children: [] }, type: "ScrollView" }
         ];
 
         components.forEach(comp => {
