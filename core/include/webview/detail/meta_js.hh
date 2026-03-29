@@ -20,7 +20,11 @@ static const std::string meta_js = R"js(
   function uint8ToB64(uint8) {
     let bin = '';
     const len = uint8.byteLength;
-    for (let i = 0; i < len; i++) bin += String.fromCharCode(uint8[i]);
+    // Process in chunks to avoid stack limits
+    const chunk = 8192;
+    for (let i = 0; i < len; i += chunk) {
+      bin += String.fromCharCode.apply(null, uint8.subarray(i, i + chunk));
+    }
     return btoa(bin);
   }
 
@@ -81,8 +85,6 @@ static const std::string meta_js = R"js(
       } else {
         this.options = options_or_proc || {};
         this.handle = "term_" + (++window.meta._handleCounter);
-        // This mode would need a way to spawn without meta.spawn,
-        // but for now let's just make it a holder.
       }
       this.closed = false;
     }
@@ -140,7 +142,6 @@ static const std::string meta_js = R"js(
           command = command.cmd;
         }
       }
-      // Return a Promise as a fallback since true sync is not available.
       return (async () => {
         const res = await window.__meta_spawnSync(JSON.stringify(command), JSON.stringify(options || {}));
         if (res.stdout) res.stdout = b64ToUint8(res.stdout);

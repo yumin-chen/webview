@@ -1,94 +1,19 @@
 #include "webview/webview.h"
 #include "webview/meta.hh"
 #include "webview/detail/meta_js.hh"
-#include "webview/detail/base64.hh"
 #include <iostream>
 #include <string>
 #include <vector>
-
-namespace {
-std::vector<std::string> parse_json_array(const std::string& json) {
-    std::vector<std::string> result;
-    for (int i = 0; ; ++i) {
-        const char *value;
-        size_t valuesz;
-        if (webview::detail::json_parse_c(json.c_str(), json.length(), nullptr, i, &value, &valuesz) != 0) break;
-        if (value[0] == '"') {
-            int n = webview::detail::json_unescape(value, valuesz, nullptr);
-            if (n >= 0) {
-                char *decoded = new char[n + 1];
-                webview::detail::json_unescape(value, valuesz, decoded);
-                result.push_back(std::string(decoded, n));
-                delete[] decoded;
-            }
-        } else result.push_back(std::string(value, valuesz));
-    }
-    return result;
-}
-}
+#include <memory>
 
 int main() {
     try {
         auto w = std::make_shared<webview::webview>(true, nullptr);
-        w->set_title("MetaScript Runtime");
+        w->set_title("MetaScript Runtime (Host Orchestrator)");
         w->set_size(800, 600, WEBVIEW_HINT_NONE);
 
         auto mgr = std::make_shared<webview::meta::SubprocessManager>(w.get());
-
-        w->bind("__meta_spawn", [mgr, w](const std::string& id, const std::string& req, void*) {
-            auto handle = webview::detail::json_parse(req, "", 0);
-            auto cmd_json = webview::detail::json_parse(req, "", 1);
-            auto opts_json = webview::detail::json_parse(req, "", 2);
-            auto res = mgr->spawn(handle, parse_json_array(cmd_json), opts_json);
-            w->resolve(id, 0, res);
-        }, nullptr);
-
-        w->bind("__meta_spawnSync", [mgr, w](const std::string& id, const std::string& req, void*) {
-            auto cmd_json = webview::detail::json_parse(req, "", 0);
-            auto opts_json = webview::detail::json_parse(req, "", 1);
-            auto res = mgr->spawnSync(parse_json_array(cmd_json), opts_json);
-            w->resolve(id, 0, res);
-        }, nullptr);
-
-        w->bind("__meta_write", [mgr](const std::string& req) -> std::string {
-            auto handle = webview::detail::json_parse(req, "", 0);
-            auto data_b64 = webview::detail::json_parse(req, "", 1);
-            if (!handle.empty()) mgr->writeStdin(handle, webview::detail::base64_decode(data_b64));
-            return "";
-        });
-
-        w->bind("__meta_closeStdin", [mgr](const std::string& req) -> std::string {
-            auto handle = webview::detail::json_parse(req, "", 0);
-            if (!handle.empty()) mgr->closeStdin(handle);
-            return "";
-        });
-
-        w->bind("__meta_kill", [mgr](const std::string& req) -> std::string {
-            auto handle = webview::detail::json_parse(req, "", 0);
-            auto sig_str = webview::detail::json_parse(req, "", 1);
-            if (!handle.empty()) {
-                int sig = SIGTERM;
-                if (sig_str == "SIGKILL" || sig_str == "9") sig = SIGKILL;
-                mgr->killProcess(handle, sig);
-            }
-            return "";
-        });
-
-        w->bind("__meta_resize", [mgr](const std::string& req) -> std::string {
-            auto handle = webview::detail::json_parse(req, "", 0);
-            auto cols_str = webview::detail::json_parse(req, "", 1);
-            auto rows_str = webview::detail::json_parse(req, "", 2);
-            if (!handle.empty() && !cols_str.empty() && !rows_str.empty()) {
-                mgr->resizeTerminal(handle, std::stoi(cols_str), std::stoi(rows_str));
-            }
-            return "";
-        });
-
-        w->bind("__meta_cleanup", [mgr](const std::string& req) -> std::string {
-            auto handle = webview::detail::json_parse(req, "", 0);
-            if (!handle.empty()) mgr->cleanup(handle);
-            return "";
-        });
+        mgr->bind(*w);
 
         const std::string html = R"html(
 <!DOCTYPE html>
@@ -105,6 +30,7 @@ int main() {
 </head>
 <body>
     <h1>MetaScript Runtime</h1>
+    <p>Architecture: C (Host Orchestrator) + WebView (Web/JS Runtime)</p>
 
     <div>
         <h2>Process Spawning</h2>
@@ -113,13 +39,13 @@ int main() {
     </div>
 
     <div>
-        <h2>Synchronous Execution</h2>
+        <h2>Synchronous Execution (Async Bridge)</h2>
         <button onclick="testSpawnSync()">Test meta.spawnSync(['uname', '-a'])</button>
         <pre id="syncOutput"></pre>
     </div>
 
     <div>
-        <h2>Interactive Terminal</h2>
+        <h2>Interactive Terminal (PTY)</h2>
         <button onclick="testTerminal()">Start bash session</button>
         <pre id="termOutput" class="terminal"></pre>
         <input type="text" id="termInput" placeholder="Type command and press Enter..." onkeypress="if(event.key==='Enter') sendTerm()">
@@ -145,7 +71,11 @@ int main() {
             out.textContent = 'Running...';
             try {
                 const res = await window.meta.spawnSync(['uname', '-a']);
-                out.textContent = JSON.stringify(res, null, 2);
+                out.textContent = JSON.stringify({
+                  ...res,
+                  stdout: new TextDecoder().decode(res.stdout),
+                  stderr: new TextDecoder().decode(res.stderr)
+                }, null, 2);
             } catch (e) {
                 out.textContent = 'Error: ' + e.message;
             }

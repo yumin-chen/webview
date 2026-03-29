@@ -70,9 +70,85 @@ public:
         }
     }
 
+    void bind(::webview::webview& w) {
+        m_webview = &w;
+        auto self = shared_from_this();
+
+        w.bind("__meta_spawn", [self](const std::string& id, const std::string& req, void*) {
+            std::string handle = ::webview::detail::json_parse(req, "", 0);
+            std::string cmd_json = ::webview::detail::json_parse(req, "", 1);
+            std::string opts_json = ::webview::detail::json_parse(req, "", 2);
+
+            std::vector<std::string> cmd;
+            for (int i = 0; ; ++i) {
+                std::string s = ::webview::detail::json_parse(cmd_json, "", i);
+                if (s.empty()) break;
+                cmd.push_back(s);
+            }
+
+            std::string res = self->spawn(handle, cmd, opts_json);
+            self->m_webview->resolve(id, 0, res);
+        }, nullptr);
+
+        w.bind("__meta_spawnSync", [self](const std::string& id, const std::string& req, void*) {
+            std::string cmd_json = ::webview::detail::json_parse(req, "", 0);
+            std::string opts_json = ::webview::detail::json_parse(req, "", 1);
+
+            std::vector<std::string> cmd;
+            for (int i = 0; ; ++i) {
+                std::string s = ::webview::detail::json_parse(cmd_json, "", i);
+                if (s.empty()) break;
+                cmd.push_back(s);
+            }
+
+            std::string res = self->spawnSync(cmd, opts_json);
+            self->m_webview->resolve(id, 0, res);
+        }, nullptr);
+
+        w.bind("__meta_write", [self](const std::string& req) -> std::string {
+            std::string handle = ::webview::detail::json_parse(req, "", 0);
+            std::string data_b64 = ::webview::detail::json_parse(req, "", 1);
+            if (!handle.empty()) self->writeStdin(handle, ::webview::detail::base64_decode(data_b64));
+            return "";
+        });
+
+        w.bind("__meta_closeStdin", [self](const std::string& req) -> std::string {
+            std::string handle = ::webview::detail::json_parse(req, "", 0);
+            if (!handle.empty()) self->closeStdin(handle);
+            return "";
+        });
+
+        w.bind("__meta_kill", [self](const std::string& req) -> std::string {
+            std::string handle = ::webview::detail::json_parse(req, "", 0);
+            std::string sig_str = ::webview::detail::json_parse(req, "", 1);
+            if (!handle.empty()) {
+                int sig = SIGTERM;
+                if (sig_str == "SIGKILL" || sig_str == "9") sig = SIGKILL;
+                self->killProcess(handle, sig);
+            }
+            return "";
+        });
+
+        w.bind("__meta_resize", [self](const std::string& req) -> std::string {
+            std::string handle = ::webview::detail::json_parse(req, "", 0);
+            std::string cols_str = ::webview::detail::json_parse(req, "", 1);
+            std::string rows_str = ::webview::detail::json_parse(req, "", 2);
+            if (!handle.empty() && !cols_str.empty() && !rows_str.empty()) {
+                self->resizeTerminal(handle, std::stoi(cols_str), std::stoi(rows_str));
+            }
+            return "";
+        });
+
+        w.bind("__meta_cleanup", [self](const std::string& req) -> std::string {
+            std::string handle = ::webview::detail::json_parse(req, "", 0);
+            if (!handle.empty()) self->cleanup(handle);
+            return "";
+        });
+    }
+
     std::string spawn(const std::string& handle, const std::vector<std::string>& cmd, const std::string& options_json) {
-        bool terminal = ::webview::detail::json_parse(options_json, "terminal", 0) != "";
-        std::string cwd = ::webview::detail::json_parse(options_json, "cwd", 0);
+        bool terminal = ::webview::detail::json_parse(options_json, "terminal", -1) != "";
+        std::string cwd = ::webview::detail::json_parse(options_json, "cwd", -1);
 
         auto info = std::make_shared<ProcessInfo>();
         info->handle = handle;
@@ -136,7 +212,7 @@ public:
     }
 
     std::string spawnSync(const std::vector<std::string>& cmd, const std::string& options_json) {
-        std::string cwd = ::webview::detail::json_parse(options_json, "cwd", 0);
+        std::string cwd = ::webview::detail::json_parse(options_json, "cwd", -1);
         int out_pipe[2], err_pipe[2];
         if (pipe(out_pipe) < 0 || pipe(err_pipe) < 0) return "{\"success\": false, \"error\": \"pipe failed\"}";
 
@@ -294,7 +370,6 @@ private:
         if (!terminal) {
             auto* data_err = new WatchData{self, info->handle, true};
             GIOChannel* chan_err = g_io_channel_unix_new(info->stderr_fd);
-            g_io_channel_set_encoding(chan_err, NULL, NULL);
             info->stderr_watch = g_io_add_watch_full(chan_err, G_PRIORITY_DEFAULT, (GIOCondition)(G_IO_IN | G_IO_HUP | G_IO_ERR),
                                                     on_io_ready, data_err, [](gpointer p) { delete static_cast<WatchData*>(p); });
             g_io_channel_unref(chan_err);
@@ -327,10 +402,11 @@ private:
 #else
 namespace webview {
 namespace meta {
-class SubprocessManager {
+class SubprocessManager : public std::enable_shared_from_this<SubprocessManager> {
 public:
     SubprocessManager(::webview::webview*) {}
     SubprocessManager() {}
+    void bind(::webview::webview&) {}
     std::string spawn(const std::string&, const std::vector<std::string>&, const std::string&) { return "{\"error\": \"Not implemented\"}"; }
     std::string spawnSync(const std::vector<std::string>&, const std::string&) { return "{\"success\": false}"; }
     void writeStdin(const std::string&, const std::string&) {}
