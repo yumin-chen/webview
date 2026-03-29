@@ -86,6 +86,56 @@ export interface TextFieldProps extends ControlProps {
     onEnter?: (value: string) => void;
 }
 
+export interface TextAreaProps extends ControlProps {
+    value?: string;
+    placeholder?: string;
+    readonly?: boolean;
+    maxLength?: number;
+    width?: number | "fill";
+    height?: number | "fill";
+    scrollable?: boolean;
+    wordWrap?: boolean;
+}
+
+export interface LabelProps extends ComponentProps {
+    text: string;
+    width?: number | "fill";
+    height?: number;
+}
+
+export interface CheckBoxProps extends ControlProps {
+    checked: boolean;
+    label?: string;
+}
+
+export interface RadioButtonProps extends ControlProps {
+    name: string;
+    value: string;
+    selected?: boolean;
+    label?: string;
+}
+
+export interface ComboBoxOption {
+    label: string;
+    value: string;
+}
+
+export interface ComboBoxProps extends ControlProps {
+    options: ComboBoxOption[];
+    selectedValue?: string;
+}
+
+export interface SliderProps extends ControlProps {
+    value: number;
+    min?: number;
+    max?: number;
+}
+
+export interface ProgressBarProps extends ComponentProps {
+    value?: number;
+    indeterminate?: boolean;
+}
+
 // Containers
 export interface StackProps extends ComponentProps {
     spacing?: number;
@@ -104,5 +154,12 @@ export interface StackProps extends ComponentProps {
 export function Window(props: WindowProps): any { return { type: "Window", props }; }
 export function Button(props: ButtonProps): any { return { type: "Button", props }; }
 export function TextField(props: TextFieldProps): any { return { type: "TextField", props }; }
+export function TextArea(props: TextAreaProps): any { return { type: "TextArea", props }; }
+export function Label(props: LabelProps): any { return { type: "Label", props }; }
+export function CheckBox(props: CheckBoxProps): any { return { type: "CheckBox", props }; }
+export function RadioButton(props: RadioButtonProps): any { return { type: "RadioButton", props }; }
+export function ComboBox(props: ComboBoxProps): any { return { type: "ComboBox", props }; }
+export function Slider(props: SliderProps): any { return { type: "Slider", props }; }
+export function ProgressBar(props: ProgressBarProps): any { return { type: "ProgressBar", props }; }
 export function VStack(props: StackProps): any { return { type: "VStack", props }; }
 export function HStack(props: StackProps): any { return { type: "HStack", props }; }

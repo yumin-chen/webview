@@ -1,4 +1,4 @@
-import { Window, Button, TextField, VStack, HStack } from "./components";
+import { Window, Button, TextField, TextArea, Label, CheckBox, RadioButton, ComboBox, Slider, ProgressBar, VStack, HStack } from "./components";
 import { Color } from "./types";
 
 declare global {
@@ -17,6 +17,13 @@ export {
     Window,
     Button,
     TextField,
+    TextArea,
+    Label,
+    CheckBox,
+    RadioButton,
+    ComboBox,
+    Slider,
+    ProgressBar,
     VStack,
     HStack,
     Color
