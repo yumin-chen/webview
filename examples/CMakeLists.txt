@@ -35,3 +35,7 @@ target_link_libraries(webview_example_bind_cc PRIVATE webview::core Threads::Thr
 add_executable(webview_alloy_test MACOSX_BUNDLE WIN32)
 target_sources(webview_alloy_test PRIVATE alloy_test.cc ${SHARED_SOURCES})
 target_link_libraries(webview_alloy_test PRIVATE webview::core Threads::Threads)
+
+add_executable(webview_alloy_shell_test MACOSX_BUNDLE WIN32)
+target_sources(webview_alloy_shell_test PRIVATE alloy_shell_test.cc ${SHARED_SOURCES})
+target_link_libraries(webview_alloy_shell_test PRIVATE webview::core Threads::Threads)
