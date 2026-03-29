@@ -6,6 +6,7 @@
 #include <map>
 #include <functional>
 #include <memory>
+#include <atomic>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -24,9 +25,9 @@ namespace alloy {
 struct spawn_options {
     std::string cwd;
     std::map<std::string, std::string> env;
-    std::string stdin_mode; // "pipe", "inherit", "ignore", "null"
-    std::string stdout_mode;
-    std::string stderr_mode;
+    std::string stdin_mode = "pipe";
+    std::string stdout_mode = "pipe";
+    std::string stderr_mode = "pipe";
     bool terminal = false;
     int terminal_cols = 80;
     int terminal_rows = 24;
@@ -66,8 +67,13 @@ public:
 private:
     std::vector<std::string> m_cmd;
     spawn_options m_options;
-    process_handle_t m_process;
-    int m_pid = -1;
+#ifdef _WIN32
+    HANDLE m_process = INVALID_HANDLE_VALUE;
+#else
+    pid_t m_pid = -1;
+#endif
+    std::atomic<bool> m_exited{false};
+    int m_exit_code = -1;
 
     pipe_handle_t m_stdin_fd = -1;
     pipe_handle_t m_stdout_fd = -1;
@@ -76,6 +82,7 @@ private:
     pipe_handle_t m_ipc_fd = -1;
 
     void spawn();
+    void cleanup_pipes();
 };
 
 } // namespace alloy

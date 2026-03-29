@@ -13,16 +13,16 @@ class process_manager {
 public:
     static process_manager& instance();
 
-    std::string register_proc(std::unique_ptr<subprocess> proc);
-    subprocess* get_proc(const std::string& id);
+    std::string register_proc(std::shared_ptr<subprocess> proc);
+    std::shared_ptr<subprocess> get_proc(const std::string& id);
     void unregister_proc(const std::string& id);
 
-    std::map<std::string, subprocess*> get_all_procs();
+    std::map<std::string, std::shared_ptr<subprocess>> get_all_procs();
 
 private:
     process_manager() = default;
     std::mutex m_mutex;
-    std::map<std::string, std::unique_ptr<subprocess>> m_procs;
+    std::map<std::string, std::shared_ptr<subprocess>> m_procs;
     int m_next_id = 1;
 };
 
