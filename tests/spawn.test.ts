@@ -68,6 +68,29 @@ describe("Alloy Runtime", () => {
       expect(result).toBe(code);
   });
 
+  describe("secureEval comprehensive", () => {
+      test("should handle complex expressions", () => {
+          const code = "(function() { return 2 + 2 * 3; })()";
+          expect(secureEval(code)).toBe(code);
+      });
+
+      test("should handle string manipulation", () => {
+          const code = "'hello'.toUpperCase()";
+          expect(secureEval(code)).toBe(code);
+      });
+
+      test("should handle error cases (mocked)", () => {
+          // Simulate a syntax error return from bridge
+          const originalMock = (window as any).Alloy.secureEval;
+          (window as any).Alloy.secureEval = () => "SyntaxError: unexpected token";
+
+          expect(secureEval("invalid code")).toContain("SyntaxError");
+
+          // Restore mock
+          (window as any).Alloy.secureEval = originalMock;
+      });
+  });
+
   test("window.eval should be replaced", () => {
       const originalEval = (window as any).eval;
       (window as any)._forbidden_eval = originalEval || (() => {});

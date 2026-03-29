@@ -27,7 +27,10 @@ void alloy_secure_eval(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
 
     /*
-     * In a full implementation, we would use MicroQuickJS:
+     * In a full implementation, this runs within an OCI-compatible,
+     * chainguarded containerized Linux kernel for ultimate isolation.
+     *
+     * We would use MicroQuickJS:
      * JSRuntime *rt = JS_NewRuntime();
      * JSContext *ctx = JS_NewContext(rt);
      * JSValue val = JS_Eval(ctx, req, strlen(req), "<input>", JS_EVAL_TYPE_GLOBAL);

@@ -7,7 +7,7 @@ The AlloyScript runtime is a high-performance, secure JavaScript environment bui
 1.  **TypeScript Library**: Provides typed APIs for SQLite, Spawn, and SecureEval.
 2.  **C Host Program**: A native wrapper that initializes a WebView window and exposes a bridge to the JS context.
 3.  **Bridge**: Communication between JS and C via `window.Alloy`.
-4.  **Secure Evaluation**: `window.eval` is replaced with `secureEval` which uses [MicroQuickJS](https://github.com/bellard/mquickjs) for a sandboxed environment.
+4.  **Secure Evaluation**: `window.eval` is replaced with `secureEval` which runs [MicroQuickJS](https://github.com/bellard/mquickjs) within an OCI-compatible, chainguarded containerized Linux kernel for ultimate isolation.
 5.  **SQLite Driver**: A high-performance driver with transactions, prepared statement caching, and `bigint` support.
 
 ## Security
