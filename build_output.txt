@@ -1,0 +1,441 @@
+[0/2] Re-checking globbed directories...
+[1/2] Building CXX object core/CMakeFiles/alloy_gui.dir/src/alloy.cc.o
+FAILED: core/CMakeFiles/alloy_gui.dir/src/alloy.cc.o
+/usr/bin/c++  -I/app/core/include/alloy -I/app/core/include -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++11 -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT core/CMakeFiles/alloy_gui.dir/src/alloy.cc.o -MF core/CMakeFiles/alloy_gui.dir/src/alloy.cc.o.d -o core/CMakeFiles/alloy_gui.dir/src/alloy.cc.o -c /app/core/src/alloy.cc
+In file included from /app/core/include/alloy/detail/backends/gtk_gui.hh:4,
+                 from /app/core/src/alloy.cc:16:
+/app/core/include/alloy/detail/backends/../component_base.hh:10:11: warning: nested namespace definitions only available with ‘-std=c++17’ or ‘-std=gnu++17’ [-Wc++17-extensions]
+   10 | namespace alloy::detail {
+      |           ^~~~~
+/app/core/include/alloy/detail/backends/../component_base.hh:21:39: error: ‘std::string_view’ has not been declared
+   21 |   virtual alloy_error_t set_text(std::string_view text)    = 0;
+      |                                       ^~~~~~~~~~~
+/app/core/include/alloy/detail/backends/../component_base.hh: In member function ‘void alloy::detail::component_base::set_event_callback(alloy_event_type_t, alloy_event_cb_t, void*)’:
+/app/core/include/alloy/detail/backends/../component_base.hh:45:27: error: no match for ‘operator=’ (operand types are ‘std::unordered_map<alloy_event_type_t, alloy::detail::event_slot>::mapped_type’ {aka ‘alloy::detail::event_slot’} and ‘<brace-enclosed initializer list>’)
+   45 |     m_events[ev] = {fn, ud};
+      |                           ^
+/app/core/include/alloy/detail/backends/../component_base.hh:12:8: note: candidate: ‘alloy::detail::event_slot& alloy::detail::event_slot::operator=(const alloy::detail::event_slot&)’
+   12 | struct event_slot {
+      |        ^~~~~~~~~~
+/app/core/include/alloy/detail/backends/../component_base.hh:12:8: note:   no known conversion for argument 1 from ‘<brace-enclosed initializer list>’ to ‘const alloy::detail::event_slot&’
+/app/core/include/alloy/detail/backends/../component_base.hh:12:8: note: candidate: ‘alloy::detail::event_slot& alloy::detail::event_slot::operator=(alloy::detail::event_slot&&)’
+/app/core/include/alloy/detail/backends/../component_base.hh:12:8: note:   no known conversion for argument 1 from ‘<brace-enclosed initializer list>’ to ‘alloy::detail::event_slot&&’
+/app/core/include/alloy/detail/backends/gtk_gui.hh: At global scope:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:8:11: warning: nested namespace definitions only available with ‘-std=c++17’ or ‘-std=gnu++17’ [-Wc++17-extensions]
+    8 | namespace alloy::detail {
+      |           ^~~~~
+/app/core/include/alloy/detail/backends/gtk_gui.hh:20:31: error: ‘std::string_view’ has not been declared
+   20 |   alloy_error_t set_text(std::string_view text) override {
+      |                               ^~~~~~~~~~~
+/app/core/include/alloy/detail/backends/gtk_gui.hh: In member function ‘virtual alloy_error_t alloy::detail::gtk_component::set_text(int)’:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:22:66: error: no matching function for call to ‘std::__cxx11::basic_string<char>::basic_string(int&)’
+   22 |       gtk_window_set_title(GTK_WINDOW(m_widget), std::string(text).c_str());
+      |                                                                  ^
+In file included from /usr/include/c++/13/string:54,
+                 from /app/core/src/alloy.cc:2:
+/usr/include/c++/13/bits/basic_string.h:760:9: note: candidate: ‘template<class _InputIterator, class> std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(_InputIterator, _InputIterator, const _Alloc&) [with <template-parameter-2-2> = _InputIterator; _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  760 |         basic_string(_InputIterator __beg, _InputIterator __end,
+      |         ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:760:9: note:   template argument deduction/substitution failed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:22:66: note:   candidate expects 3 arguments, 1 provided
+   22 |       gtk_window_set_title(GTK_WINDOW(m_widget), std::string(text).c_str());
+      |                                                                  ^
+/usr/include/c++/13/bits/basic_string.h:716:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  716 |       basic_string(basic_string&& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:716:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:711:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  711 |       basic_string(const basic_string& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:711:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:706:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::initializer_list<_Tp>, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:706:45: note:   no known conversion for argument 1 from ‘int’ to ‘std::initializer_list<char>’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |                    ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:677:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:677:35: note:   no known conversion for argument 1 from ‘int’ to ‘std::__cxx11::basic_string<char>&&’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |                    ~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(size_type, _CharT, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  664 |       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:641:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’ (near match)
+  641 |       basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:641:7: note:   conversion of argument 1 would be ill-formed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:22:62: error: invalid conversion from ‘int’ to ‘const char*’ [-fpermissive]
+   22 |       gtk_window_set_title(GTK_WINDOW(m_widget), std::string(text).c_str());
+      |                                                              ^~~~
+      |                                                              |
+      |                                                              int
+/usr/include/c++/13/bits/basic_string.h:619:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  619 |       basic_string(const _CharT* __s, size_type __n,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:619:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:599:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  599 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:599:7: note:   candidate expects 4 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:581:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  581 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:581:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:564:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  564 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:564:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:547:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  547 |       basic_string(const basic_string& __str)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:547:40: note:   no known conversion for argument 1 from ‘int’ to ‘const std::__cxx11::basic_string<char>&’
+  547 |       basic_string(const basic_string& __str)
+      |                    ~~~~~~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:535:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:535:34: note:   no known conversion for argument 1 from ‘int’ to ‘const std::allocator<char>&’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |                    ~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string() [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  522 |       basic_string()
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note:   candidate expects 0 arguments, 1 provided
+/app/core/include/alloy/detail/backends/gtk_gui.hh:24:66: error: no matching function for call to ‘std::__cxx11::basic_string<char>::basic_string(int&)’
+   24 |       gtk_button_set_label(GTK_BUTTON(m_widget), std::string(text).c_str());
+      |                                                                  ^
+/usr/include/c++/13/bits/basic_string.h:760:9: note: candidate: ‘template<class _InputIterator, class> std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(_InputIterator, _InputIterator, const _Alloc&) [with <template-parameter-2-2> = _InputIterator; _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  760 |         basic_string(_InputIterator __beg, _InputIterator __end,
+      |         ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:760:9: note:   template argument deduction/substitution failed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:24:66: note:   candidate expects 3 arguments, 1 provided
+   24 |       gtk_button_set_label(GTK_BUTTON(m_widget), std::string(text).c_str());
+      |                                                                  ^
+/usr/include/c++/13/bits/basic_string.h:716:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  716 |       basic_string(basic_string&& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:716:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:711:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  711 |       basic_string(const basic_string& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:711:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:706:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::initializer_list<_Tp>, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:706:45: note:   no known conversion for argument 1 from ‘int’ to ‘std::initializer_list<char>’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |                    ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:677:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:677:35: note:   no known conversion for argument 1 from ‘int’ to ‘std::__cxx11::basic_string<char>&&’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |                    ~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(size_type, _CharT, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  664 |       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:641:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’ (near match)
+  641 |       basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:641:7: note:   conversion of argument 1 would be ill-formed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:24:62: error: invalid conversion from ‘int’ to ‘const char*’ [-fpermissive]
+   24 |       gtk_button_set_label(GTK_BUTTON(m_widget), std::string(text).c_str());
+      |                                                              ^~~~
+      |                                                              |
+      |                                                              int
+/usr/include/c++/13/bits/basic_string.h:619:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  619 |       basic_string(const _CharT* __s, size_type __n,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:619:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:599:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  599 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:599:7: note:   candidate expects 4 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:581:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  581 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:581:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:564:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  564 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:564:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:547:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  547 |       basic_string(const basic_string& __str)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:547:40: note:   no known conversion for argument 1 from ‘int’ to ‘const std::__cxx11::basic_string<char>&’
+  547 |       basic_string(const basic_string& __str)
+      |                    ~~~~~~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:535:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:535:34: note:   no known conversion for argument 1 from ‘int’ to ‘const std::allocator<char>&’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |                    ~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string() [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  522 |       basic_string()
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note:   candidate expects 0 arguments, 1 provided
+/app/core/include/alloy/detail/backends/gtk_gui.hh:26:63: error: no matching function for call to ‘std::__cxx11::basic_string<char>::basic_string(int&)’
+   26 |       gtk_label_set_text(GTK_LABEL(m_widget), std::string(text).c_str());
+      |                                                               ^
+/usr/include/c++/13/bits/basic_string.h:760:9: note: candidate: ‘template<class _InputIterator, class> std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(_InputIterator, _InputIterator, const _Alloc&) [with <template-parameter-2-2> = _InputIterator; _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  760 |         basic_string(_InputIterator __beg, _InputIterator __end,
+      |         ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:760:9: note:   template argument deduction/substitution failed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:26:63: note:   candidate expects 3 arguments, 1 provided
+   26 |       gtk_label_set_text(GTK_LABEL(m_widget), std::string(text).c_str());
+      |                                                               ^
+/usr/include/c++/13/bits/basic_string.h:716:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  716 |       basic_string(basic_string&& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:716:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:711:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  711 |       basic_string(const basic_string& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:711:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:706:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::initializer_list<_Tp>, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:706:45: note:   no known conversion for argument 1 from ‘int’ to ‘std::initializer_list<char>’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |                    ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:677:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:677:35: note:   no known conversion for argument 1 from ‘int’ to ‘std::__cxx11::basic_string<char>&&’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |                    ~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(size_type, _CharT, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  664 |       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:641:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’ (near match)
+  641 |       basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:641:7: note:   conversion of argument 1 would be ill-formed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:26:59: error: invalid conversion from ‘int’ to ‘const char*’ [-fpermissive]
+   26 |       gtk_label_set_text(GTK_LABEL(m_widget), std::string(text).c_str());
+      |                                                           ^~~~
+      |                                                           |
+      |                                                           int
+/usr/include/c++/13/bits/basic_string.h:619:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  619 |       basic_string(const _CharT* __s, size_type __n,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:619:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:599:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  599 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:599:7: note:   candidate expects 4 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:581:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  581 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:581:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:564:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  564 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:564:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:547:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  547 |       basic_string(const basic_string& __str)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:547:40: note:   no known conversion for argument 1 from ‘int’ to ‘const std::__cxx11::basic_string<char>&’
+  547 |       basic_string(const basic_string& __str)
+      |                    ~~~~~~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:535:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:535:34: note:   no known conversion for argument 1 from ‘int’ to ‘const std::allocator<char>&’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |                    ~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string() [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  522 |       basic_string()
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note:   candidate expects 0 arguments, 1 provided
+/app/core/include/alloy/detail/backends/gtk_gui.hh:28:63: error: no matching function for call to ‘std::__cxx11::basic_string<char>::basic_string(int&)’
+   28 |       gtk_entry_set_text(GTK_ENTRY(m_widget), std::string(text).c_str());
+      |                                                               ^
+/usr/include/c++/13/bits/basic_string.h:760:9: note: candidate: ‘template<class _InputIterator, class> std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(_InputIterator, _InputIterator, const _Alloc&) [with <template-parameter-2-2> = _InputIterator; _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  760 |         basic_string(_InputIterator __beg, _InputIterator __end,
+      |         ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:760:9: note:   template argument deduction/substitution failed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:28:63: note:   candidate expects 3 arguments, 1 provided
+   28 |       gtk_entry_set_text(GTK_ENTRY(m_widget), std::string(text).c_str());
+      |                                                               ^
+/usr/include/c++/13/bits/basic_string.h:716:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  716 |       basic_string(basic_string&& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:716:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:711:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  711 |       basic_string(const basic_string& __str, const _Alloc& __a)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:711:7: note:   candidate expects 2 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:706:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::initializer_list<_Tp>, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:706:45: note:   no known conversion for argument 1 from ‘int’ to ‘std::initializer_list<char>’
+  706 |       basic_string(initializer_list<_CharT> __l, const _Alloc& __a = _Alloc())
+      |                    ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:677:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:677:35: note:   no known conversion for argument 1 from ‘int’ to ‘std::__cxx11::basic_string<char>&&’
+  677 |       basic_string(basic_string&& __str) noexcept
+      |                    ~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(size_type, _CharT, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  664 |       basic_string(size_type __n, _CharT __c, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:664:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:641:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’ (near match)
+  641 |       basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:641:7: note:   conversion of argument 1 would be ill-formed:
+/app/core/include/alloy/detail/backends/gtk_gui.hh:28:59: error: invalid conversion from ‘int’ to ‘const char*’ [-fpermissive]
+   28 |       gtk_entry_set_text(GTK_ENTRY(m_widget), std::string(text).c_str());
+      |                                                           ^~~~
+      |                                                           |
+      |                                                           int
+/usr/include/c++/13/bits/basic_string.h:619:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _CharT*, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  619 |       basic_string(const _CharT* __s, size_type __n,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:619:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:599:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  599 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:599:7: note:   candidate expects 4 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:581:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, size_type) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  581 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:581:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:564:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&, size_type, const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>; size_type = long unsigned int]’
+  564 |       basic_string(const basic_string& __str, size_type __pos,
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:564:7: note:   candidate expects 3 arguments, 1 provided
+/usr/include/c++/13/bits/basic_string.h:547:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const std::__cxx11::basic_string<_CharT, _Traits, _Alloc>&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  547 |       basic_string(const basic_string& __str)
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:547:40: note:   no known conversion for argument 1 from ‘int’ to ‘const std::__cxx11::basic_string<char>&’
+  547 |       basic_string(const basic_string& __str)
+      |                    ~~~~~~~~~~~~~~~~~~~~^~~~~
+/usr/include/c++/13/bits/basic_string.h:535:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string(const _Alloc&) [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:535:34: note:   no known conversion for argument 1 from ‘int’ to ‘const std::allocator<char>&’
+  535 |       basic_string(const _Alloc& __a) _GLIBCXX_NOEXCEPT
+      |                    ~~~~~~~~~~~~~~^~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note: candidate: ‘std::__cxx11::basic_string<_CharT, _Traits, _Alloc>::basic_string() [with _CharT = char; _Traits = std::char_traits<char>; _Alloc = std::allocator<char>]’
+  522 |       basic_string()
+      |       ^~~~~~~~~~~~
+/usr/include/c++/13/bits/basic_string.h:522:7: note:   candidate expects 0 arguments, 1 provided
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_set_text(alloy_component_t, const char*)’:
+/app/core/src/alloy.cc:95:96: error: invalid conversion from ‘const char*’ to ‘int’ [-fpermissive]
+   95 | alloy_error_t alloy_set_text(alloy_component_t h, const char *text) { return cast(h)->set_text(text); }
+      |                                                                                                ^~~~
+      |                                                                                                |
+      |                                                                                                const char*
+/app/core/include/alloy/detail/backends/../component_base.hh:21:51: note:   initializing argument 1 of ‘virtual alloy_error_t alloy::detail::component_base::set_text(int)’
+   21 |   virtual alloy_error_t set_text(std::string_view text)    = 0;
+      |                                  ~~~~~~~~~~~~~~~~~^~~~
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_terminate(alloy_component_t)’:
+/app/core/src/alloy.cc:133:49: warning: unused parameter ‘window’ [-Wunused-parameter]
+  133 | alloy_error_t alloy_terminate(alloy_component_t window) {
+      |                               ~~~~~~~~~~~~~~~~~~^~~~~~
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_dispatch(alloy_component_t, void (*)(void*), void*)’:
+/app/core/src/alloy.cc:140:48: warning: unused parameter ‘window’ [-Wunused-parameter]
+  140 | alloy_error_t alloy_dispatch(alloy_component_t window, void (*fn)(void *arg), void *arg) {
+      |                              ~~~~~~~~~~~~~~~~~~^~~~~~
+/app/core/src/alloy.cc: In function ‘void* alloy_create_textfield(alloy_component_t)’:
+/app/core/src/alloy.cc:153:60: warning: unused parameter ‘p’ [-Wunused-parameter]
+  153 | alloy_component_t alloy_create_textfield(alloy_component_t p) { return nullptr; }
+      |                                          ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_textarea(alloy_component_t)’:
+/app/core/src/alloy.cc:154:59: warning: unused parameter ‘p’ [-Wunused-parameter]
+  154 | alloy_component_t alloy_create_textarea(alloy_component_t p) { return nullptr; }
+      |                                         ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_checkbox(alloy_component_t)’:
+/app/core/src/alloy.cc:155:59: warning: unused parameter ‘p’ [-Wunused-parameter]
+  155 | alloy_component_t alloy_create_checkbox(alloy_component_t p) { return nullptr; }
+      |                                         ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_radiobutton(alloy_component_t)’:
+/app/core/src/alloy.cc:156:62: warning: unused parameter ‘p’ [-Wunused-parameter]
+  156 | alloy_component_t alloy_create_radiobutton(alloy_component_t p) { return nullptr; }
+      |                                            ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_combobox(alloy_component_t)’:
+/app/core/src/alloy.cc:157:59: warning: unused parameter ‘p’ [-Wunused-parameter]
+  157 | alloy_component_t alloy_create_combobox(alloy_component_t p) { return nullptr; }
+      |                                         ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_slider(alloy_component_t)’:
+/app/core/src/alloy.cc:158:57: warning: unused parameter ‘p’ [-Wunused-parameter]
+  158 | alloy_component_t alloy_create_slider(alloy_component_t p) { return nullptr; }
+      |                                       ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_tabview(alloy_component_t)’:
+/app/core/src/alloy.cc:159:58: warning: unused parameter ‘p’ [-Wunused-parameter]
+  159 | alloy_component_t alloy_create_tabview(alloy_component_t p) { return nullptr; }
+      |                                        ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_listview(alloy_component_t)’:
+/app/core/src/alloy.cc:160:59: warning: unused parameter ‘p’ [-Wunused-parameter]
+  160 | alloy_component_t alloy_create_listview(alloy_component_t p) { return nullptr; }
+      |                                         ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_treeview(alloy_component_t)’:
+/app/core/src/alloy.cc:161:59: warning: unused parameter ‘p’ [-Wunused-parameter]
+  161 | alloy_component_t alloy_create_treeview(alloy_component_t p) { return nullptr; }
+      |                                         ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_webview(alloy_component_t)’:
+/app/core/src/alloy.cc:162:58: warning: unused parameter ‘p’ [-Wunused-parameter]
+  162 | alloy_component_t alloy_create_webview(alloy_component_t p) { return nullptr; }
+      |                                        ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_hstack(alloy_component_t)’:
+/app/core/src/alloy.cc:163:57: warning: unused parameter ‘p’ [-Wunused-parameter]
+  163 | alloy_component_t alloy_create_hstack(alloy_component_t p) { return nullptr; }
+      |                                       ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘void* alloy_create_scrollview(alloy_component_t)’:
+/app/core/src/alloy.cc:164:61: warning: unused parameter ‘p’ [-Wunused-parameter]
+  164 | alloy_component_t alloy_create_scrollview(alloy_component_t p) { return nullptr; }
+      |                                           ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_set_flex(alloy_component_t, float)’:
+/app/core/src/alloy.cc:165:48: warning: unused parameter ‘h’ [-Wunused-parameter]
+  165 | alloy_error_t alloy_set_flex(alloy_component_t h, float flex) { return ALLOY_OK; }
+      |                              ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc:165:57: warning: unused parameter ‘flex’ [-Wunused-parameter]
+  165 | alloy_error_t alloy_set_flex(alloy_component_t h, float flex) { return ALLOY_OK; }
+      |                                                   ~~~~~~^~~~
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_set_padding(alloy_component_t, float, float, float, float)’:
+/app/core/src/alloy.cc:166:51: warning: unused parameter ‘h’ [-Wunused-parameter]
+  166 | alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                 ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc:166:60: warning: unused parameter ‘t’ [-Wunused-parameter]
+  166 | alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                      ~~~~~~^
+/app/core/src/alloy.cc:166:69: warning: unused parameter ‘r’ [-Wunused-parameter]
+  166 | alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                               ~~~~~~^
+/app/core/src/alloy.cc:166:78: warning: unused parameter ‘b’ [-Wunused-parameter]
+  166 | alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                                        ~~~~~~^
+/app/core/src/alloy.cc:166:87: warning: unused parameter ‘l’ [-Wunused-parameter]
+  166 | alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                                                 ~~~~~~^
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_set_margin(alloy_component_t, float, float, float, float)’:
+/app/core/src/alloy.cc:167:50: warning: unused parameter ‘h’ [-Wunused-parameter]
+  167 | alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                ~~~~~~~~~~~~~~~~~~^
+/app/core/src/alloy.cc:167:59: warning: unused parameter ‘t’ [-Wunused-parameter]
+  167 | alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                     ~~~~~~^
+/app/core/src/alloy.cc:167:68: warning: unused parameter ‘r’ [-Wunused-parameter]
+  167 | alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                              ~~~~~~^
+/app/core/src/alloy.cc:167:77: warning: unused parameter ‘b’ [-Wunused-parameter]
+  167 | alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                                       ~~~~~~^
+/app/core/src/alloy.cc:167:86: warning: unused parameter ‘l’ [-Wunused-parameter]
+  167 | alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
+      |                                                                                ~~~~~~^
+/app/core/src/alloy.cc: In function ‘alloy_error_t alloy_layout(alloy_component_t)’:
+/app/core/src/alloy.cc:168:46: warning: unused parameter ‘window’ [-Wunused-parameter]
+  168 | alloy_error_t alloy_layout(alloy_component_t window) { return ALLOY_OK; }
+      |                            ~~~~~~~~~~~~~~~~~~^~~~~~
+ninja: build stopped: subcommand failed.

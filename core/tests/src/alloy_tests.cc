@@ -1,5 +1,6 @@
 #include "webview/test_driver.hh"
 #include "webview/detail/alloyscript_runtime.hh"
+#include "alloy/api.h"
 #include <fstream>
 #include <chrono>
 #include <thread>
@@ -99,4 +100,45 @@ TEST_CASE("Alloy Shell Pipelines") {
         REQUIRE(res.stdout_data.find("1") != std::string::npos);
     }
 #endif
+}
+
+TEST_CASE("Alloy GUI C API") {
+    SECTION("Window creation and title") {
+        auto win = alloy_create_window("Test Window", 800, 600);
+        REQUIRE(win != nullptr);
+
+        alloy_set_text(win, "New Title");
+        char buf[256];
+        alloy_get_text(win, buf, sizeof(buf));
+        REQUIRE(std::string(buf) == "New Title");
+
+        alloy_destroy(win);
+    }
+
+    SECTION("Button creation and parent-child") {
+        auto win = alloy_create_window("Parent", 400, 300);
+        auto btn = alloy_create_button(win);
+        REQUIRE(btn != nullptr);
+
+        alloy_set_text(btn, "Click");
+        char buf[256];
+        alloy_get_text(btn, buf, sizeof(buf));
+        REQUIRE(std::string(buf) == "Click");
+
+        alloy_destroy(win); // Should ideally destroy children too if implementation handles it,
+                            // but here we just test lifecycle
+        alloy_destroy(btn);
+    }
+
+    SECTION("ProgressBar values") {
+        auto win = alloy_create_window("Progress", 400, 300);
+        auto pb = alloy_create_progressbar(win);
+        REQUIRE(pb != nullptr);
+
+        alloy_set_value(pb, 0.75);
+        REQUIRE(alloy_get_value(pb) == 0.75);
+
+        alloy_destroy(pb);
+        alloy_destroy(win);
+    }
 }

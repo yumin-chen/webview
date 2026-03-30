@@ -1,0 +1,9 @@
+bun test v1.2.14 (6a363a38)
+The following filters did not match any test files:
+  tests/sqlite.test.ts
+312 files were searched [100.00ms]
+
+note: Tests need ".test", "_test_", ".spec" or "_spec_" in the filename (ex: "MyApp.test.ts")
+note: To treat the "tests/sqlite.test.ts" filter as a path, run "bun test ./tests/sqlite.test.ts"
+
+Learn more about the test runner: https://bun.sh/docs/cli/test

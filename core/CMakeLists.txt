@@ -6,6 +6,11 @@ target_include_directories(
     INTERFACE
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+# Alloy GUI library
+add_library(alloy_gui STATIC src/alloy.cc)
+target_include_directories(alloy_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/alloy")
+target_link_libraries(alloy_gui PUBLIC webview_core_headers)
 target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES})
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(webview_core_headers INTERFACE util)

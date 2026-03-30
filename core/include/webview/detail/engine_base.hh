@@ -241,17 +241,17 @@ protected:
 
            state->on_stdout = [this, id_str](const std::string &data) {
              this->dispatch([this, id_str, data]() {
-               this->eval("window.Alloy._onStdout('" + id_str + "', " + json_escape(data) + ")");
+               this->eval("Alloy._onStdout('" + id_str + "', " + json_escape(data) + ")");
              });
            };
            state->on_stderr = [this, id_str](const std::string &data) {
              this->dispatch([this, id_str, data]() {
-               this->eval("window.Alloy._onStderr('" + id_str + "', " + json_escape(data) + ")");
+               this->eval("Alloy._onStderr('" + id_str + "', " + json_escape(data) + ")");
              });
            };
            state->on_exit = [this, id_str](int exit_code, int signal_code) {
              this->dispatch([this, id_str, exit_code, signal_code]() {
-               this->eval("window.Alloy._onExit('" + id_str + "', " + std::to_string(exit_code) + ", " + std::to_string(signal_code) + ")");
+               this->eval("Alloy._onExit('" + id_str + "', " + std::to_string(exit_code) + ", " + std::to_string(signal_code) + ")");
                this->m_subprocesses.erase(id_str);
              });
            };
@@ -307,6 +307,109 @@ protected:
            }).detach();
          },
          nullptr);
+
+    bind("Alloy_sqliteOpen", [this](const std::string &seq, const std::string &req, void *) {
+        auto filename = json_parse(req, "", 0);
+        auto options = json_parse(req, "", 1);
+        bool readonly = json_parse(options, "readonly", 0) == "true";
+        bool create = json_parse(options, "create", 0) != "false";
+        bool strict = json_parse(options, "strict", 0) == "true";
+        bool safe_integers = json_parse(options, "safeIntegers", 0) == "true";
+
+        auto state = m_alloy.sqlite_open(filename, readonly, create, strict, safe_integers);
+        if (!state) { this->resolve(seq, 1, "null"); return; }
+
+        std::string db_id = std::to_string(reinterpret_cast<uintptr_t>(state->db));
+        m_sqlite_dbs[db_id] = state;
+        this->resolve(seq, 0, db_id);
+    }, nullptr);
+
+    bind("Alloy_guiCreate", [this](const std::string &seq, const std::string &req, void *) {
+        auto type = json_parse(req, "", 0);
+        auto props = json_parse(req, "", 1);
+        auto id = m_alloy.gui_create(type, props);
+        this->resolve(seq, 0, id);
+    }, nullptr);
+
+    bind("Alloy_guiUpdate", [this](const std::string &req) -> std::string {
+        auto id = json_parse(req, "", 0);
+        auto props = json_parse(req, "", 1);
+        m_alloy.gui_update(id, props);
+        return "true";
+    });
+
+    bind("Alloy_guiAddChild", [this](const std::string &req) -> std::string {
+        auto parent_id = json_parse(req, "", 0);
+        auto child_id = json_parse(req, "", 1);
+        m_alloy.gui_add_child(parent_id, child_id);
+        return "true";
+    });
+
+    bind("Alloy_sqliteQuery", [this](const std::string &seq, const std::string &req, void *) {
+        auto db_id = json_parse(req, "", 0);
+        auto sql = json_parse(req, "", 1);
+        auto params = json_parse(req, "", 2);
+        auto method = json_parse(req, "", 3);
+
+        auto it = m_sqlite_dbs.find(db_id);
+        if (it == m_sqlite_dbs.end()) { this->resolve(seq, 1, "null"); return; }
+        auto db_state = it->second;
+
+        auto stmt = m_alloy.sqlite_prepare(db_state, sql);
+        if (!stmt) { this->resolve(seq, 1, "null"); return; }
+
+        // Binding parameters
+        int param_count = sqlite3_bind_parameter_count(stmt);
+        for (int i = 1; i <= param_count; i++) {
+            const char* name = sqlite3_bind_parameter_name(stmt, i);
+            std::string val;
+            if (name) {
+                val = json_parse(params, name, 0);
+            } else {
+                val = json_parse(params, "", i-1);
+            }
+            if (!val.empty()) m_alloy.sqlite_bind(stmt, i, val, "string");
+        }
+
+        // Execution logic for all, get, run, values
+        std::string result_json = (method == "values" || method == "all") ? "[" : "";
+        bool first_row = true;
+        int status;
+        while ((status = sqlite3_step(stmt)) == SQLITE_ROW) {
+            if (!first_row && (method == "values" || method == "all")) result_json += ",";
+
+            if (method == "values") result_json += "[";
+            else if (method == "all" || method == "get") result_json += "{";
+
+            int cols = sqlite3_column_count(stmt);
+            for (int i = 0; i < cols; i++) {
+                if (i > 0) result_json += ",";
+                if (method != "values") result_json += json_escape(sqlite3_column_name(stmt, i)) + ":";
+
+                int type = sqlite3_column_type(stmt, i);
+                if (type == SQLITE_INTEGER) {
+                    long long val = sqlite3_column_int64(stmt, i);
+                    result_json += std::to_string(val) + (db_state->safe_integers ? "n" : "");
+                } else if (type == SQLITE_FLOAT) result_json += std::to_string(sqlite3_column_double(stmt, i));
+                else if (type == SQLITE_TEXT) result_json += json_escape((const char*)sqlite3_column_text(stmt, i));
+                else if (type == SQLITE_NULL) result_json += "null";
+                else result_json += "\"BLOB\"";
+            }
+
+            if (method == "values") result_json += "]";
+            else if (method == "all" || method == "get") result_json += "}";
+
+            first_row = false;
+            if (method == "get") break;
+        }
+        if (method == "values" || method == "all") result_json += "]";
+
+        if (method == "get" && first_row) result_json = "undefined";
+        else if (method == "run") {
+            result_json = "{\"lastInsertRowid\":" + std::to_string(sqlite3_last_insert_rowid(db_state->db)) + ",\"changes\":" + std::to_string(sqlite3_changes(db_state->db)) + "}";
+        }
+        this->resolve(seq, 0, result_json);
+    }, nullptr);
   }
 
   std::string create_alloy_script() {
@@ -393,8 +496,94 @@ protected:
   $.env_val = {};
   $.throws_val = true;
 
+  const Database = function(filename, options) {
+      this.id = null;
+      this.options = options || {};
+      this.filename = filename || ":memory:";
+      this.init = async () => {
+          this.id = await window.Alloy_sqliteOpen(this.filename, this.options);
+      };
+      this.query = (sql) => {
+          return {
+              all: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "all"),
+              get: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "get"),
+              run: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "run"),
+              values: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "values"),
+          };
+      };
+      this.prepare = this.query;
+      this.run = (sql, params) => this.query(sql).run(params);
+  };
+
+  const Window = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("Window", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+  };
+
+  const Button = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("Button", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+  };
+
+  const VStack = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("VStack", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+      this.add = (child) => window.Alloy_guiAddChild(this.id, child.id);
+  };
+
+  const TextField = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("TextField", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+  };
+
+  const TextArea = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("TextArea", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+  };
+
+  const Label = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("Label", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+  };
+
+  const ProgressBar = function(props) {
+      this.id = null;
+      this.props = props || {};
+      this.init = async () => {
+          this.id = await window.Alloy_guiCreate("ProgressBar", this.props);
+          await window.Alloy_guiUpdate(this.id, this.props);
+      };
+      this.setValue = (val) => window.Alloy_guiUpdate(this.id, { value: val });
+  };
+
   window.Alloy = {
     $: $,
+    sqlite: { Database: Database },
+    gui: { Window: Window, Button: Button, VStack: VStack, TextField: TextField, TextArea: TextArea, Label: Label, ProgressBar: ProgressBar },
     _subprocesses: {},
     spawn: async function(cmd, options) {
       const id = await window.Alloy_spawn(cmd, options || {});
@@ -616,6 +805,8 @@ private:
   alloyscript_runtime m_alloy;
   std::map<std::string, std::shared_ptr<alloyscript_runtime::shared_state>>
       m_subprocesses;
+  std::map<std::string, std::shared_ptr<alloyscript_runtime::sqlite_db_state>>
+      m_sqlite_dbs;
 
   bool m_is_init_script_added{};
   bool m_is_size_set{};

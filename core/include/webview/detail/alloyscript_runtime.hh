@@ -44,6 +44,7 @@
 #include <algorithm>
 #include <deque>
 #include <fstream>
+#include <sqlite3.h>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -65,6 +66,8 @@
 #include <utmp.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <gtk/gtk.h>
+#include <webkit2/webkit2.h>
 #endif
 #ifdef __APPLE__
 #include <util.h>
@@ -81,6 +84,20 @@ namespace detail {
 
 class alloyscript_runtime {
 public:
+  struct sqlite_db_state {
+    sqlite3 *db{nullptr};
+    std::map<std::string, sqlite3_stmt *> stmt_cache;
+    bool strict{false};
+    bool safe_integers{false};
+
+    ~sqlite_db_state() {
+        for (auto &kv : stmt_cache) {
+            sqlite3_finalize(kv.second);
+        }
+        if (db) sqlite3_close(db);
+    }
+  };
+
   struct shared_state {
 #ifdef _WIN32
     HANDLE hProcess{NULL};
@@ -179,6 +196,7 @@ public:
     return tokens;
   }
 
+  // Native built-ins
   static shell_result builtin_echo(const std::vector<std::string>& args) {
       std::string out;
       for (size_t i = 1; i < args.size(); ++i) {
@@ -237,6 +255,269 @@ public:
       return {1, "", "rm failed\n"};
   }
 
+  static shell_result builtin_cat(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "cat: missing operand\n"};
+      std::string out;
+      for (size_t i = 1; i < args.size(); ++i) {
+          std::ifstream ifs(args[i]);
+          if (!ifs) return {1, "", "cat: " + args[i] + ": No such file or directory\n"};
+          std::stringstream ss; ss << ifs.rdbuf(); out += ss.str();
+      }
+      return {0, out, ""};
+  }
+
+  static shell_result builtin_touch(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "touch: missing operand\n"};
+      for (size_t i = 1; i < args.size(); ++i) {
+          std::ofstream ofs(args[i], std::ios_base::app);
+      }
+      return {0, "", ""};
+  }
+
+  static shell_result builtin_which(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "which: missing operand\n"};
+#ifdef _WIN32
+      return {1, "", "which not implemented on Windows\n"};
+#else
+      std::string cmd = "which " + args[1];
+      FILE* pipe = popen(cmd.c_str(), "r");
+      if (!pipe) return {1, "", "which failed\n"};
+      char buffer[1024]; std::string result = "";
+      while (fgets(buffer, sizeof(buffer), pipe) != NULL) result += buffer;
+      pclose(pipe);
+      if (result.empty()) return {1, "", ""};
+      return {0, result, ""};
+#endif
+  }
+
+  static shell_result builtin_mv(const std::vector<std::string>& args) {
+      if (args.size() < 3) return {1, "", "mv: missing operand\n"};
+      if (rename(args[1].c_str(), args[2].c_str()) == 0) return {0, "", ""};
+      return {1, "", "mv failed\n"};
+  }
+
+  static shell_result builtin_dirname(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "dirname: missing operand\n"};
+      std::string path = args[1];
+      size_t pos = path.find_last_of("/\\");
+      if (pos == std::string::npos) return {0, ".\n", ""};
+      if (pos == 0) return {0, "/\n", ""};
+      return {0, path.substr(0, pos) + "\n", ""};
+  }
+
+  static shell_result builtin_basename(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "basename: missing operand\n"};
+      std::string path = args[1];
+      size_t pos = path.find_last_of("/\\");
+      if (pos == std::string::npos) return {0, path + "\n", ""};
+      return {0, path.substr(pos + 1) + "\n", ""};
+  }
+
+  static shell_result builtin_seq(const std::vector<std::string>& args) {
+      if (args.size() < 2) return {1, "", "seq: missing operand\n"};
+      int start = 1, end = 0, step = 1;
+      if (args.size() == 2) { end = std::stoi(args[1]); }
+      else if (args.size() == 3) { start = std::stoi(args[1]); end = std::stoi(args[2]); }
+      else if (args.size() >= 4) { start = std::stoi(args[1]); step = std::stoi(args[2]); end = std::stoi(args[3]); }
+      std::string out;
+      for (int i = start; (step > 0 ? i <= end : i >= end); i += step) {
+          out += std::to_string(i) + "\n";
+      }
+      return {0, out, ""};
+  }
+
+  static shell_result builtin_yes(const std::vector<std::string>& args) {
+      std::string msg = "y";
+      if (args.size() > 1) msg = args[1];
+      std::string out;
+      for (int i = 0; i < 100; i++) out += msg + "\n";
+      return {0, out, ""};
+  }
+
+  static shell_result builtin_true() { return {0, "", ""}; }
+  static shell_result builtin_false() { return {1, "", ""}; }
+
+  static shell_result builtin_exit(const std::vector<std::string>& args) {
+      int code = 0;
+      if (args.size() > 1) code = std::stoi(args[1]);
+      exit(code);
+  }
+
+  // GUI methods (Basic native control wrapping)
+  struct gui_component {
+      std::string id;
+      std::string type;
+      void* native_handle{nullptr};
+      std::map<std::string, std::string> props;
+      std::vector<std::string> children;
+  };
+
+  std::map<std::string, std::shared_ptr<gui_component>> m_gui_components;
+
+  std::string gui_create(const std::string& type, const std::string& props_json) {
+      auto comp = std::make_shared<gui_component>();
+      comp->type = type;
+      comp->id = std::to_string(reinterpret_cast<uintptr_t>(comp.get()));
+
+#ifdef _WIN32
+      if (type == "Window") {
+          comp->native_handle = CreateWindowExW(0, L"AlloyWindow", L"", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, NULL, NULL, GetModuleHandle(NULL), NULL);
+      } else if (type == "Button") {
+          comp->native_handle = CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 100, 30, NULL, NULL, GetModuleHandle(NULL), NULL);
+      } else if (type == "TextField") {
+          comp->native_handle = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_LEFT | ES_AUTOHSCROLL, 0, 0, 200, 25, NULL, NULL, GetModuleHandle(NULL), NULL);
+      } else if (type == "TextArea") {
+          comp->native_handle = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_AUTOVSCROLL, 0, 0, 200, 100, NULL, NULL, GetModuleHandle(NULL), NULL);
+      } else if (type == "Label") {
+          comp->native_handle = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE, 0, 0, 100, 20, NULL, NULL, GetModuleHandle(NULL), NULL);
+      } else if (type == "CheckBox") {
+          comp->native_handle = CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_CHECKBOX, 0, 0, 100, 20, NULL, NULL, GetModuleHandle(NULL), NULL);
+      } else if (type == "ProgressBar") {
+          comp->native_handle = CreateWindowExW(0, PROGRESS_CLASSW, L"", WS_CHILD | WS_VISIBLE, 0, 0, 200, 20, NULL, NULL, GetModuleHandle(NULL), NULL);
+      }
+#endif
+
+#ifdef WEBVIEW_PLATFORM_LINUX
+      if (type == "Window") {
+          comp->native_handle = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+          gtk_window_set_default_size(GTK_WINDOW(comp->native_handle), 800, 600);
+      } else if (type == "Button") {
+          comp->native_handle = gtk_button_new();
+      } else if (type == "Label") {
+          comp->native_handle = gtk_label_new("");
+      } else if (type == "TextField") {
+          comp->native_handle = gtk_entry_new();
+      } else if (type == "TextArea") {
+          comp->native_handle = gtk_text_view_new();
+      } else if (type == "CheckBox") {
+          comp->native_handle = gtk_check_button_new();
+      } else if (type == "RadioButton") {
+          comp->native_handle = gtk_radio_button_new(NULL);
+      } else if (type == "ComboBox") {
+          comp->native_handle = gtk_combo_box_text_new();
+      } else if (type == "Slider") {
+          comp->native_handle = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+      } else if (type == "ProgressBar") {
+          comp->native_handle = gtk_progress_bar_new();
+      } else if (type == "TabView") {
+          comp->native_handle = gtk_notebook_new();
+      } else if (type == "ListView") {
+          comp->native_handle = gtk_tree_view_new();
+      } else if (type == "TreeView") {
+          comp->native_handle = gtk_tree_view_new();
+      } else if (type == "WebView") {
+          comp->native_handle = webkit_web_view_new();
+      } else if (type == "VStack") {
+          comp->native_handle = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+      } else if (type == "HStack") {
+          comp->native_handle = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+      } else if (type == "ScrollView") {
+          comp->native_handle = gtk_scrolled_window_new(NULL, NULL);
+      }
+#endif
+      m_gui_components[comp->id] = comp;
+      return comp->id;
+  }
+
+  void gui_update(const std::string& id, const std::string& props_json) {
+      auto it = m_gui_components.find(id);
+      if (it == m_gui_components.end()) return;
+      auto comp = it->second;
+
+#ifdef _WIN32
+      if (comp->type == "Window") {
+          auto title = json_parse(props_json, "title", 0);
+          if (!title.empty()) SetWindowTextA((HWND)comp->native_handle, title.c_str());
+      } else if (comp->type == "Button") {
+          auto label = json_parse(props_json, "label", 0);
+          if (!label.empty()) SetWindowTextA((HWND)comp->native_handle, label.c_str());
+      } else if (comp->type == "Label") {
+          auto text = json_parse(props_json, "text", 0);
+          if (!text.empty()) SetWindowTextA((HWND)comp->native_handle, text.c_str());
+      } else if (comp->type == "TextField" || comp->type == "TextArea") {
+          auto value = json_parse(props_json, "value", 0);
+          if (!value.empty()) SetWindowTextA((HWND)comp->native_handle, value.c_str());
+      } else if (comp->type == "ProgressBar") {
+          auto value = json_parse(props_json, "value", 0);
+          if (!value.empty()) SendMessage((HWND)comp->native_handle, PBM_SETPOS, (WPARAM)(std::stod(value) * 100), 0);
+      }
+#endif
+
+#ifdef WEBVIEW_PLATFORM_LINUX
+      if (comp->type == "Window") {
+          auto title = json_parse(props_json, "title", 0);
+          if (!title.empty()) gtk_window_set_title(GTK_WINDOW(comp->native_handle), title.c_str());
+          gtk_widget_show_all(GTK_WIDGET(comp->native_handle));
+      } else if (comp->type == "Button") {
+          auto label = json_parse(props_json, "label", 0);
+          if (!label.empty()) gtk_button_set_label(GTK_BUTTON(comp->native_handle), label.c_str());
+      } else if (comp->type == "Label") {
+          auto text = json_parse(props_json, "text", 0);
+          if (!text.empty()) gtk_label_set_text(GTK_LABEL(comp->native_handle), text.c_str());
+      } else if (comp->type == "ProgressBar") {
+          auto value = json_parse(props_json, "value", 0);
+          if (!value.empty()) gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(comp->native_handle), std::stod(value));
+      }
+      gtk_widget_show(GTK_WIDGET(comp->native_handle));
+#endif
+  }
+
+  void gui_add_child(const std::string& parent_id, const std::string& child_id) {
+      auto it_p = m_gui_components.find(parent_id);
+      auto it_c = m_gui_components.find(child_id);
+      if (it_p == m_gui_components.end() || it_c == m_gui_components.end()) return;
+#ifdef WEBVIEW_PLATFORM_LINUX
+      if (it_p->second->type == "Window") {
+          gtk_container_add(GTK_CONTAINER(it_p->second->native_handle), GTK_WIDGET(it_c->second->native_handle));
+      } else if (it_p->second->type == "VStack" || it_p->second->type == "HStack") {
+          gtk_box_pack_start(GTK_BOX(it_p->second->native_handle), GTK_WIDGET(it_c->second->native_handle), TRUE, TRUE, 0);
+      }
+#endif
+  }
+
+  // SQLite methods
+  std::shared_ptr<sqlite_db_state> sqlite_open(const std::string &filename, bool readonly = false, bool create = true, bool strict = false, bool safe_integers = false) {
+      sqlite3 *db;
+      int flags = readonly ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_READWRITE | (create ? SQLITE_OPEN_CREATE : 0));
+      if (sqlite3_open_v2(filename.c_str(), &db, flags, nullptr) != SQLITE_OK) {
+          return nullptr;
+      }
+      auto state = std::make_shared<sqlite_db_state>();
+      state->db = db;
+      state->strict = strict;
+      state->safe_integers = safe_integers;
+      return state;
+  }
+
+  sqlite3_stmt* sqlite_prepare(std::shared_ptr<sqlite_db_state> db_state, const std::string &sql, bool cache = true) {
+      if (!db_state || !db_state->db) return nullptr;
+      if (cache) {
+          auto it = db_state->stmt_cache.find(sql);
+          if (it != db_state->stmt_cache.end()) {
+              sqlite3_reset(it->second);
+              sqlite3_clear_bindings(it->second);
+              return it->second;
+          }
+      }
+      sqlite3_stmt *stmt;
+      if (sqlite3_prepare_v2(db_state->db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+          return nullptr;
+      }
+      if (cache) {
+          db_state->stmt_cache[sql] = stmt;
+      }
+      return stmt;
+  }
+
+  bool sqlite_bind(sqlite3_stmt *stmt, int index, const std::string &val, const std::string &type) {
+      if (type == "string") return sqlite3_bind_text(stmt, index, val.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK;
+      if (type == "number") return sqlite3_bind_double(stmt, index, std::stod(val)) == SQLITE_OK;
+      if (type == "bigint") return sqlite3_bind_int64(stmt, index, std::stoll(val)) == SQLITE_OK;
+      if (type == "boolean") return sqlite3_bind_int(stmt, index, (val == "true" ? 1 : 0)) == SQLITE_OK;
+      if (type == "null") return sqlite3_bind_null(stmt, index) == SQLITE_OK;
+      return false;
+  }
+
   std::shared_ptr<shared_state> spawn(const std::vector<std::string> &args,
                                           const std::string &cwd = "",
                                           const std::map<std::string, std::string> &env = {},
@@ -268,6 +549,7 @@ public:
     state->hProcess = piProcInfo.hProcess; state->hStdin = hChildStd_IN_Wr; state->hStdout = hChildStd_OUT_Rd; state->hStderr = hChildStd_ERR_Rd; state->dwProcessId = piProcInfo.dwProcessId;
     CloseHandle(piProcInfo.hThread);
 #else
+    (void)env;
     int stdin_pipe[2], stdout_pipe[2], stderr_pipe[2], ipc_socket[2];
     if (pipe(stdin_pipe) == -1 || pipe(stdout_pipe) == -1 || pipe(stderr_pipe) == -1) return nullptr;
     if (use_ipc && socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket) == -1) return nullptr;
@@ -278,20 +560,8 @@ public:
       close(stdin_pipe[0]); close(stdin_pipe[1]); close(stdout_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[0]); close(stderr_pipe[1]);
       if (use_ipc) { dup2(ipc_socket[1], 3); close(ipc_socket[0]); close(ipc_socket[1]); }
       if (!cwd.empty()) (void)chdir(cwd.c_str());
-
-      std::vector<std::string> env_strings;
-      std::vector<char*> c_env;
-      if (!env.empty()) {
-          for (const auto& kv : env) env_strings.push_back(kv.first + "=" + kv.second);
-          for (const auto& s : env_strings) c_env.push_back(const_cast<char*>(s.c_str()));
-          c_env.push_back(nullptr);
-      }
-
       std::vector<char*> c_args; for (const auto& arg : args) c_args.push_back(const_cast<char*>(arg.c_str()));
-      c_args.push_back(nullptr);
-      if (c_env.empty()) execvp(c_args[0], c_args.data());
-      else execve(c_args[0], c_args.data(), c_env.data());
-      _exit(127);
+      c_args.push_back(nullptr); execvp(c_args[0], c_args.data()); _exit(127);
     }
     close(stdin_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[1]);
     if (use_ipc) close(ipc_socket[1]);
@@ -431,6 +701,15 @@ public:
         if (cmd == "ls") return builtin_ls(args);
         if (cmd == "mkdir") return builtin_mkdir(args);
         if (cmd == "rm") return builtin_rm(args);
+        if (cmd == "cat") return builtin_cat(args);
+        if (cmd == "touch") return builtin_touch(args);
+        if (cmd == "which") return builtin_which(args);
+        if (cmd == "mv") return builtin_mv(args);
+        if (cmd == "dirname") return builtin_dirname(args);
+        if (cmd == "basename") return builtin_basename(args);
+        if (cmd == "seq") return builtin_seq(args);
+        if (cmd == "yes") return builtin_yes(args);
+        if (cmd == "exit") return builtin_exit(args);
         if (cmd == "true") return {0, "", ""};
         if (cmd == "false") return {1, "", ""};
     }
