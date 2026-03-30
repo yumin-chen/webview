@@ -123,7 +123,13 @@ public:
                 std::string s = val.substr(1, val.size() - 2);
                 if (s.size() >= 1 && s.back() == 'n' && s.find_first_not_of("-0123456789", 0, s.size() - 1) == std::string::npos) {
                     // It's a BigInt string from JS: "123n"
-                    sqlite3_bind_int64(m_stmt, index, std::stoll(s.substr(0, s.size() - 1)));
+                    std::string big_str = s.substr(0, s.size() - 1);
+                    try {
+                        long long v = std::stoll(big_str);
+                        sqlite3_bind_int64(m_stmt, index, v);
+                    } catch (const std::out_of_range&) {
+                        throw std::runtime_error("BigInt value '" + big_str + "' is out of range");
+                    }
                 } else {
                     sqlite3_bind_text(m_stmt, index, s.c_str(), -1, SQLITE_TRANSIENT);
                 }

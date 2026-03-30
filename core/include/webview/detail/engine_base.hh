@@ -739,7 +739,7 @@ protected:
     imports: {
       "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
       "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
-      "alloy:gui": "data:text/javascript,export const Window = (p) => window.Alloy.gui.create('Window', p); export const Button = (p) => window.Alloy.gui.create('Button', p); export const Label = (p) => window.Alloy.gui.create('Label', p); export const TextField = (p) => window.Alloy.gui.create('TextField', p); export const TextArea = (p) => window.Alloy.gui.create('TextArea', p); export const CheckBox = (p) => window.Alloy.gui.create('CheckBox', p); export const RadioButton = (p) => window.Alloy.gui.create('RadioButton', p); export const ComboBox = (p) => window.Alloy.gui.create('ComboBox', p); export const Slider = (p) => window.Alloy.gui.create('Slider', p); export const ProgressBar = (p) => window.Alloy.gui.create('ProgressBar', p); export const TabView = (p) => window.Alloy.gui.create('TabView', p); export const ListView = (p) => window.Alloy.gui.create('ListView', p); export const TreeView = (p) => window.Alloy.gui.create('TreeView', p); export const WebView = (p) => window.Alloy.gui.create('WebView', p); export const VStack = (p) => window.Alloy.gui.create('VStack', p); export const HStack = (p) => window.Alloy.gui.create('HStack', p); export const ScrollView = (p) => window.Alloy.gui.create('ScrollView', p); export const useSignal = (v) => window.Alloy.gui.createSignal(v);"
+      "alloy:gui": "data:text/javascript,export const Window = (p) => window.Alloy.gui.create('Window', p); export const Button = (p) => window.Alloy.gui.create('Button', p); export const Label = (p) => window.Alloy.gui.create('Label', p); export const TextField = (p) => window.Alloy.gui.create('TextField', p); export const TextArea = (p) => window.Alloy.gui.create('TextArea', p); export const CheckBox = (p) => window.Alloy.gui.create('CheckBox', p); export const RadioButton = (p) => window.Alloy.gui.create('RadioButton', p); export const ComboBox = (p) => window.Alloy.gui.create('ComboBox', p); export const Slider = (p) => window.Alloy.gui.create('Slider', p); export const ProgressBar = (p) => window.Alloy.gui.create('ProgressBar', p); export const TabView = (p) => window.Alloy.gui.create('TabView', p); export const ListView = (p) => window.Alloy.gui.create('ListView', p); export const TreeView = (p) => window.Alloy.gui.create('TreeView', p); export const WebView = (p) => window.Alloy.gui.create('WebView', p); export const VStack = (p) => window.Alloy.gui.create('VStack', p); export const HStack = (p) => window.Alloy.gui.create('HStack', p); export const ScrollView = (p) => window.Alloy.gui.create('ScrollView', p); export const Spinner = (p) => window.Alloy.gui.create('Spinner', p); export const MenuBar = (p) => window.Alloy.gui.create('MenuBar', p); export const Menu = (p) => window.Alloy.gui.create('Menu', p); export const MenuItem = (p) => window.Alloy.gui.create('MenuItem', p); export const Toolbar = (p) => window.Alloy.gui.create('Toolbar', p); export const StatusBar = (p) => window.Alloy.gui.create('StatusBar', p); export const Splitter = (p) => window.Alloy.gui.create('Splitter', p); export const Dialog = (p) => window.Alloy.gui.create('Dialog', p); export const Image = (p) => window.Alloy.gui.create('Image', p); export const GroupBox = (p) => window.Alloy.gui.create('GroupBox', p); export const Switch = (p) => window.Alloy.gui.create('Switch', p); export const DatePicker = (p) => window.Alloy.gui.create('DatePicker', p); export const ColorPicker = (p) => window.Alloy.gui.create('ColorPicker', p); export const Link = (p) => window.Alloy.gui.create('Link', p); export const TimePicker = (p) => window.Alloy.gui.create('TimePicker', p); export const Tooltip = (p) => window.Alloy.gui.create('Tooltip', p); export const Divider = (p) => window.Alloy.gui.create('Divider', p); export const Icon = (p) => window.Alloy.gui.create('Icon', p); export const Separator = (p) => window.Alloy.gui.create('Separator', p); export const Accordion = (p) => window.Alloy.gui.create('Accordion', p); export const Popover = (p) => window.Alloy.gui.create('Popover', p); export const ContextMenu = (p) => window.Alloy.gui.create('ContextMenu', p); export const Badge = (p) => window.Alloy.gui.create('Badge', p); export const Chip = (p) => window.Alloy.gui.create('Chip', p); export const LoadingSpinner = (p) => window.Alloy.gui.create('LoadingSpinner', p); export const Card = (p) => window.Alloy.gui.create('Card', p); export const Rating = (p) => window.Alloy.gui.create('Rating', p); export const RichTextEditor = (p) => window.Alloy.gui.create('RichTextEditor', p); export const CodeEditor = (p) => window.Alloy.gui.create('CodeEditor', p); export const FileDialog = (p) => window.Alloy.gui.create('FileDialog', p); export const useSignal = (v) => window.Alloy.gui.createSignal(v);"
     }
   });
   document.head.appendChild(script);
@@ -751,12 +751,71 @@ protected:
     bind("Alloy_gui_create", [this](const std::string &seq, const std::string &req, void *) {
       auto type = json_parse(req, "", 0);
       auto props = json_parse(req, "", 1);
-      resolve(seq, 0, "\"handle_123\"");
+
+      auto parent_handle_str = json_parse(props, "parent", 0);
+      alloy_component_t parent = nullptr;
+      if (!parent_handle_str.empty() && parent_handle_str != "null") {
+          parent = (alloy_component_t)std::stoull(parent_handle_str);
+      }
+
+      alloy_component_t comp = nullptr;
+
+      if (type == "Window") {
+        auto title = json_parse(props, "title", 0);
+        auto width = std::stoi(json_parse(props, "width", 0).empty() ? "640" : json_parse(props, "width", 0));
+        auto height = std::stoi(json_parse(props, "height", 0).empty() ? "480" : json_parse(props, "height", 0));
+        comp = alloy_create_window(title.c_str(), width, height);
+      } else if (type == "Button") {
+        comp = alloy_create_button(parent, json_parse(props, "label", 0).c_str());
+      } else if (type == "Label") {
+        comp = alloy_create_label(parent, json_parse(props, "text", 0).c_str());
+      } else if (type == "TextField") {
+        comp = alloy_create_textfield(parent);
+      } else if (type == "TextArea") {
+        comp = alloy_create_textarea(parent);
+      } else if (type == "CheckBox") {
+        comp = alloy_create_checkbox(parent, json_parse(props, "label", 0).c_str());
+      } else if (type == "RadioButton") {
+        comp = alloy_create_radiobutton(parent, json_parse(props, "label", 0).c_str(), "", "");
+      } else if (type == "ComboBox") {
+        comp = alloy_create_combobox(parent);
+      } else if (type == "Slider") {
+        comp = alloy_create_slider(parent);
+      } else if (type == "ProgressBar") {
+        comp = alloy_create_progressbar(parent);
+      } else if (type == "TabView") {
+        comp = alloy_create_tabview(parent);
+      } else if (type == "ListView") {
+        comp = alloy_create_listview(parent);
+      } else if (type == "TreeView") {
+        comp = alloy_create_treeview(parent);
+      } else if (type == "WebView") {
+        comp = alloy_create_webview(parent);
+      } else if (type == "VStack") {
+        comp = alloy_create_vstack(parent);
+      } else if (type == "HStack") {
+        comp = alloy_create_hstack(parent);
+      } else if (type == "ScrollView") {
+        comp = alloy_create_scrollview(parent);
+      } else if (type == "Spinner") {
+        comp = alloy_create_spinner(parent);
+      }
+
+      if (comp) {
+        resolve(seq, 0, "\"" + std::to_string((uintptr_t)comp) + "\"");
+      } else {
+        resolve(seq, 1, "null");
+      }
     }, nullptr);
 
     bind("Alloy_gui_create_signal", [this](const std::string &seq, const std::string &req, void *) {
       auto initial = json_parse(req, "", 0);
-      resolve(seq, 0, "\"signal_123\"");
+      alloy_signal_t sig = nullptr;
+      if (initial == "true" || initial == "false") sig = alloy_signal_create_bool(initial == "true");
+      else if (initial.size() > 1 && initial[0] == '"') sig = alloy_signal_create_str(initial.substr(1, initial.size() - 2).c_str());
+      else sig = alloy_signal_create_double(std::stod(initial));
+
+      resolve(seq, 0, "\"" + std::to_string((uintptr_t)sig) + "\"");
     }, nullptr);
   }
 

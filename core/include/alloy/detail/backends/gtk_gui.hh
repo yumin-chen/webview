@@ -54,11 +54,13 @@ public:
 
     alloy_error_t set_checked(bool v) override {
         if (GTK_IS_TOGGLE_BUTTON(m_widget)) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(m_widget), v);
+        else if (GTK_IS_SWITCH(m_widget)) gtk_switch_set_active(GTK_SWITCH(m_widget), v);
         return ALLOY_OK;
     }
 
     bool get_checked() override {
         if (GTK_IS_TOGGLE_BUTTON(m_widget)) return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(m_widget));
+        else if (GTK_IS_SWITCH(m_widget)) return gtk_switch_get_active(GTK_SWITCH(m_widget));
         return false;
     }
 
@@ -94,7 +96,14 @@ public:
     }
 
     alloy_error_t set_style(const alloy_style_t &s) override {
-        // Mock style application
+        if (s.background != 0) {
+            GdkRGBA color;
+            color.red = ((s.background >> 24) & 0xFF) / 255.0;
+            color.green = ((s.background >> 16) & 0xFF) / 255.0;
+            color.blue = ((s.background >> 8) & 0xFF) / 255.0;
+            color.alpha = (s.background & 0xFF) / 255.0;
+            gtk_widget_override_background_color(m_widget, GTK_STATE_FLAG_NORMAL, &color);
+        }
         return ALLOY_OK;
     }
 
