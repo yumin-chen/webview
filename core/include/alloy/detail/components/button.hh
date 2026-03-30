@@ -47,7 +47,22 @@ public:
   }
   bool get_visible() override { return gtk_widget_get_visible(m_widget); }
 
-  alloy_error_t set_style(const alloy_style_t &s) override { return ALLOY_OK; }
+  alloy_error_t set_style(const alloy_style_t &s) override {
+    GdkRGBA bg, fg;
+    bg.red = ((s.background >> 24) & 0xFF) / 255.0;
+    bg.green = ((s.background >> 16) & 0xFF) / 255.0;
+    bg.blue = ((s.background >> 8) & 0xFF) / 255.0;
+    bg.alpha = (s.background & 0xFF) / 255.0;
+
+    fg.red = ((s.foreground >> 24) & 0xFF) / 255.0;
+    fg.green = ((s.foreground >> 16) & 0xFF) / 255.0;
+    fg.blue = ((s.foreground >> 8) & 0xFF) / 255.0;
+    fg.alpha = (s.foreground & 0xFF) / 255.0;
+
+    gtk_widget_override_background_color(m_widget, GTK_STATE_FLAG_NORMAL, &bg);
+    gtk_widget_override_color(m_widget, GTK_STATE_FLAG_NORMAL, &fg);
+    return ALLOY_OK;
+  }
   void* native_handle() override { return m_widget; }
 
 private:

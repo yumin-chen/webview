@@ -65,6 +65,14 @@ public:
 
   bool is_container() const { return m_is_container; }
 
+  void add_child(component_base *child) {
+    m_children.push_back(child);
+    YGNodeInsertChild(m_yoga_node, child->yoga_node(),
+                      YGNodeGetChildCount(m_yoga_node));
+  }
+
+  const std::vector<component_base *> &children() const { return m_children; }
+
 protected:
   explicit component_base(bool is_container = false)
       : m_is_container{is_container},
@@ -72,6 +80,7 @@ protected:
 
   YGNodeRef m_yoga_node{};
   bool      m_is_container{};
+  std::vector<component_base *> m_children;
 
 private:
   std::unordered_map<alloy_event_type_t, event_slot> m_events;

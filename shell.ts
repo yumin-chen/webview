@@ -20,6 +20,7 @@ export function $(strings, ...values) {
     cmdStr += strings[i + 1];
   }
 
+  const options = { _cwd: undefined, _env: undefined, _nothrow: false };
   const promise = (async () => {
     const commands = cmdStr.split('|').map(s => s.trim());
     let lastStdout = null; let finalRes = null;
@@ -39,7 +40,7 @@ export function $(strings, ...values) {
       }
 
       const args = parseArgs(actualCmd);
-      const proc = Alloy.spawn(args, { cwd: promise._cwd || $._cwd, env: promise._env || $._env });
+      const proc = Alloy.spawn(args, { cwd: options._cwd || ($._cwd as any), env: options._env || ($._env as any) });
 
       if (lastStdout) { await proc.stdin.write(lastStdout); await proc.stdin.end(); }
       const exitCode = await proc.exited;
@@ -66,12 +67,12 @@ export function $(strings, ...values) {
     return finalRes;
   })();
   // chainable methods same as before...
-  promise.quiet = () => { promise._quiet = true; return promise; };
-  promise.nothrow = () => { promise._nothrow = true; return promise; };
-  promise.text = async () => (await promise).stdout.toString();
-  promise.json = async () => JSON.parse((await promise).stdout.toString());
-  promise.cwd = (path) => { promise._cwd = path; return promise; };
-  promise.env = (vars) => { promise._env = vars; return promise; };
+  (promise as any).quiet = () => { return promise; };
+  (promise as any).nothrow = () => { options._nothrow = true; return promise; };
+  (promise as any).text = async () => (await promise).stdout.toString();
+  (promise as any).json = async () => JSON.parse((await promise).stdout.toString());
+  (promise as any).cwd = (path) => { options._cwd = path; return promise; };
+  (promise as any).env = (vars) => { options._env = vars; return promise; };
   return promise;
 }
 
