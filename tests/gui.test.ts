@@ -60,6 +60,18 @@ describe("Alloy:gui Component Unit Tests", () => {
       expect(dlg.props.title).toBe("Warning");
   });
 
+  test("ComboBox representation", () => {
+      const cb = GUI.ComboBox({ options: [{label:"A", value:"a"}], selectedValue: "a" });
+      expect(cb.type).toBe("ComboBox");
+      expect(cb.props.options).toHaveLength(1);
+  });
+
+  test("ListView representation", () => {
+      const lv = GUI.ListView({ items: [1, 2, 3] });
+      expect(lv.type).toBe("ListView");
+      expect(lv.props.items).toHaveLength(3);
+  });
+
   // Additional
   test("WebView representation", () => {
       const wv = GUI.WebView({ src: "https://example.com" });

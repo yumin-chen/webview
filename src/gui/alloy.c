@@ -35,9 +35,14 @@ typedef struct {
     void *native_handle;
 } alloy_comp_internal_t;
 
+// --- Helper for component allocation ---
+static alloy_comp_internal_t* alloc_comp() {
+    return (alloy_comp_internal_t*)calloc(1, sizeof(alloy_comp_internal_t));
+}
+
 // --- Window Lifecycle ---
 alloy_error_t alloy_create_window(const char *title, int width, int height, alloy_component_t *out_window) {
-    alloy_comp_internal_t *win = (alloy_comp_internal_t*)calloc(1, sizeof(alloy_comp_internal_t));
+    alloy_comp_internal_t *win = alloc_comp();
 #ifdef ALLOY_PLATFORM_WINDOWS
     win->native_handle = CreateWindowExW(0, L"STATIC", L"Window", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, NULL, NULL, GetModuleHandle(NULL), NULL);
 #elif defined(ALLOY_PLATFORM_LINUX)
@@ -63,107 +68,233 @@ alloy_error_t alloy_destroy(alloy_component_t component) {
     return ALLOY_OK;
 }
 
-// --- Platform creation helper ---
-static alloy_error_t create_generic(alloy_component_t parent, alloy_component_t *out, const char* name) {
-    alloy_comp_internal_t *p = (alloy_comp_internal_t*)parent;
-    alloy_comp_internal_t *c = (alloy_comp_internal_t*)calloc(1, sizeof(alloy_comp_internal_t));
+// --- Input Controls ---
+alloy_error_t alloy_create_button(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *btn = alloc_comp();
 #ifdef ALLOY_PLATFORM_WINDOWS
-    c->native_handle = CreateWindowExW(0, L"STATIC", L"Comp", WS_CHILD | WS_VISIBLE, 0, 0, 100, 30, (HWND)p->native_handle, NULL, NULL, NULL);
+    btn->native_handle = CreateWindowExW(0, L"BUTTON", L"Button", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 100, 30, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
 #elif defined(ALLOY_PLATFORM_LINUX)
-    c->native_handle = gtk_label_new(name);
-    gtk_container_add(GTK_CONTAINER(p->native_handle), GTK_WIDGET(c->native_handle));
-    gtk_widget_show(GTK_WIDGET(c->native_handle));
+    btn->native_handle = gtk_button_new_with_label("Button");
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(btn->native_handle));
+    gtk_widget_show(GTK_WIDGET(btn->native_handle));
 #endif
-    if (!c->native_handle) { free(c); return ALLOY_ERROR_PLATFORM; }
-    *out = (alloy_component_t)c;
-    return ALLOY_OK;
+    *o = (alloy_component_t)btn;
+    return btn->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
 }
 
-// --- Implementation of all 45+ components (delegated to helper for this draft) ---
-alloy_error_t alloy_create_button(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Button"); }
-alloy_error_t alloy_create_textfield(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "TextField"); }
-alloy_error_t alloy_create_textarea(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "TextArea"); }
-alloy_error_t alloy_create_checkbox(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "CheckBox"); }
-alloy_error_t alloy_create_radiobutton(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "RadioButton"); }
-alloy_error_t alloy_create_combobox(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "ComboBox"); }
-alloy_error_t alloy_create_slider(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Slider"); }
-alloy_error_t alloy_create_spinner(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Spinner"); }
-alloy_error_t alloy_create_datepicker(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "DatePicker"); }
-alloy_error_t alloy_create_timepicker(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "TimePicker"); }
-alloy_error_t alloy_create_colorpicker(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "ColorPicker"); }
-alloy_error_t alloy_create_switch(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Switch"); }
-alloy_error_t alloy_create_label(alloy_component_t parent, alloy_component_t *out) {
-    alloy_comp_internal_t *p = (alloy_comp_internal_t*)parent;
-    alloy_comp_internal_t *lbl = (alloy_comp_internal_t*)calloc(1, sizeof(alloy_comp_internal_t));
+alloy_error_t alloy_create_textfield(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *tf = alloc_comp();
 #ifdef ALLOY_PLATFORM_WINDOWS
-    lbl->native_handle = CreateWindowExW(0, L"STATIC", L"Label", WS_CHILD | WS_VISIBLE, 0, 0, 100, 20, (HWND)p->native_handle, NULL, NULL, NULL);
+    tf->native_handle = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_LEFT, 0, 0, 100, 25, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    tf->native_handle = gtk_entry_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(tf->native_handle));
+    gtk_widget_show(GTK_WIDGET(tf->native_handle));
+#endif
+    *o = (alloy_component_t)tf;
+    return tf->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_textarea(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *ta = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    ta->native_handle = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL, 0, 0, 200, 100, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    ta->native_handle = gtk_text_view_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(ta->native_handle));
+    gtk_widget_show(GTK_WIDGET(ta->native_handle));
+#endif
+    *o = (alloy_component_t)ta;
+    return ta->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_checkbox(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *cb = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    cb->native_handle = CreateWindowExW(0, L"BUTTON", L"Check", WS_CHILD | WS_VISIBLE | BS_CHECKBOX, 0, 0, 100, 20, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    cb->native_handle = gtk_check_button_new_with_label("Check");
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(cb->native_handle));
+    gtk_widget_show(GTK_WIDGET(cb->native_handle));
+#endif
+    *o = (alloy_component_t)cb;
+    return cb->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_radiobutton(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *rb = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    rb->native_handle = CreateWindowExW(0, L"BUTTON", L"Radio", WS_CHILD | WS_VISIBLE | BS_RADIOBUTTON, 0, 0, 100, 20, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    rb->native_handle = gtk_radio_button_new_with_label(NULL, "Radio");
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(rb->native_handle));
+    gtk_widget_show(GTK_WIDGET(rb->native_handle));
+#endif
+    *o = (alloy_component_t)rb;
+    return rb->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_combobox(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *cb = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    cb->native_handle = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWN, 0, 0, 100, 150, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    cb->native_handle = gtk_combo_box_text_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(cb->native_handle));
+    gtk_widget_show(GTK_WIDGET(cb->native_handle));
+#endif
+    *o = (alloy_component_t)cb;
+    return cb->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_slider(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *sl = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    sl->native_handle = CreateWindowExW(0, TRACKBAR_CLASSW, L"", WS_CHILD | WS_VISIBLE | TBS_HORZ, 0, 0, 150, 30, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    sl->native_handle = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(sl->native_handle));
+    gtk_widget_show(GTK_WIDGET(sl->native_handle));
+#endif
+    *o = (alloy_component_t)sl;
+    return sl->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_spinner(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *sp = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
+    sp->native_handle = gtk_spin_button_new_with_range(0, 100, 1);
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(sp->native_handle));
+    gtk_widget_show(GTK_WIDGET(sp->native_handle));
+#endif
+    *o = (alloy_component_t)sp;
+    return sp->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_progressbar(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *pb = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    pb->native_handle = CreateWindowExW(0, PROGRESS_CLASSW, L"", WS_CHILD | WS_VISIBLE, 0, 0, 150, 20, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
+#elif defined(ALLOY_PLATFORM_LINUX)
+    pb->native_handle = gtk_progress_bar_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(pb->native_handle));
+    gtk_widget_show(GTK_WIDGET(pb->native_handle));
+#endif
+    *o = (alloy_component_t)pb;
+    return pb->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+// --- Display Components ---
+alloy_error_t alloy_create_label(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *lbl = alloc_comp();
+#ifdef ALLOY_PLATFORM_WINDOWS
+    lbl->native_handle = CreateWindowExW(0, L"STATIC", L"Label", WS_CHILD | WS_VISIBLE, 0, 0, 100, 20, (HWND)((alloy_comp_internal_t*)p)->native_handle, NULL, NULL, NULL);
 #elif defined(ALLOY_PLATFORM_LINUX)
     lbl->native_handle = gtk_label_new("Label");
-    gtk_container_add(GTK_CONTAINER(p->native_handle), GTK_WIDGET(lbl->native_handle));
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(lbl->native_handle));
     gtk_widget_show(GTK_WIDGET(lbl->native_handle));
 #endif
-    if (!lbl->native_handle) { free(lbl); return ALLOY_ERROR_PLATFORM; }
-    *out = (alloy_component_t)lbl;
-    return ALLOY_OK;
+    *o = (alloy_component_t)lbl;
+    return lbl->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
 }
-alloy_error_t alloy_create_image(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Image"); }
-alloy_error_t alloy_create_icon(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Icon"); }
-alloy_error_t alloy_create_progressbar(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "ProgressBar"); }
-alloy_error_t alloy_create_tooltip(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Tooltip"); }
-alloy_error_t alloy_create_badge(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Badge"); }
-alloy_error_t alloy_create_card(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Card"); }
-alloy_error_t alloy_create_divider(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Divider"); }
-alloy_error_t alloy_create_richtexteditor(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "RichTextEditor"); }
-alloy_error_t alloy_create_listview(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "ListView"); }
-alloy_error_t alloy_create_treeview(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "TreeView"); }
-alloy_error_t alloy_create_tabview(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "TabView"); }
-alloy_error_t alloy_create_vstack(alloy_component_t parent, alloy_component_t *out) {
-    alloy_comp_internal_t *p = (alloy_comp_internal_t*)parent;
-    alloy_comp_internal_t *box = (alloy_comp_internal_t*)calloc(1, sizeof(alloy_comp_internal_t));
-#ifdef ALLOY_PLATFORM_WINDOWS
-    box->native_handle = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE, 0, 0, 100, 100, (HWND)p->native_handle, NULL, NULL, NULL);
-#elif defined(ALLOY_PLATFORM_LINUX)
+
+alloy_error_t alloy_create_image(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *img = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
+    img->native_handle = gtk_image_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(img->native_handle));
+    gtk_widget_show(GTK_WIDGET(img->native_handle));
+#endif
+    *o = (alloy_component_t)img;
+    return img->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+// --- Selection Components ---
+alloy_error_t alloy_create_listview(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *lv = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
+    lv->native_handle = gtk_tree_view_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(lv->native_handle));
+    gtk_widget_show(GTK_WIDGET(lv->native_handle));
+#endif
+    *o = (alloy_component_t)lv;
+    return lv->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+alloy_error_t alloy_create_tabview(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *tv = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
+    tv->native_handle = gtk_notebook_new();
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(tv->native_handle));
+    gtk_widget_show(GTK_WIDGET(tv->native_handle));
+#endif
+    *o = (alloy_component_t)tv;
+    return tv->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+// --- Layout Containers ---
+alloy_error_t alloy_create_vstack(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *box = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
     box->native_handle = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_container_add(GTK_CONTAINER(p->native_handle), GTK_WIDGET(box->native_handle));
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(box->native_handle));
     gtk_widget_show(GTK_WIDGET(box->native_handle));
 #endif
-    if (!box->native_handle) { free(box); return ALLOY_ERROR_PLATFORM; }
-    *out = (alloy_component_t)box;
-    return ALLOY_OK;
+    *o = (alloy_component_t)box;
+    return box->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
 }
-alloy_error_t alloy_create_hstack(alloy_component_t parent, alloy_component_t *out) {
-    alloy_comp_internal_t *p = (alloy_comp_internal_t*)parent;
-    alloy_comp_internal_t *box = (alloy_comp_internal_t*)calloc(1, sizeof(alloy_comp_internal_t));
-#ifdef ALLOY_PLATFORM_WINDOWS
-    box->native_handle = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE, 0, 0, 100, 100, (HWND)p->native_handle, NULL, NULL, NULL);
-#elif defined(ALLOY_PLATFORM_LINUX)
+
+alloy_error_t alloy_create_hstack(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *box = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
     box->native_handle = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_container_add(GTK_CONTAINER(p->native_handle), GTK_WIDGET(box->native_handle));
+    gtk_container_add(GTK_CONTAINER(((alloy_comp_internal_t*)p)->native_handle), GTK_WIDGET(box->native_handle));
     gtk_widget_show(GTK_WIDGET(box->native_handle));
 #endif
-    if (!box->native_handle) { free(box); return ALLOY_ERROR_PLATFORM; }
-    *out = (alloy_component_t)box;
-    return ALLOY_OK;
+    *o = (alloy_component_t)box;
+    return box->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
 }
-alloy_error_t alloy_create_scrollview(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "ScrollView"); }
-alloy_error_t alloy_create_groupbox(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "GroupBox"); }
+
+// --- Dialogs ---
+alloy_error_t alloy_create_dialog(alloy_component_t p, alloy_component_t *o) {
+    alloy_comp_internal_t *dlg = alloc_comp();
+#ifdef ALLOY_PLATFORM_LINUX
+    dlg->native_handle = gtk_dialog_new();
+    gtk_widget_show(GTK_WIDGET(dlg->native_handle));
+#endif
+    *o = (alloy_component_t)dlg;
+    return dlg->native_handle ? ALLOY_OK : ALLOY_ERROR_PLATFORM;
+}
+
+// --- Other API implementations (Stubs for the rest) ---
+alloy_error_t alloy_create_datepicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_timepicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_colorpicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_switch(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_icon(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_tooltip(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_badge(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_card(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_divider(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_richtexteditor(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_treeview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_scrollview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_groupbox(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
 alloy_error_t alloy_create_menu(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
 alloy_error_t alloy_create_menubar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
 alloy_error_t alloy_create_toolbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
 alloy_error_t alloy_create_contextmenu(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_dialog(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Dialog"); }
 alloy_error_t alloy_create_filedialog(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_popover(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Popover"); }
-alloy_error_t alloy_create_statusbar(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "StatusBar"); }
-alloy_error_t alloy_create_splitter(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Splitter"); }
-alloy_error_t alloy_create_webview(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "WebView"); }
-alloy_error_t alloy_create_link(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Link"); }
-alloy_error_t alloy_create_chip(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Chip"); }
-alloy_error_t alloy_create_rating(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Rating"); }
-alloy_error_t alloy_create_accordion(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "Accordion"); }
-alloy_error_t alloy_create_codeeditor(alloy_component_t p, alloy_component_t *o) { return create_generic(p, o, "CodeEditor"); }
+alloy_error_t alloy_create_popover(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_statusbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_splitter(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_webview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_link(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_chip(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_rating(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_accordion(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_codeeditor(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
 
-// --- Other API implementations ---
 alloy_error_t alloy_run(alloy_component_t window) { return ALLOY_OK; }
 alloy_error_t alloy_terminate(alloy_component_t window) { return ALLOY_OK; }
 alloy_error_t alloy_dispatch(alloy_component_t window, void (*fn)(void *), void *arg) { return ALLOY_OK; }
