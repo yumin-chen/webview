@@ -21,11 +21,15 @@ const char* alloy_error_message(alloy_error_t err) {
 
 alloy_component_t alloy_create_window(const char *title, int width, int height) {
 #ifdef WEBVIEW_PLATFORM_LINUX
-    auto w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(w), title);
-    gtk_window_set_default_size(GTK_WINDOW(w), width, height);
-    // Note: in a real impl we'd wrap this in a component_base subclass
-    return reinterpret_cast<alloy_component_t>(w);
+    return static_cast<alloy_component_t>(new gtk_window(title, width, height));
+#else
+    return nullptr;
+#endif
+}
+
+alloy_component_t alloy_create_textfield(alloy_component_t parent) {
+#ifdef WEBVIEW_PLATFORM_LINUX
+    return static_cast<alloy_component_t>(new gtk_textfield(static_cast<component_base*>(parent)));
 #else
     return nullptr;
 #endif

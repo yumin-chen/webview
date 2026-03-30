@@ -513,7 +513,6 @@ protected:
       auto it = m_sqlite_dbs.find(db_id);
       if (it != m_sqlite_dbs.end()) {
         auto data = it->second->serialize();
-        // Return as hex or something similar for simple bridge
         std::string hex = "";
         for (auto b : data) {
           char buf[3];
@@ -523,6 +522,39 @@ protected:
         return hex;
       }
       return "";
+    });
+
+    bind("__alloy_sqlite_file_control", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto op = std::stoi(json_parse(req, "", 1));
+      auto val = std::stoi(json_parse(req, "", 2));
+      auto it = m_sqlite_dbs.find(db_id);
+      if (it != m_sqlite_dbs.end()) {
+        it->second->file_control(op, &val);
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_sqlite_load_extension", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto path = json_parse(req, "", 1);
+      auto it = m_sqlite_dbs.find(db_id);
+      if (it != m_sqlite_dbs.end()) {
+        try {
+          it->second->load_extension(path);
+          return "true";
+        } catch (const std::exception &e) {
+          return "{\"error\":" + json_escape(e.what()) + "}";
+        }
+      }
+      return "false";
+    });
+
+    bind("__alloy_sqlite_close", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      m_sqlite_dbs.erase(db_id);
+      return "true";
     });
   }
 
@@ -610,6 +642,7 @@ protected:
     gui: {
       createWindow: function(title, w, h) { return window.__alloy_gui_create_window(title, w, h); },
       createButton: function(parent) { return window.__alloy_gui_create_button(parent); },
+      createTextField: function(parent) { return window.__alloy_gui_create_textfield(parent); },
       setText: function(handle, text) { return window.__alloy_gui_set_text(handle, text); },
       destroy: function(handle) { return window.__alloy_gui_destroy(handle); }
     },

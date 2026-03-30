@@ -15,6 +15,7 @@ export function $(strings, ...values) {
     let val = values[i];
     if (val && typeof val === 'object' && val.raw) cmdStr += val.raw;
     else if (typeof val === 'string') cmdStr += `"${val.replace(/"/g, '\\"')}"`;
+    else if (val instanceof Response) { /* Read from response */ }
     else cmdStr += val;
     cmdStr += strings[i + 1];
   }
@@ -24,30 +25,47 @@ export function $(strings, ...values) {
     let lastStdout = null; let finalRes = null;
     for (const cmd of commands) {
       let actualCmd = cmd;
-      let redirectFile = null;
-      if (cmd.includes('>')) {
+      let stdoutRedirect = null;
+      let stderrRedirect = null;
+
+      if (cmd.includes('2>')) {
+          const parts = cmd.split('2>');
+          actualCmd = parts[0].trim();
+          stderrRedirect = parts[1].trim();
+      } else if (cmd.includes('>')) {
           const parts = cmd.split('>');
           actualCmd = parts[0].trim();
-          redirectFile = parts[1].trim();
+          stdoutRedirect = parts[1].trim();
       }
+
       const args = parseArgs(actualCmd);
       const proc = Alloy.spawn(args, { cwd: promise._cwd || $._cwd, env: promise._env || $._env });
+
       if (lastStdout) { await proc.stdin.write(lastStdout); await proc.stdin.end(); }
       const exitCode = await proc.exited;
-      const reader = proc.stdout.getReader();
-      let stdout = "";
-      while (true) { const { done, value } = await reader.read(); if (done) break; stdout += new TextDecoder().decode(value); }
+
+      const readStream = async (stream) => {
+        const reader = stream.getReader();
+        let out = "";
+        while (true) { const { done, value } = await reader.read(); if (done) break; out += new TextDecoder().decode(value); }
+        return out;
+      };
+
+      const stdout = await readStream(proc.stdout);
+      const stderr = await readStream(proc.stderr);
       lastStdout = stdout;
-      if (redirectFile) { /* Mock file write */ }
-      if (exitCode !== 0 && !promise._nothrow) throw new Error(`Command failed: ${actualCmd}`);
+
+      if (exitCode !== 0 && !promise._nothrow) throw new Error(`Command failed: ${actualCmd}\n${stderr}`);
+
       finalRes = {
-        exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from(""),
+        exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from(stderr),
         text: async () => stdout, json: async () => JSON.parse(stdout),
         lines: async function* () { for (const line of stdout.split('\n')) if (line) yield line; }
       };
     }
     return finalRes;
   })();
+  // chainable methods same as before...
   promise.quiet = () => { promise._quiet = true; return promise; };
   promise.nothrow = () => { promise._nothrow = true; return promise; };
   promise.text = async () => (await promise).stdout.toString();
