@@ -31,6 +31,7 @@
 #include "../errors.hh"
 #include "../types.h"
 #include "../types.hh"
+#include "../../alloy/api.h"
 #include "alloyscript_runtime.hh"
 #include "json.hh"
 #include "user_script.hh"
@@ -224,9 +225,24 @@ protected:
            }
 
            auto cwd = json_parse(options_json, "cwd", 0);
+           auto env_json = json_parse(options_json, "env", 0);
+           std::map<std::string, std::string> env;
+           if (!env_json.empty()) {
+               // A very simple JSON object parser for env
+               size_t pos = 0;
+               while ((pos = env_json.find('"', pos)) != std::string::npos) {
+                   size_t key_end = env_json.find('"', pos + 1);
+                   std::string key = env_json.substr(pos + 1, key_end - pos - 1);
+                   size_t val_start = env_json.find('"', key_end + 1);
+                   size_t val_end = env_json.find('"', val_start + 1);
+                   std::string val = env_json.substr(val_start + 1, val_end - val_start - 1);
+                   env[key] = val;
+                   pos = val_end + 1;
+               }
+           }
            bool use_ipc = !json_parse(options_json, "ipc", 0).empty();
 
-           auto state = m_alloy.spawn(args, cwd, {}, use_ipc);
+           auto state = m_alloy.spawn(args, cwd, env, use_ipc);
            if (!state) {
              resolve(seq, 1, "null");
              return;
@@ -241,17 +257,21 @@ protected:
 
            state->on_stdout = [this, id_str](const std::string &data) {
              this->dispatch([this, id_str, data]() {
-               this->eval("Alloy._onStdout('" + id_str + "', " + json_escape(data) + ")");
+               this->eval("window.Alloy._onStdout('" + id_str + "', " + json_escape(data) + ")");
              });
            };
            state->on_stderr = [this, id_str](const std::string &data) {
              this->dispatch([this, id_str, data]() {
-               this->eval("Alloy._onStderr('" + id_str + "', " + json_escape(data) + ")");
+               this->eval("window.Alloy._onStderr('" + id_str + "', " + json_escape(data) + ")");
              });
            };
-           state->on_exit = [this, id_str](int exit_code, int signal_code) {
-             this->dispatch([this, id_str, exit_code, signal_code]() {
-               this->eval("Alloy._onExit('" + id_str + "', " + std::to_string(exit_code) + ", " + std::to_string(signal_code) + ")");
+           state->on_exit = [this, id_str, state](int exit_code, int signal_code) {
+             this->dispatch([this, id_str, exit_code, signal_code, state]() {
+               std::string usage_json = "{";
+               usage_json += "\"maxRSS\":" + std::to_string(state->usage.maxRSS) + ",";
+               usage_json += "\"cpuTime\":{\"user\":" + std::to_string(state->usage.cpuTime.user) + ",\"system\":" + std::to_string(state->usage.cpuTime.system) + "}";
+               usage_json += "}";
+               this->eval("window.Alloy._onExit('" + id_str + "', " + std::to_string(exit_code) + ", " + std::to_string(signal_code) + ", " + usage_json + ")");
                this->m_subprocesses.erase(id_str);
              });
            };
@@ -272,6 +292,29 @@ protected:
       return "false";
     });
 
+    bind("Alloy_kill", [this](const std::string &req) -> std::string {
+        auto id_str = json_parse(req, "", 0);
+        auto it = m_subprocesses.find(id_str);
+        if (it != m_subprocesses.end()) {
+            m_alloy.kill(it->second);
+            return "true";
+        }
+        return "false";
+    });
+
+    bind("Alloy_spawnSync", [this](const std::string &req) -> std::string {
+        auto cmd_json = json_parse(req, "", 0);
+        auto options_json = json_parse(req, "", 1);
+        std::vector<std::string> args;
+        int i = 0;
+        while (true) {
+            auto arg = json_parse(cmd_json, "", i++);
+            if (arg.empty()) break;
+            args.push_back(arg);
+        }
+        return m_alloy.spawnSync(args);
+    });
+
     bind("Alloy_shell",
          [this](const std::string &seq, const std::string &req,
                 void * /*arg*/) {
@@ -280,28 +323,11 @@ protected:
            auto cwd = json_parse(options_json, "cwd", 0);
 
            std::thread([this, seq, command, cwd]() {
-             auto args = alloyscript_runtime::tokenize(command);
-             auto state = m_alloy.spawn(args, cwd);
-             if (!state) {
-                 this->dispatch([this, seq]() { this->resolve(seq, 1, "null"); });
-                 return;
-             }
-             std::string stdout_acc, stderr_acc;
-             std::mutex acc_mutex;
-             state->on_stdout = [&](const std::string &data) { std::lock_guard<std::mutex> l(acc_mutex); stdout_acc += data; };
-             state->on_stderr = [&](const std::string &data) { std::lock_guard<std::mutex> l(acc_mutex); stderr_acc += data; };
-
-             bool done = false;
-             int exit_code = 0;
-             state->on_exit = [&](int code, int sig) { (void)sig; exit_code = code; done = true; };
-
-             m_alloy.start_monitoring(state);
-             while (!done) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
+             auto res = m_alloy.shell(command, cwd);
              std::string result_json = "{";
-             result_json += "\"exitCode\":" + std::to_string(exit_code) + ",";
-             result_json += "\"stdout\":" + json_escape(stdout_acc) + ",";
-             result_json += "\"stderr\":" + json_escape(stderr_acc);
+             result_json += "\"exitCode\":" + std::to_string(res.exit_code) + ",";
+             result_json += "\"stdout\":" + json_escape(res.stdout_data) + ",";
+             result_json += "\"stderr\":" + json_escape(res.stderr_data);
              result_json += "}";
              this->dispatch([this, seq, result_json]() { this->resolve(seq, 0, result_json); });
            }).detach();
@@ -323,27 +349,6 @@ protected:
         m_sqlite_dbs[db_id] = state;
         this->resolve(seq, 0, db_id);
     }, nullptr);
-
-    bind("Alloy_guiCreate", [this](const std::string &seq, const std::string &req, void *) {
-        auto type = json_parse(req, "", 0);
-        auto props = json_parse(req, "", 1);
-        auto id = m_alloy.gui_create(type, props);
-        this->resolve(seq, 0, id);
-    }, nullptr);
-
-    bind("Alloy_guiUpdate", [this](const std::string &req) -> std::string {
-        auto id = json_parse(req, "", 0);
-        auto props = json_parse(req, "", 1);
-        m_alloy.gui_update(id, props);
-        return "true";
-    });
-
-    bind("Alloy_guiAddChild", [this](const std::string &req) -> std::string {
-        auto parent_id = json_parse(req, "", 0);
-        auto child_id = json_parse(req, "", 1);
-        m_alloy.gui_add_child(parent_id, child_id);
-        return "true";
-    });
 
     bind("Alloy_sqliteQuery", [this](const std::string &seq, const std::string &req, void *) {
         auto db_id = json_parse(req, "", 0);
@@ -389,7 +394,11 @@ protected:
                 int type = sqlite3_column_type(stmt, i);
                 if (type == SQLITE_INTEGER) {
                     long long val = sqlite3_column_int64(stmt, i);
-                    result_json += std::to_string(val) + (db_state->safe_integers ? "n" : "");
+                    if (db_state->safe_integers) {
+                        result_json += "\"" + std::to_string(val) + "n\"";
+                    } else {
+                        result_json += std::to_string(val);
+                    }
                 } else if (type == SQLITE_FLOAT) result_json += std::to_string(sqlite3_column_double(stmt, i));
                 else if (type == SQLITE_TEXT) result_json += json_escape((const char*)sqlite3_column_text(stmt, i));
                 else if (type == SQLITE_NULL) result_json += "null";
@@ -410,6 +419,110 @@ protected:
         }
         this->resolve(seq, 0, result_json);
     }, nullptr);
+
+    bind("Alloy_createTerminal", [this](const std::string &seq, const std::string &req, void *) {
+        auto options = json_parse(req, "", 0);
+        int cols = 80;
+        int rows = 24;
+        std::string cols_str = json_parse(options, "cols", 0);
+        std::string rows_str = json_parse(options, "rows", 0);
+        if (!cols_str.empty()) cols = std::stoi(cols_str);
+        if (!rows_str.empty()) rows = std::stoi(rows_str);
+
+        auto state = m_alloy.create_terminal(cols, rows);
+        if (!state) { this->resolve(seq, 1, "null"); return; }
+
+        std::string term_id = std::to_string(reinterpret_cast<uintptr_t>(state.get()));
+        m_terminals[term_id] = state;
+
+        state->on_data = [this, term_id](const std::string &data) {
+            this->dispatch([this, term_id, data]() {
+                this->eval("window.Alloy._onTerminalData('" + term_id + "', " + json_escape(data) + ")");
+            });
+        };
+        this->resolve(seq, 0, term_id);
+    }, nullptr);
+
+    bind("Alloy_terminalWrite", [this](const std::string &req) -> std::string {
+        auto id = json_parse(req, "", 0);
+        auto data = json_parse(req, "", 1);
+        auto it = m_terminals.find(id);
+        if (it != m_terminals.end()) {
+            it->second->write(data);
+            return "true";
+        }
+        return "false";
+    });
+
+    bind("Alloy_terminalResize", [this](const std::string &req) -> std::string {
+        auto id = json_parse(req, "", 0);
+        int cols = std::stoi(json_parse(req, "", 1));
+        int rows = std::stoi(json_parse(req, "", 2));
+        auto it = m_terminals.find(id);
+        if (it != m_terminals.end()) {
+            it->second->resize(cols, rows);
+            return "true";
+        }
+        return "false";
+    });
+
+    bind("Alloy_terminalClose", [this](const std::string &req) -> std::string {
+        auto id = json_parse(req, "", 0);
+        m_terminals.erase(id);
+        return "true";
+    });
+
+    bind("Alloy_guiCreateWindow", [this](const std::string &req) -> std::string {
+        auto title = json_parse(req, "", 0);
+        int w = std::stoi(json_parse(req, "", 1));
+        int h = std::stoi(json_parse(req, "", 2));
+        auto win = alloy_create_window(title.c_str(), w, h);
+        return std::to_string(reinterpret_cast<uintptr_t>(win));
+    });
+
+    bind("Alloy_guiCreateButton", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto btn = alloy_create_button(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(btn));
+    });
+
+    bind("Alloy_guiCreateLabel", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto lbl = alloy_create_label(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(lbl));
+    });
+
+    bind("Alloy_guiCreateProgressBar", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto pb = alloy_create_progressbar(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(pb));
+    });
+
+    bind("Alloy_guiCreateVStack", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto vs = alloy_create_vstack(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(vs));
+    });
+
+    bind("Alloy_guiSetText", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto txt = json_parse(req, "", 1);
+        alloy_set_text(h, txt.c_str());
+        return "true";
+    });
+
+    bind("Alloy_guiSetValue", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        double val = std::stod(json_parse(req, "", 1));
+        alloy_set_value(h, val);
+        return "true";
+    });
+
+    bind("Alloy_guiRun", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        alloy_run(h);
+        return "true";
+    });
   }
 
   std::string create_alloy_script() {
@@ -418,6 +531,7 @@ protected:
   if (window.Alloy) return;
   const $ = function(strings, ...values) {
     let cmd = "";
+    let capturedObjects = [];
     for (let i = 0; i < strings.length; i++) {
         cmd += strings[i];
         if (i < values.length) {
@@ -426,6 +540,12 @@ protected:
                 cmd += "'" + val.replace(/'/g, "'\\''") + "'";
             } else if (val && val.raw) {
                 cmd += val.raw;
+            } else if (val instanceof Uint8Array || val instanceof ArrayBuffer || (val && val.body instanceof ReadableStream)) {
+                // Simplified object interop for now: just stringify or reference
+                // A full implementation would pipe the actual buffer
+                const placeholder = "__ALLOY_OBJ_" + capturedObjects.length + "__";
+                capturedObjects.push(val);
+                cmd += placeholder;
             } else {
                 cmd += JSON.stringify(val);
             }
@@ -503,87 +623,76 @@ protected:
       this.init = async () => {
           this.id = await window.Alloy_sqliteOpen(this.filename, this.options);
       };
+      const parseResult = (res) => {
+          if (typeof res === 'string' && res.endsWith('n')) {
+              return BigInt(res.slice(0, -1));
+          }
+          if (Array.isArray(res)) return res.map(parseResult);
+          if (res && typeof res === 'object') {
+              for (let k in res) res[k] = parseResult(res[k]);
+          }
+          return res;
+      };
       this.query = (sql) => {
           return {
-              all: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "all"),
-              get: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "get"),
+              all: async (params) => parseResult(await window.Alloy_sqliteQuery(this.id, sql, params || {}, "all")),
+              get: async (params) => parseResult(await window.Alloy_sqliteQuery(this.id, sql, params || {}, "get")),
               run: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "run"),
-              values: (params) => window.Alloy_sqliteQuery(this.id, sql, params || {}, "values"),
+              values: async (params) => parseResult(await window.Alloy_sqliteQuery(this.id, sql, params || {}, "values")),
           };
       };
       this.prepare = this.query;
       this.run = (sql, params) => this.query(sql).run(params);
-  };
-
-  const Window = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("Window", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
+      this.transaction = (fn) => {
+          const wrapper = (...args) => {
+              this.run("BEGIN");
+              try {
+                  const res = fn.apply(this, args);
+                  this.run("COMMIT");
+                  return res;
+              } catch (e) {
+                  this.run("ROLLBACK");
+                  throw e;
+              }
+          };
+          wrapper.deferred = (...args) => { this.run("BEGIN DEFERRED"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch (e) { this.run("ROLLBACK"); throw e; } };
+          wrapper.immediate = (...args) => { this.run("BEGIN IMMEDIATE"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch (e) { this.run("ROLLBACK"); throw e; } };
+          wrapper.exclusive = (...args) => { this.run("BEGIN EXCLUSIVE"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch (e) { this.run("ROLLBACK"); throw e; } };
+          return wrapper;
       };
   };
 
-  const Button = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("Button", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
-      };
+  const gui = {
+      Window: function(title, w, h) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateWindow(title, w, h); return this; };
+          this.run = () => window.Alloy_guiRun(this.id);
+      },
+      Button: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateButton(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      Label: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateLabel(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      ProgressBar: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateProgressBar(parent.id); return this; };
+          this.setValue = (val) => window.Alloy_guiSetValue(this.id, val);
+      },
+      VStack: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateVStack(parent.id); return this; };
+      }
   };
 
-  const VStack = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("VStack", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
-      };
-      this.add = (child) => window.Alloy_guiAddChild(this.id, child.id);
-  };
-
-  const TextField = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("TextField", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
-      };
-  };
-
-  const TextArea = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("TextArea", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
-      };
-  };
-
-  const Label = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("Label", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
-      };
-  };
-
-  const ProgressBar = function(props) {
-      this.id = null;
-      this.props = props || {};
-      this.init = async () => {
-          this.id = await window.Alloy_guiCreate("ProgressBar", this.props);
-          await window.Alloy_guiUpdate(this.id, this.props);
-      };
-      this.setValue = (val) => window.Alloy_guiUpdate(this.id, { value: val });
-  };
-
-  window.Alloy = {
+  const Alloy = {
     $: $,
     sqlite: { Database: Database },
-    gui: { Window: Window, Button: Button, VStack: VStack, TextField: TextField, TextArea: TextArea, Label: Label, ProgressBar: ProgressBar },
+    gui: gui,
     _subprocesses: {},
     spawn: async function(cmd, options) {
       const id = await window.Alloy_spawn(cmd, options || {});
@@ -591,8 +700,12 @@ protected:
       const proc = {
         pid: id,
         stdin: {
-          write: (data) => window.Alloy_stdinWrite(id, data),
-          end: () => {}
+          write: (data) => {
+              if (data instanceof Uint8Array) data = new TextDecoder().decode(data);
+              return window.Alloy_stdinWrite(id, data);
+          },
+          end: () => {},
+          flush: () => {}
         },
         stdout: new ReadableStream({
           start(controller) {
@@ -604,10 +717,28 @@ protected:
             proc._stderrController = controller;
           }
         }),
+        kill: (sig) => window.Alloy_kill(id, sig),
+        unref: () => {},
+        resourceUsage: () => proc._usage,
         exited: new Promise((resolve) => { proc._resolveExit = resolve; })
       };
+      proc.stdout.text = async () => {
+          const reader = proc.stdout.getReader();
+          let text = "";
+          while (true) {
+              const {done, value} = await reader.read();
+              if (done) break;
+              text += new TextDecoder().decode(value);
+          }
+          return text;
+      };
+      if (options && options.onExit) proc._onExitCb = options.onExit;
       this._subprocesses[id] = proc;
       return proc;
+    },
+    spawnSync: function(cmd, options) {
+        const res = window.Alloy_spawnSync(cmd, options || {});
+        return JSON.parse(res);
     },
     _onStdout: function(id, data) {
       const proc = this._subprocesses[id];
@@ -621,15 +752,52 @@ protected:
         proc._stderrController.enqueue(new TextEncoder().encode(data));
       }
     },
-    _onExit: function(id, exitCode, signalCode) {
+    _onExit: function(id, exitCode, signalCode, usage) {
       const proc = this._subprocesses[id];
       if (proc) {
         proc.exitCode = exitCode;
         proc.signalCode = signalCode;
+        proc._usage = usage;
+        if (proc._onExitCb) proc._onExitCb(proc, exitCode, signalCode);
         if (proc._resolveExit) proc._resolveExit(exitCode);
       }
+    },
+    Terminal: function(options) {
+        this.id = null;
+        this._options = options || {};
+        this.init = async () => {
+            this.id = await window.Alloy_createTerminal(this._options);
+            window.Alloy._terminals[this.id] = this;
+            return this;
+        };
+        this.write = (data) => window.Alloy_terminalWrite(this.id, data);
+        this.resize = (cols, rows) => window.Alloy_terminalResize(this.id, cols, rows);
+        this.close = () => {
+            window.Alloy_terminalClose(this.id);
+            delete window.Alloy._terminals[this.id];
+        };
+    },
+    _terminals: {},
+    _onTerminalData: function(id, data) {
+        const term = this._terminals[id];
+        if (term && term._options.data) {
+            term._options.data(term, new TextEncoder().encode(data));
+        }
     }
   };
+  window.Alloy = Alloy;
+
+  // Simple module loader polyfill
+  const modules = {
+      "Alloy:sqlite": Alloy.sqlite,
+      "Alloy:gui": Alloy.gui,
+      "Alloy:process": { spawn: Alloy.spawn, spawnSync: Alloy.spawnSync, Terminal: Alloy.Terminal }
+  };
+
+  const originalImport = window.import;
+  // This is a hack for the sandbox environment where we can't easily override 'import'
+  // In a real Alloy runtime, the JS engine would handle this at the module resolution level.
+  window.Alloy.import = (name) => modules[name] || null;
 })();
 )js";
   }
@@ -807,6 +975,8 @@ private:
       m_subprocesses;
   std::map<std::string, std::shared_ptr<alloyscript_runtime::sqlite_db_state>>
       m_sqlite_dbs;
+  std::map<std::string, std::shared_ptr<alloyscript_runtime::terminal_state>>
+      m_terminals;
 
   bool m_is_init_script_added{};
   bool m_is_size_set{};

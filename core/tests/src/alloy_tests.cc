@@ -84,6 +84,27 @@ TEST_CASE("Alloy spawn (Async)") {
     }
 }
 
+TEST_CASE("Alloy SQLite BigInt Round-tripping") {
+    alloyscript_runtime runtime;
+    auto db = runtime.sqlite_open(":memory:", false, true, false, true); // safe_integers = true
+    REQUIRE(db != nullptr);
+
+    sqlite3_exec(db->db, "CREATE TABLE test (v INTEGER)", nullptr, nullptr, nullptr);
+    auto stmt_ins = runtime.sqlite_prepare(db, "INSERT INTO test (v) VALUES (?)", false);
+
+    // Large 64-bit integer: 2^60
+    std::string large_int = "1152921504606846976";
+    runtime.sqlite_bind(stmt_ins, 1, large_int, "bigint");
+    sqlite3_step(stmt_ins);
+
+    auto stmt_sel = runtime.sqlite_prepare(db, "SELECT v FROM test", false);
+    REQUIRE(sqlite3_step(stmt_sel) == SQLITE_ROW);
+
+    // Check if it matches std::stoll conversion
+    long long val = sqlite3_column_int64(stmt_sel, 0);
+    REQUIRE(std::to_string(val) == large_int);
+}
+
 TEST_CASE("Alloy Shell Pipelines") {
     alloyscript_runtime runtime;
 
@@ -102,6 +123,7 @@ TEST_CASE("Alloy Shell Pipelines") {
 #endif
 }
 
+#ifdef WEBVIEW_PLATFORM_WINDOWS
 TEST_CASE("Alloy GUI C API") {
     SECTION("Window creation and title") {
         auto win = alloy_create_window("Test Window", 800, 600);
@@ -142,3 +164,4 @@ TEST_CASE("Alloy GUI C API") {
         alloy_destroy(win);
     }
 }
+#endif

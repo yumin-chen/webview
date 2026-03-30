@@ -82,6 +82,7 @@ def process_file(context: ProcessorContext, input: os.PathLike, search_dirs: Seq
             end = m.end(0)
 
             comment_instruction = m[2]
+            skip_include = False
             if comment_instruction is not None:
                 skip_include = comment_instruction == "amalgamate(skip)"
 

@@ -10,13 +10,24 @@ target_include_directories(
 # Alloy GUI library
 add_library(alloy_gui STATIC src/alloy.cc)
 target_include_directories(alloy_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/alloy")
-target_link_libraries(alloy_gui PUBLIC webview_core_headers)
-target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES})
+target_link_libraries(alloy_gui PRIVATE webview_core_headers)
+set_target_properties(alloy_gui PROPERTIES
+    EXPORT_NAME alloy_gui
+    POSITION_INDEPENDENT_CODE ON)
+add_library(sqlite3 STATIC ${PROJECT_SOURCE_DIR}/deps/sqlite/sqlite3.c)
+target_include_directories(sqlite3 PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/deps/sqlite>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/sqlite3>)
+set_target_properties(sqlite3 PROPERTIES
+    EXPORT_NAME sqlite3
+    POSITION_INDEPENDENT_CODE ON)
+
+target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES} alloy_gui)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_libraries(webview_core_headers INTERFACE util)
+    target_link_libraries(webview_core_headers INTERFACE util sqlite3)
 endif()
 # Note that we also use CMAKE_CXX_STANDARD which can override this
-target_compile_features(webview_core_headers INTERFACE cxx_std_11)
+target_compile_features(webview_core_headers INTERFACE cxx_std_17)
 set_target_properties(webview_core_headers PROPERTIES
     EXPORT_NAME core)
 
@@ -52,7 +63,7 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
     add_library(webview_core_static STATIC)
     add_library(webview::core_static ALIAS webview_core_static)
     target_sources(webview_core_static PRIVATE src/webview.cc)
-    target_link_libraries(webview_core_static PUBLIC webview_core_headers)
+    target_link_libraries(webview_core_static PUBLIC webview_core_headers alloy_gui)
     set_target_properties(webview_core_static PROPERTIES
         OUTPUT_NAME "${STATIC_LIBRARY_OUTPUT_NAME}"
         POSITION_INDEPENDENT_CODE ON
@@ -80,7 +91,7 @@ if(WEBVIEW_BUILD_AMALGAMATION)
                     "${PROJECT_SOURCE_DIR}/scripts/amalgamate/amalgamate.py"
                     --clang-format-exe "${WEBVIEW_CLANG_FORMAT_EXE}"
                     --base "${CMAKE_CURRENT_SOURCE_DIR}"
-                    --search include
+                    --search include include/alloy
                     --output "${CMAKE_CURRENT_BINARY_DIR}/amalgamation/webview.h"
                     ${SOURCE_FILES}
                 DEPENDS ${HEADER_FILES} ${SOURCE_FILES}

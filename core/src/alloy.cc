@@ -1,4 +1,4 @@
-#include "api.h"
+#include "alloy/api.h"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -80,9 +80,19 @@ alloy_component_t alloy_create_progressbar(alloy_component_t parent) {
 
 alloy_component_t alloy_create_vstack(alloy_component_t parent) {
 #ifdef ALLOY_PLATFORM_LINUX
-    auto vs = new gtk_component(gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), true);
+    auto vs = new gtk_component(gtk_box_new(GTK_ORIENTATION_VERTICAL, 10), true);
+    gtk_container_set_border_width(GTK_CONTAINER(vs->native_handle()), 10);
     if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(vs->native_handle()));
     return vs;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_hstack(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto hs = new gtk_component(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10), true);
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(hs->native_handle()));
+    return hs;
 #endif
     return nullptr;
 }
@@ -124,7 +134,20 @@ alloy_error_t alloy_set_event_callback(alloy_component_t handle, alloy_event_typ
 
 alloy_error_t alloy_run(alloy_component_t window) {
 #ifdef ALLOY_PLATFORM_LINUX
-    gtk_widget_show_all(GTK_WIDGET(cast(window)->native_handle()));
+    auto widget = GTK_WIDGET(cast(window)->native_handle());
+    gtk_widget_show_all(widget);
+
+    // Add some default styling for "professional" look
+    const char *css =
+        "window { background-color: #f0f0f0; }"
+        "button { padding: 8px 16px; border-radius: 4px; background: #0078d4; color: white; border: none; }"
+        "button:hover { background: #005a9e; }"
+        "label { font-size: 14px; color: #333; }";
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider, css, -1, NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
+
     gtk_main();
 #endif
     return ALLOY_OK;
@@ -160,7 +183,6 @@ alloy_component_t alloy_create_tabview(alloy_component_t p) { return nullptr; }
 alloy_component_t alloy_create_listview(alloy_component_t p) { return nullptr; }
 alloy_component_t alloy_create_treeview(alloy_component_t p) { return nullptr; }
 alloy_component_t alloy_create_webview(alloy_component_t p) { return nullptr; }
-alloy_component_t alloy_create_hstack(alloy_component_t p) { return nullptr; }
 alloy_component_t alloy_create_scrollview(alloy_component_t p) { return nullptr; }
 alloy_error_t alloy_set_flex(alloy_component_t h, float flex) { return ALLOY_OK; }
 alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
