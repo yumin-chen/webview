@@ -20,8 +20,15 @@ const char* alloy_error_message(alloy_error_t err) {
 }
 
 alloy_component_t alloy_create_window(const char *title, int width, int height) {
-    // Stub implementation
+#ifdef WEBVIEW_PLATFORM_LINUX
+    auto w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(w), title);
+    gtk_window_set_default_size(GTK_WINDOW(w), width, height);
+    // Note: in a real impl we'd wrap this in a component_base subclass
+    return reinterpret_cast<alloy_component_t>(w);
+#else
     return nullptr;
+#endif
 }
 
 alloy_component_t alloy_create_button(alloy_component_t parent) {
@@ -35,6 +42,17 @@ alloy_component_t alloy_create_button(alloy_component_t parent) {
 alloy_error_t alloy_set_text(alloy_component_t h, const char *text) {
     if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
     return static_cast<component_base*>(h)->set_text(text);
+}
+
+alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
+    if (!container || !child) return ALLOY_ERROR_INVALID_ARGUMENT;
+    auto c = static_cast<component_base*>(container);
+    auto ch = static_cast<component_base*>(child);
+#ifdef WEBVIEW_PLATFORM_LINUX
+    gtk_container_add(GTK_CONTAINER(c->native_handle()), GTK_WIDGET(ch->native_handle()));
+    gtk_widget_show(GTK_WIDGET(ch->native_handle()));
+#endif
+    return ALLOY_OK;
 }
 
 alloy_error_t alloy_destroy(alloy_component_t handle) {

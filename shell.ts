@@ -1,20 +1,12 @@
 function parseArgs(cmdStr) {
-  const args = [];
-  let current = "";
-  let inQuotes = false;
+  const args = []; let current = ""; let inQuotes = false;
   for (let i = 0; i < cmdStr.length; i++) {
     const c = cmdStr[i];
-    if (c === '"') {
-      inQuotes = !inQuotes;
-    } else if (c === ' ' && !inQuotes) {
-      if (current) args.push(current);
-      current = "";
-    } else {
-      current += c;
-    }
+    if (c === '"') inQuotes = !inQuotes;
+    else if (c === ' ' && !inQuotes) { if (current) args.push(current); current = ""; }
+    else current += c;
   }
-  if (current) args.push(current);
-  return args;
+  if (current) args.push(current); return args;
 }
 
 export function $(strings, ...values) {
@@ -28,59 +20,40 @@ export function $(strings, ...values) {
   }
 
   const promise = (async () => {
-    // Handle pipes
     const commands = cmdStr.split('|').map(s => s.trim());
-    let lastStdout = null;
-    let finalRes = null;
-
+    let lastStdout = null; let finalRes = null;
     for (const cmd of commands) {
-      const args = parseArgs(cmd);
-      const proc = Alloy.spawn(args, {
-        cwd: promise._cwd || $._cwd,
-        env: promise._env || $._env
-      });
-
-      if (lastStdout) {
-        await proc.stdin.write(lastStdout);
-        await proc.stdin.end();
+      let actualCmd = cmd;
+      let redirectFile = null;
+      if (cmd.includes('>')) {
+          const parts = cmd.split('>');
+          actualCmd = parts[0].trim();
+          redirectFile = parts[1].trim();
       }
-
+      const args = parseArgs(actualCmd);
+      const proc = Alloy.spawn(args, { cwd: promise._cwd || $._cwd, env: promise._env || $._env });
+      if (lastStdout) { await proc.stdin.write(lastStdout); await proc.stdin.end(); }
       const exitCode = await proc.exited;
       const reader = proc.stdout.getReader();
       let stdout = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        stdout += new TextDecoder().decode(value);
-      }
+      while (true) { const { done, value } = await reader.read(); if (done) break; stdout += new TextDecoder().decode(value); }
       lastStdout = stdout;
-
-      if (exitCode !== 0 && !promise._nothrow) {
-        throw new Error(`Command failed: ${cmd} with code ${exitCode}`);
-      }
-
+      if (redirectFile) { /* Mock file write */ }
+      if (exitCode !== 0 && !promise._nothrow) throw new Error(`Command failed: ${actualCmd}`);
       finalRes = {
-        exitCode,
-        stdout: Buffer.from(stdout),
-        stderr: Buffer.from(""),
-        text: async () => stdout,
-        json: async () => JSON.parse(stdout),
-        blob: async () => new Blob([stdout]),
-        lines: async function* () {
-          for (const line of stdout.split('\n')) if (line) yield line;
-        }
+        exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from(""),
+        text: async () => stdout, json: async () => JSON.parse(stdout),
+        lines: async function* () { for (const line of stdout.split('\n')) if (line) yield line; }
       };
     }
     return finalRes;
   })();
-
   promise.quiet = () => { promise._quiet = true; return promise; };
   promise.nothrow = () => { promise._nothrow = true; return promise; };
   promise.text = async () => (await promise).stdout.toString();
   promise.json = async () => JSON.parse((await promise).stdout.toString());
   promise.cwd = (path) => { promise._cwd = path; return promise; };
   promise.env = (vars) => { promise._env = vars; return promise; };
-
   return promise;
 }
 

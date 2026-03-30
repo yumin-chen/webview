@@ -234,30 +234,57 @@ protected:
       opts.cwd = json_parse(opts_json, "cwd", 0);
 
       std::string stdout_data, stderr_data;
+      std::mutex sync_mutex;
+      std::condition_variable sync_cv;
       int exit_code = -1;
       bool finished = false;
 
       subprocess proc(opts);
       proc.spawn(
+          {
           [&](const std::string &data, bool is_stderr) {
-            if (is_stderr)
-              stderr_data += data;
-            else
-              stdout_data += data;
+            std::lock_guard<std::mutex> lock(sync_mutex);
+            if (is_stderr) stderr_data += data;
+            else stdout_data += data;
           },
-          [&](int code) {
+          [&](int code, const std::string& sig) {
+            std::lock_guard<std::mutex> lock(sync_mutex);
             exit_code = code;
             finished = true;
+            sync_cv.notify_one();
+          }
           });
 
-      while (!finished) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      }
+      std::unique_lock<std::mutex> lock(sync_mutex);
+      sync_cv.wait(lock, [&]{ return finished; });
 
       return "{\"stdout\":" + json_escape(stdout_data) +
              ",\"stderr\":" + json_escape(stderr_data) +
              ",\"exitCode\":" + std::to_string(exit_code) +
              ",\"success\":" + (exit_code == 0 ? "true" : "false") + "}";
+    });
+
+    bind("__alloy_terminal_resize", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      auto cols = std::stoi(json_parse(req, "", 1));
+      auto rows = std::stoi(json_parse(req, "", 2));
+      auto it = m_subprocesses.find(proc_id);
+      if (it != m_subprocesses.end()) {
+        it->second->resize_terminal(cols, rows);
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_terminal_raw", [this](const std::string &req) -> std::string {
+      auto proc_id = json_parse(req, "", 0);
+      auto enabled = json_parse(req, "", 1) == "true";
+      auto it = m_subprocesses.find(proc_id);
+      if (it != m_subprocesses.end()) {
+        it->second->set_raw_mode(enabled);
+        return "true";
+      }
+      return "false";
     });
 
     bind("__alloy_spawn_bridge", [this](const std::string &req) -> std::string {
@@ -270,11 +297,10 @@ protected:
           auto arg = json_parse(cmd_json, "", i);
           if (arg.empty() && i > 0)
             break;
-          if (!arg.empty()) {
+          if (!arg.empty())
             cmd.push_back(arg);
-          } else if (i == 0) {
+          else if (i == 0)
             break;
-          }
         }
       } else if (cmd_json[0] == '"') {
         cmd.push_back(json_parse(req, "", 0));
@@ -297,9 +323,15 @@ protected:
 
       auto env_json = json_parse(opts_json, "env", 0);
       if (!env_json.empty() && env_json[0] == '{') {
-        // Simple manual parsing for some env vars
-        // This is tricky without a real JSON parser.
-        // For now, let's just support passing a few known ones or keep it empty.
+          size_t pos = 1;
+          while (pos < env_json.size() - 1) {
+              auto key = json_parse(env_json.substr(pos), "", 1);
+              auto val = json_parse(env_json.substr(pos), key, 0);
+              if (!key.empty()) opts.env[key] = val;
+              pos = env_json.find(',', pos);
+              if (pos == std::string::npos) break;
+              pos++;
+          }
       }
 
       auto proc = std::make_shared<subprocess>(opts);
@@ -307,16 +339,18 @@ protected:
       m_subprocesses[proc_id] = proc;
 
       bool success = proc->spawn(
+          {
           [this, proc_id](const std::string &data, bool is_stderr) {
             std::string js = "window.Alloy.__onData(" + json_escape(proc_id) +
                              ", " + json_escape(data) + ", " +
                              (is_stderr ? "true" : "false") + ")";
             dispatch([this, js] { eval(js); });
           },
-          [this, proc_id](int exit_code) {
+          [this, proc_id](int exit_code, const std::string& signal_name) {
             std::string js = "window.Alloy.__onExit(" + json_escape(proc_id) +
-                             ", " + std::to_string(exit_code) + ")";
+                             ", " + std::to_string(exit_code) + ", " + json_escape(signal_name) + ")";
             dispatch([this, js] { eval(js); });
+          }
           });
 
       if (success) {
@@ -419,9 +453,10 @@ protected:
 
     bind("__alloy_sqlite_step", [this](const std::string &req) -> std::string {
       auto stmt_id = json_parse(req, "", 0);
+      auto safe_int = json_parse(req, "", 1) == "true";
       auto it = m_sqlite_stmts.find(stmt_id);
       if (it != m_sqlite_stmts.end()) {
-        return it->second->step();
+        return it->second->step(safe_int);
       }
       return "";
     });
@@ -450,6 +485,29 @@ protected:
       return "false";
     });
 
+    bind("__alloy_gui_create_window", [this](const std::string &req) -> std::string {
+      auto title = json_parse(req, "", 0);
+      auto w = std::stoi(json_parse(req, "", 1));
+      auto h = std::stoi(json_parse(req, "", 2));
+      return std::to_string(reinterpret_cast<uintptr_t>(alloy_create_window(title.c_str(), w, h)));
+    });
+
+    bind("__alloy_gui_create_button", [this](const std::string &req) -> std::string {
+      auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+      return std::to_string(reinterpret_cast<uintptr_t>(alloy_create_button(parent)));
+    });
+
+    bind("__alloy_gui_set_text", [this](const std::string &req) -> std::string {
+      auto handle = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+      auto text = json_parse(req, "", 1);
+      return alloy_set_text(handle, text.c_str()) == ALLOY_OK ? "true" : "false";
+    });
+
+    bind("__alloy_gui_destroy", [this](const std::string &req) -> std::string {
+      auto handle = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+      return alloy_destroy(handle) == ALLOY_OK ? "true" : "false";
+    });
+
     bind("__alloy_sqlite_serialize", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto it = m_sqlite_dbs.find(db_id);
@@ -474,11 +532,23 @@ protected:
   'use strict';
   if (window.Alloy) return;
 
+  if (typeof Buffer === 'undefined') {
+    window.Buffer = class extends Uint8Array {
+      static from(data) {
+        if (typeof data === 'string') return new Buffer((new TextEncoder()).encode(data));
+        return new Buffer(data);
+      }
+      static alloc(size) { return new Buffer(size); }
+      toString(enc) { return (new TextDecoder(enc)).decode(this); }
+    };
+  }
+
   class Subprocess {
-    constructor(id, pid) {
+    constructor(id, pid, options) {
       this.id = id;
       this.pid = pid;
       this.exitCode = null;
+      this.signalCode = null;
       this.killed = false;
       this._exitedPromise = new Promise(resolve => {
         this._resolveExited = resolve;
@@ -499,6 +569,16 @@ protected:
         end: () => window.__alloy_stdin_close(this.id),
         flush: () => {}
       };
+
+      if (options && options.terminal) {
+          this.terminal = {
+              write: (data) => window.__alloy_stdin_write(this.id, data),
+              resize: (cols, rows) => window.__alloy_terminal_resize(this.id, cols, rows),
+              setRawMode: (enabled) => window.__alloy_terminal_raw(this.id, enabled),
+              close: () => window.__alloy_stdin_close(this.id),
+              ref: () => {}, unref: () => {}
+          };
+      }
     }
     get exited() { return this._exitedPromise; }
     kill(sig) {
@@ -508,11 +588,45 @@ protected:
     send(message) {
       return window.__alloy_send(this.id, JSON.stringify(message));
     }
+    resourceUsage() {
+      return {
+        maxRSS: 0,
+        cpuTime: { user: 0, system: 0, total: 0 }
+      };
+    }
+    unref() {}
+    ref() {}
+    disconnect() {
+      window.__alloy_stdin_close(this.id);
+    }
+    async [Symbol.asyncDispose]() {
+        this.kill();
+    }
   }
 
   const subprocesses = {};
 
   window.Alloy = {
+    gui: {
+      createWindow: function(title, w, h) { return window.__alloy_gui_create_window(title, w, h); },
+      createButton: function(parent) { return window.__alloy_gui_create_button(parent); },
+      setText: function(handle, text) { return window.__alloy_gui_set_text(handle, text); },
+      destroy: function(handle) { return window.__alloy_gui_destroy(handle); }
+    },
+    Terminal: class {
+      constructor(options) {
+        this.options = options;
+        this.closed = false;
+        // Mock terminal for reuse
+      }
+      write(data) {}
+      resize(cols, rows) {}
+      setRawMode(enabled) {}
+      ref() {}
+      unref() {}
+      close() { this.closed = true; }
+      async [Symbol.asyncDispose]() { this.close(); }
+    },
     cron: (function() {
       const cron = async function(path, schedule, title) {
         return window.__alloy_cron_register(path, schedule, title);
@@ -521,7 +635,6 @@ protected:
         return window.__alloy_cron_remove(title);
       };
       cron.parse = function(expression, relativeDate) {
-        // Basic parser stub for illustration
         return new Date();
       };
       return cron;
@@ -529,23 +642,31 @@ protected:
     spawn: function(cmd, opts) {
         const arg = (Array.isArray(cmd)) ? cmd : (cmd && cmd.cmd ? cmd : [cmd]);
         const options = (Array.isArray(cmd)) ? opts : cmd;
-        // __alloy_spawn is still async due to webview::bind,
-        // but we can make it look sync if we use a sync binding that returns immediately
-        // and does the spawning in background.
         const res = JSON.parse(window.__alloy_spawn_bridge(arg, options));
       if (res.error) throw new Error(res.error);
-      const proc = new Subprocess(res.id, res.pid);
+      const proc = new Subprocess(res.id, res.pid, options);
       subprocesses[res.id] = proc;
       if (options && options.ipc) {
         proc._ipcHandler = options.ipc;
       }
+      if (options && options.onExit) {
+        proc._onExitHandler = options.onExit;
+      }
       return proc;
     },
+    file: function(path) { return { path: path, toString: function() { return path; } }; },
     spawnSync: function(cmd, opts) {
         const arg = (Array.isArray(cmd)) ? cmd : (cmd && cmd.cmd ? cmd : [cmd]);
         const options = (Array.isArray(cmd)) ? opts : cmd;
         const res = window.__alloy_spawn_sync(arg, options);
-        return JSON.parse(res);
+        const obj = JSON.parse(res);
+        if (obj.stdout !== undefined) {
+          obj.stdout = Buffer.from(obj.stdout || "");
+        }
+        if (obj.stderr !== undefined) {
+          obj.stderr = Buffer.from(obj.stderr || "");
+        }
+        return obj;
     },
     __onData: function(id, data, isStderr) {
       const proc = subprocesses[id];
@@ -559,12 +680,16 @@ protected:
         }
       }
     },
-    __onExit: function(id, exitCode) {
+    __onExit: function(id, exitCode, signalCode) {
       const proc = subprocesses[id];
       if (proc) {
         proc.exitCode = exitCode;
+        proc.signalCode = signalCode;
         if (proc._stdoutController) proc._stdoutController.close();
         if (proc._stderrController) proc._stderrController.close();
+        if (proc._onExitHandler) {
+          proc._onExitHandler(proc, exitCode, signalCode, null);
+        }
         proc._resolveExited(exitCode);
         delete subprocesses[id];
         window.__alloy_cleanup(id);

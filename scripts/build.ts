@@ -6,18 +6,11 @@ const entrypoint = process.argv[2] || "index.ts";
 const outDir = "dist";
 
 async function main() {
-  console.log(`Building AlloyScript project: @alloyscript/runtime`);
-  console.log(`Entrypoint: ${entrypoint}`);
-
-  try {
-    mkdirSync(outDir, { recursive: true });
-  } catch (e) {}
+  console.log(`Building AlloyScript runtime bundle: @alloyscript/runtime`);
+  try { mkdirSync(outDir, { recursive: true }); } catch (e) {}
 
   const result = await build({
-    entrypoints: [entrypoint],
-    outdir: outDir,
-    target: "browser",
-    minify: false, // Keep it readable for debugging
+    entrypoints: [entrypoint], outdir: outDir, target: "browser", minify: false,
     plugins: [
       {
         name: "alloy-internal",
@@ -32,16 +25,14 @@ async function main() {
     ],
   });
 
-  if (!result.success) {
-    console.error("Build failed:", result.logs);
-    process.exit(1);
-  }
+  if (!result.success) { console.error("Build failed:", result.logs); process.exit(1); }
 
   const jsContent = readFileSync(join(outDir, "index.js"), "utf8");
   const escapedJs = JSON.stringify(jsContent);
 
   const cHostTemplate = `
 #include "webview/webview.h"
+#include "alloy/api.h"
 #include <iostream>
 #include <string>
 
@@ -50,23 +41,19 @@ const char* bundled_js = ${escapedJs};
 int main() {
     try {
         webview::webview w(true, nullptr);
-        w.set_title("AlloyScript Runtime Host");
-        w.set_size(1024, 768, WEBVIEW_HINT_NONE);
-        // Initialization script to set up bindings
+        w.set_title("AlloyScript Host");
+        w.set_size(1280, 800, WEBVIEW_HINT_NONE);
         w.init(bundled_js);
-        w.set_html("<html><head><style>body { font-family: sans-serif; }</style></head><body><h1>AlloyScript App</h1><p>The runtime is initialized. Inspect the console for logs.</p><script>" + std::string(bundled_js) + "</script></body></html>");
+        w.set_html("<html><head><style>body { background: #111; color: #eee; font-family: sans-serif; }</style></head><body><h1>AlloyScript Runtime</h1><div id='app'></div><script>" + std::string(bundled_js) + "</script></body></html>");
         w.run();
     } catch (const webview::exception &e) {
-        std::cerr << "Webview Error: " << e.what() << std::endl;
+        std::cerr << "Runtime Error: " << e.what() << std::endl;
         return 1;
     }
     return 0;
 }
 `;
-
   writeFileSync("host.cc", cHostTemplate);
-  console.log("Success! Generated host.cc with embedded JavaScript bundle.");
-  console.log("Next step: Compile host.cc with your platform's C++ compiler linking the webview library.");
+  console.log("Success! host.cc generated.");
 }
-
 main();
