@@ -1,66 +1,91 @@
+function parseArgs(cmdStr) {
+  const args = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < cmdStr.length; i++) {
+    const c = cmdStr[i];
+    if (c === '"') {
+      inQuotes = !inQuotes;
+    } else if (c === ' ' && !inQuotes) {
+      if (current) args.push(current);
+      current = "";
+    } else {
+      current += c;
+    }
+  }
+  if (current) args.push(current);
+  return args;
+}
+
 export function $(strings, ...values) {
   let cmdStr = strings[0];
   for (let i = 0; i < values.length; i++) {
     let val = values[i];
-    if (val && typeof val === 'object' && val.raw) {
-      cmdStr += val.raw;
-    } else if (typeof val === 'string') {
-      cmdStr += `"${val.replace(/"/g, '\\"')}"`; // Basic escaping
-    } else {
-      cmdStr += val;
-    }
+    if (val && typeof val === 'object' && val.raw) cmdStr += val.raw;
+    else if (typeof val === 'string') cmdStr += `"${val.replace(/"/g, '\\"')}"`;
+    else cmdStr += val;
     cmdStr += strings[i + 1];
   }
 
-  const args = cmdStr.trim().split(/\s+/);
-
   const promise = (async () => {
-    const proc = Alloy.spawn(args);
-    const exitCode = await proc.exited;
+    // Handle pipes
+    const commands = cmdStr.split('|').map(s => s.trim());
+    let lastStdout = null;
+    let finalRes = null;
 
-    const reader = proc.stdout.getReader();
-    let stdout = "";
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      stdout += decoder.decode(value);
-    }
+    for (const cmd of commands) {
+      const args = parseArgs(cmd);
+      const proc = Alloy.spawn(args, {
+        cwd: promise._cwd || $._cwd,
+        env: promise._env || $._env
+      });
 
-    if (exitCode !== 0 && !promise._nothrow) {
-      throw new Error(`Command failed with code ${exitCode}`);
-    }
-
-    return {
-      exitCode,
-      stdout: Buffer.from(stdout),
-      stderr: Buffer.from(""),
-      text: async () => stdout,
-      json: async () => JSON.parse(stdout),
-      blob: async () => new Blob([stdout], { type: "text/plain" }),
-      lines: async function* () {
-        const lines = stdout.split('\n');
-        for (const line of lines) {
-          if (line) yield line;
-        }
+      if (lastStdout) {
+        await proc.stdin.write(lastStdout);
+        await proc.stdin.end();
       }
-    };
+
+      const exitCode = await proc.exited;
+      const reader = proc.stdout.getReader();
+      let stdout = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        stdout += new TextDecoder().decode(value);
+      }
+      lastStdout = stdout;
+
+      if (exitCode !== 0 && !promise._nothrow) {
+        throw new Error(`Command failed: ${cmd} with code ${exitCode}`);
+      }
+
+      finalRes = {
+        exitCode,
+        stdout: Buffer.from(stdout),
+        stderr: Buffer.from(""),
+        text: async () => stdout,
+        json: async () => JSON.parse(stdout),
+        blob: async () => new Blob([stdout]),
+        lines: async function* () {
+          for (const line of stdout.split('\n')) if (line) yield line;
+        }
+      };
+    }
+    return finalRes;
   })();
 
-  promise.quiet = () => { return promise; };
+  promise.quiet = () => { promise._quiet = true; return promise; };
   promise.nothrow = () => { promise._nothrow = true; return promise; };
-  promise.text = async () => {
-    const res = await promise;
-    return res.stdout.toString();
-  };
-  promise.json = async () => {
-    const res = await promise;
-    return JSON.parse(res.stdout.toString());
-  };
+  promise.text = async () => (await promise).stdout.toString();
+  promise.json = async () => JSON.parse((await promise).stdout.toString());
+  promise.cwd = (path) => { promise._cwd = path; return promise; };
+  promise.env = (vars) => { promise._env = vars; return promise; };
 
   return promise;
 }
 
 $.escape = (s) => s.replace(/[$( )`"]/g, '\\$&');
 $.nothrow = () => { $.throws(false); };
-$.throws = (v) => { /* Global setting logic */ };
+$.throws = (v) => { $._throws = v; };
+$.cwd = (path) => { $._cwd = path; };
+$.env = (vars) => { $._env = vars; };

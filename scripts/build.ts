@@ -1,18 +1,23 @@
 import { build } from "bun";
-import { writeFileSync, readFileSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 const entrypoint = process.argv[2] || "index.ts";
 const outDir = "dist";
 
 async function main() {
-  console.log(`Building AlloyScript: ${entrypoint}`);
+  console.log(`Building AlloyScript project: @alloyscript/runtime`);
+  console.log(`Entrypoint: ${entrypoint}`);
+
+  try {
+    mkdirSync(outDir, { recursive: true });
+  } catch (e) {}
 
   const result = await build({
     entrypoints: [entrypoint],
     outdir: outDir,
     target: "browser",
-    minify: true,
+    minify: false, // Keep it readable for debugging
     plugins: [
       {
         name: "alloy-internal",
@@ -45,13 +50,14 @@ const char* bundled_js = ${escapedJs};
 int main() {
     try {
         webview::webview w(true, nullptr);
-        w.set_title("AlloyScript App");
-        w.set_size(800, 600, WEBVIEW_HINT_NONE);
+        w.set_title("AlloyScript Runtime Host");
+        w.set_size(1024, 768, WEBVIEW_HINT_NONE);
+        // Initialization script to set up bindings
         w.init(bundled_js);
-        w.set_html("<html><body><script>" + std::string(bundled_js) + "</script></body></html>");
+        w.set_html("<html><head><style>body { font-family: sans-serif; }</style></head><body><h1>AlloyScript App</h1><p>The runtime is initialized. Inspect the console for logs.</p><script>" + std::string(bundled_js) + "</script></body></html>");
         w.run();
     } catch (const webview::exception &e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "Webview Error: " << e.what() << std::endl;
         return 1;
     }
     return 0;
@@ -59,7 +65,8 @@ int main() {
 `;
 
   writeFileSync("host.cc", cHostTemplate);
-  console.log("Generated host.cc with embedded JavaScript.");
+  console.log("Success! Generated host.cc with embedded JavaScript bundle.");
+  console.log("Next step: Compile host.cc with your platform's C++ compiler linking the webview library.");
 }
 
 main();

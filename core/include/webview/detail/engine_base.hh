@@ -425,6 +425,47 @@ protected:
       }
       return "";
     });
+
+    bind("__alloy_sqlite_reset", [this](const std::string &req) -> std::string {
+      auto stmt_id = json_parse(req, "", 0);
+      auto it = m_sqlite_stmts.find(stmt_id);
+      if (it != m_sqlite_stmts.end()) {
+        it->second->reset();
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_sqlite_bind", [this](const std::string &req) -> std::string {
+      auto stmt_id = json_parse(req, "", 0);
+      auto index_str = json_parse(req, "", 1);
+      auto val = json_parse(req, "", 2);
+      auto it = m_sqlite_stmts.find(stmt_id);
+      if (it != m_sqlite_stmts.end()) {
+        int index = std::stoi(index_str);
+        if (val == "null") it->second->bind_null(index);
+        else it->second->bind_text(index, val);
+        return "true";
+      }
+      return "false";
+    });
+
+    bind("__alloy_sqlite_serialize", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto it = m_sqlite_dbs.find(db_id);
+      if (it != m_sqlite_dbs.end()) {
+        auto data = it->second->serialize();
+        // Return as hex or something similar for simple bridge
+        std::string hex = "";
+        for (auto b : data) {
+          char buf[3];
+          sprintf(buf, "%02x", b);
+          hex += buf;
+        }
+        return hex;
+      }
+      return "";
+    });
   }
 
   std::string create_alloy_script() {

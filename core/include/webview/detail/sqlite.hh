@@ -39,11 +39,6 @@ public:
                 } else if (type == SQLITE_FLOAT) {
                     result += std::to_string(sqlite3_column_double(m_stmt, i));
                 } else if (type == SQLITE_BLOB) {
-                    const void* blob = sqlite3_column_blob(m_stmt, i);
-                    int bytes = sqlite3_column_bytes(m_stmt, i);
-                    // For simplicity, return as hex or base64?
-                    // The spec says BLOB becomes Uint8Array in JS.
-                    // We'll handle conversion in JS if we pass it correctly.
                     result += "\"<BLOB>\"";
                 } else {
                     result += "null";
