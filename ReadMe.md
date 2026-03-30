@@ -1,4 +1,4 @@
-# AlloyScript Runtime
+# AlloyScript Engine
 
 The AlloyScript runtime is a high-performance, secure JavaScript environment built using WebView as streamlined cross-platform JS runtime for desktop applications. It uses **Bun** for development and bundling, and a **C host program** for native capabilities.
 
