@@ -167,6 +167,33 @@ extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
     else if (type == "VStack") comp = alloy_create_vstack(root_parent);
     else if (type == "HStack") comp = alloy_create_hstack(root_parent);
     else if (type == "ScrollView") comp = alloy_create_scrollview(root_parent);
+    else if (type == "Menu") comp = alloy_create_menu(root_parent);
+    else if (type == "MenuBar") comp = alloy_create_menubar(root_parent);
+    else if (type == "Toolbar") comp = alloy_create_toolbar(root_parent);
+    else if (type == "StatusBar") comp = alloy_create_statusbar(root_parent);
+    else if (type == "Splitter") comp = alloy_create_splitter(root_parent);
+    else if (type == "Dialog") comp = alloy_create_dialog(root_parent);
+    else if (type == "FileDialog") comp = alloy_create_filedialog(root_parent);
+    else if (type == "ColorPicker") comp = alloy_create_colorpicker(root_parent);
+    else if (type == "DatePicker") comp = alloy_create_datepicker(root_parent);
+    else if (type == "TimePicker") comp = alloy_create_timepicker(root_parent);
+    else if (type == "Tooltip") comp = alloy_create_tooltip(root_parent);
+    else if (type == "Divider") comp = alloy_create_divider(root_parent);
+    else if (type == "Image") comp = alloy_create_image(root_parent);
+    else if (type == "Icon") comp = alloy_create_icon(root_parent);
+    else if (type == "Separator") comp = alloy_create_separator(root_parent);
+    else if (type == "GroupBox") comp = alloy_create_groupbox(root_parent);
+    else if (type == "Accordion") comp = alloy_create_accordion(root_parent);
+    else if (type == "Popover") comp = alloy_create_popover(root_parent);
+    else if (type == "ContextMenu") comp = alloy_create_contextmenu(root_parent);
+    else if (type == "Badge") comp = alloy_create_badge(root_parent);
+    else if (type == "Chip") comp = alloy_create_chip(root_parent);
+    else if (type == "SpinnerLoading") comp = alloy_create_spinner_loading(root_parent);
+    else if (type == "Card") comp = alloy_create_card(root_parent);
+    else if (type == "Link") comp = alloy_create_link(root_parent);
+    else if (type == "Rating") comp = alloy_create_rating(root_parent);
+    else if (type == "RichText") comp = alloy_create_richtext(root_parent);
+    else if (type == "CodeEditor") comp = alloy_create_codeeditor(root_parent);
 
     g_components[component_id] = comp;
 

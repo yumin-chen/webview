@@ -1,5 +1,17 @@
 import { expect, test, describe, spyOn } from "bun:test";
-import { createComponent, updateComponent, destroyComponent, Window, Button, TextField, Color, VStack, HStack, TextArea, Label, CheckBox, RadioButton, ComboBox, Slider, Spinner, Switch, ProgressBar, ListView, TreeView, TabView, WebView, ScrollView } from "../src/gui";
+import {
+    createComponent, updateComponent, destroyComponent,
+    Window, Button, TextField, Color, VStack, HStack,
+    TextArea, Label, CheckBox, RadioButton, ComboBox,
+    Slider, Spinner, Switch, ProgressBar, ListView,
+    TreeView, TabView, WebView, ScrollView,
+    Menu, MenuBar, Toolbar, StatusBar, Splitter,
+    Dialog, FileDialog, ColorPicker, DatePicker,
+    TimePicker, Tooltip, Divider, Image, Icon,
+    Separator, GroupBox, Accordion, Popover,
+    ContextMenu, Badge, Chip, SpinnerLoading,
+    Card, Link, Rating, RichText, CodeEditor
+} from "../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -77,7 +89,34 @@ describe("Alloy:gui", () => {
             { fn: TreeView, props: { root: {} }, type: "TreeView" },
             { fn: TabView, props: { tabs: [] }, type: "TabView" },
             { fn: WebView, props: { src: "url" }, type: "WebView" },
-            { fn: ScrollView, props: { children: [] }, type: "ScrollView" }
+            { fn: ScrollView, props: { children: [] }, type: "ScrollView" },
+            { fn: Menu, props: { label: "m" }, type: "Menu" },
+            { fn: MenuBar, props: { children: [] }, type: "MenuBar" },
+            { fn: Toolbar, props: { children: [] }, type: "Toolbar" },
+            { fn: StatusBar, props: { text: "s" }, type: "StatusBar" },
+            { fn: Splitter, props: { orientation: "vertical" }, type: "Splitter" },
+            { fn: Dialog, props: { title: "d" }, type: "Dialog" },
+            { fn: FileDialog, props: { mode: "open" }, type: "FileDialog" },
+            { fn: ColorPicker, props: { color: "#f00" }, type: "ColorPicker" },
+            { fn: DatePicker, props: { date: "today" }, type: "DatePicker" },
+            { fn: TimePicker, props: { time: "now" }, type: "TimePicker" },
+            { fn: Tooltip, props: { text: "t" }, type: "Tooltip" },
+            { fn: Divider, props: {}, type: "Divider" },
+            { fn: Image, props: { src: "i" }, type: "Image" },
+            { fn: Icon, props: { name: "i" }, type: "Icon" },
+            { fn: Separator, props: {}, type: "Separator" },
+            { fn: GroupBox, props: { label: "g", children: [] }, type: "GroupBox" },
+            { fn: Accordion, props: { children: [] }, type: "Accordion" },
+            { fn: Popover, props: { children: [] }, type: "Popover" },
+            { fn: ContextMenu, props: { children: [] }, type: "ContextMenu" },
+            { fn: Badge, props: { text: "1" }, type: "Badge" },
+            { fn: Chip, props: { label: "c" }, type: "Chip" },
+            { fn: SpinnerLoading, props: {}, type: "SpinnerLoading" },
+            { fn: Card, props: { children: [] }, type: "Card" },
+            { fn: Link, props: { text: "l", url: "u" }, type: "Link" },
+            { fn: Rating, props: { value: 5 }, type: "Rating" },
+            { fn: RichText, props: { html: "h" }, type: "RichText" },
+            { fn: CodeEditor, props: { code: "c", language: "js" }, type: "CodeEditor" }
         ];
 
         components.forEach(comp => {

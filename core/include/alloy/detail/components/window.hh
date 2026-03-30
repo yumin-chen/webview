@@ -7,9 +7,12 @@
 namespace alloy::detail {
 
 #if defined(ALLOY_PLATFORM_WINDOWS)
+#include "../platform/windows/theme_fluent.hh"
 class win32_window : public win32_component {
 public:
-    using win32_component::win32_component;
+    win32_window(HWND hwnd) : win32_component(hwnd, true) {
+        apply_fluent_theme(hwnd);
+    }
 };
 #elif defined(ALLOY_PLATFORM_DARWIN)
 class cocoa_window : public cocoa_component {

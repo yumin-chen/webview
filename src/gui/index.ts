@@ -1,4 +1,4 @@
-import { Window, Button, TextField, TextArea, Label, CheckBox, RadioButton, ComboBox, Slider, Spinner, Switch, ProgressBar, ListView, TreeView, TabView, WebView, VStack, HStack, ScrollView } from "./components";
+import { Window, Button, TextField, TextArea, Label, CheckBox, RadioButton, ComboBox, Slider, Spinner, Switch, ProgressBar, ListView, TreeView, TabView, WebView, VStack, HStack, ScrollView, Menu, MenuBar, Toolbar, StatusBar, Splitter, Dialog, FileDialog, ColorPicker, DatePicker, TimePicker, Tooltip, Divider, Image, Icon, Separator, GroupBox, Accordion, Popover, ContextMenu, Badge, Chip, SpinnerLoading, Card, Link, Rating, RichText, CodeEditor } from "./components";
 import { Color } from "./types";
 
 declare global {
@@ -33,6 +33,33 @@ export {
     VStack,
     HStack,
     ScrollView,
+    Menu,
+    MenuBar,
+    Toolbar,
+    StatusBar,
+    Splitter,
+    Dialog,
+    FileDialog,
+    ColorPicker,
+    DatePicker,
+    TimePicker,
+    Tooltip,
+    Divider,
+    Image,
+    Icon,
+    Separator,
+    GroupBox,
+    Accordion,
+    Popover,
+    ContextMenu,
+    Badge,
+    Chip,
+    SpinnerLoading,
+    Card,
+    Link,
+    Rating,
+    RichText,
+    CodeEditor,
     Color
 };
 
