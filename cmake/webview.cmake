@@ -72,44 +72,25 @@ macro(webview_find_dependencies)
         list(APPEND WEBVIEW_DEPENDENCIES PkgConfig::WEBVIEW_WEBKITGTK PkgConfig::WEBVIEW_GTK dl)
     endif()
 
-    webview_fetch_sqlite()
+    webview_setup_sqlite()
     list(APPEND WEBVIEW_DEPENDENCIES sqlite3)
 
     webview_fetch_yoga()
     list(APPEND WEBVIEW_DEPENDENCIES yoga)
 endmacro()
 
-function(webview_fetch_sqlite)
-    include(FetchContent)
-    FetchContent_Declare(
-        sqlite3_src
-        GIT_REPOSITORY https://github.com/sqlite/sqlite.git
-        GIT_TAG version-3.45.1
+function(webview_setup_sqlite)
+    # Using the vendored SQLite amalgamation
+    add_library(sqlite3 STATIC
+        "${PROJECT_SOURCE_DIR}/core/sqlite/sqlite3.c"
     )
-    FetchContent_GetProperties(sqlite3_src)
-    if(NOT sqlite3_src_POPULATED)
-        FetchContent_Populate(sqlite3_src)
-
-        # Forked/Mirror often doesn't have the generated amalgamation.
-        # However, the user specifically pointed to the repo.
-        # We will try to compile it from source files.
-        # Standard SQLite source has many files, but the amalgamation is the way to go.
-        # If it's the raw repo, we might need more.
-        # Assuming the amalgamation exists in the root or a standard place.
-
-        # Directly include the SQLite source and set it up as a library.
-        # This effectively uses the repository as a dependency.
-        add_library(sqlite3 STATIC
-            "${sqlite3_src_SOURCE_DIR}/sqlite3.c"
-        )
-        target_include_directories(sqlite3 PUBLIC "${sqlite3_src_SOURCE_DIR}")
-        target_compile_definitions(sqlite3 PRIVATE
-            SQLITE_ENABLE_SERIALIZE
-            SQLITE_ENABLE_COLUMN_METADATA
-        )
-        if(UNIX)
-            target_link_libraries(sqlite3 PRIVATE dl pthread)
-        endif()
+    target_include_directories(sqlite3 PUBLIC "${PROJECT_SOURCE_DIR}/core/sqlite")
+    target_compile_definitions(sqlite3 PRIVATE
+        SQLITE_ENABLE_SERIALIZE
+        SQLITE_ENABLE_COLUMN_METADATA
+    )
+    if(UNIX)
+        target_link_libraries(sqlite3 PRIVATE dl pthread)
     endif()
 endfunction()
 

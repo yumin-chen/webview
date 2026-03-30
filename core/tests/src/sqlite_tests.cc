@@ -106,7 +106,8 @@ TEST_CASE("SQLite Runtime") {
 
     SECTION("Multi-query exec") {
         std::string id = runtime.open(":memory:", false, true, false, false);
-        runtime.exec(id, "CREATE TABLE t1 (id); CREATE TABLE t2 (id);");
+        std::string res = runtime.exec(id, "CREATE TABLE t1 (id); CREATE TABLE t2 (id);");
+        REQUIRE(res.find("\"changes\":0") != std::string::npos);
         auto db = runtime.get_db(id);
         REQUIRE(db->prepare("SELECT * FROM t1", false) != nullptr);
         REQUIRE(db->prepare("SELECT * FROM t2", false) != nullptr);

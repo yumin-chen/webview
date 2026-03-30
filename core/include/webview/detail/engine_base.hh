@@ -328,8 +328,7 @@ protected:
       auto db_id = json_parse(req, "", 0);
       auto sql = json_parse(req, "", 1);
       try {
-        m_sqlite.exec(db_id, sql);
-        return "true";
+        return m_sqlite.exec(db_id, sql);
       } catch (const std::exception &e) {
         return "error:" + std::string(e.what());
       }
@@ -581,8 +580,8 @@ protected:
       }
     },
     gui: {
-        create: async (type, props) => window.Alloy_gui_create(type, props),
-        createSignal: async (initial) => window.Alloy_gui_create_signal(initial)
+        create: (type, props) => window.Alloy_gui_create(type, props),
+        createSignal: (initial) => window.Alloy_gui_create_signal(initial)
     },
     sqlite: (function() {
       const constants = {
@@ -688,7 +687,7 @@ protected:
           if (params === undefined) {
             const res = window.Alloy_sqlite_exec(this.id, sql);
             if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
-            return { lastInsertRowid: 0, changes: 0 };
+            return JSON.parse(res);
           }
           return this.query(sql).run(params);
         }
@@ -766,6 +765,7 @@ protected:
     add_user_script(create_alloy_script());
     add_alloy_bindings();
     add_gui_bindings();
+    bind_eval();
     m_is_init_script_added = true;
   }
 

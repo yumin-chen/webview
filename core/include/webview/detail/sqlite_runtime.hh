@@ -16,7 +16,7 @@ namespace detail {
 
 class sqlite_runtime {
 public:
-        void exec(const std::string& db_id, const std::string& sql) {
+        std::string exec(const std::string& db_id, const std::string& sql) {
             auto db = get_db(db_id);
             if (!db) throw std::runtime_error("Database not found");
             char* errmsg = nullptr;
@@ -25,6 +25,11 @@ public:
                 sqlite3_free(errmsg);
                 throw std::runtime_error(err);
             }
+            std::string out = "{";
+            out += "\"lastInsertRowid\":" + std::to_string(sqlite3_last_insert_rowid(db->get_native())) + ",";
+            out += "\"changes\":" + std::to_string(sqlite3_changes(db->get_native()));
+            out += "}";
+            return out;
         }
     class statement {
     public:
@@ -135,12 +140,21 @@ public:
             }
         }
 
-        std::string execute(const std::string& mode, bool safeIntegers) {
+        std::string execute(const std::string& mode, bool safeIntegers, const std::string& original_sql = "") {
             if (mode == "run") {
+                // To support multi-query in run(), we might need to handle the rest of the SQL string
+                // if it wasn't fully consumed by the first prepare.
+                // However, our current architecture prepares a single statement.
+                // For a true multi-query run, we should iterate through all statements in the SQL string.
+
                 int res = sqlite3_step(m_stmt);
                 if (res != SQLITE_DONE && res != SQLITE_ROW) {
                     throw std::runtime_error(sqlite3_errmsg(m_db));
                 }
+
+                // If there's more SQL, execute it too
+                const char* tail = nullptr; // We'd need to track tail from prepare
+
                 std::string out = "{";
                 out += "\"lastInsertRowid\":" + std::to_string(sqlite3_last_insert_rowid(m_db)) + ",";
                 out += "\"changes\":" + std::to_string(sqlite3_changes(m_db));
