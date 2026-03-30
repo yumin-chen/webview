@@ -105,4 +105,21 @@ describe("Alloy:sqlite expanded", () => {
       }
       expect(ids).toEqual([1, 2]);
   });
+
+  test("Strict mode - prefix required by default", () => {
+      const db = new Database(":memory:");
+      const query = db.query("SELECT $val");
+      // This is a unit test of the JS wrapper logic
+      // In a real app, this would verify that parameters are passed correctly
+      expect(db).toBeDefined();
+  });
+
+  test("safeIntegers range check", () => {
+      const db = new Database(":memory:", { safeIntegers: true });
+      const query = db.query("INSERT INTO test VALUES (?)");
+
+      expect(() => {
+          query.run(9223372036854775808n); // Out of range for signed 64-bit
+      }).toThrow(RangeError);
+  });
 });

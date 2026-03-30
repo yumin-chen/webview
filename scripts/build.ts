@@ -43,7 +43,10 @@ async function runBuild() {
     } else if (process.platform === "darwin") {
         platformLibs += " -framework Cocoa";
     }
-    const compileCmd = `gcc -O2 src/host.c src/gui/alloy.c build/bundle.c ${includePath} -o build/alloy-runtime -lsqlite3 -lmquickjs ${platformLibs}`;
+
+    // Using forked SQLite from vendor/sqlite
+    const sqlitePath = "-Ivendor/sqlite vendor/sqlite/sqlite3.c";
+    const compileCmd = `gcc -O2 src/host.c src/gui/alloy.c build/bundle.c ${sqlitePath} ${includePath} -o build/alloy-runtime -lmquickjs ${platformLibs}`;
     console.log(`Running: ${compileCmd}`);
     // execSync(compileCmd);
     console.log("Compilation step skipped for this draft - but command is ready.");

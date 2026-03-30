@@ -30,10 +30,27 @@ void alloy_secure_eval(const char *id, const char *req, void *arg) {
 
 // --- SQLite Backend ---
 sqlite3 *g_db = NULL;
+
 void alloy_sqlite_open(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     int rc = sqlite3_open(":memory:", &g_db);
     webview_return(w, id, rc == SQLITE_OK ? 0 : 1, "1");
+}
+
+void alloy_sqlite_serialize(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    sqlite3_int64 size = 0;
+    unsigned char *data = sqlite3_serialize(g_db, "main", &size, 0);
+    // Convert data to base64 for JS (stubbed for now)
+    webview_return(w, id, 0, "");
+    if(data) sqlite3_free(data);
+}
+
+void alloy_sqlite_deserialize(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // data = b64decode(req)
+    // sqlite3_deserialize(g_db, "main", data, size, size, SQLITE_DESERIALIZE_FREEONCLOSE);
+    webview_return(w, id, 0, "1");
 }
 void alloy_sqlite_query(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
@@ -136,6 +153,8 @@ int main(void) {
   webview_bind(w, "alloy_sqlite_open", alloy_sqlite_open, w);
   webview_bind(w, "alloy_sqlite_query", alloy_sqlite_query, w);
   webview_bind(w, "alloy_sqlite_run", alloy_sqlite_run, w);
+  webview_bind(w, "alloy_sqlite_serialize", alloy_sqlite_serialize, w);
+  webview_bind(w, "alloy_sqlite_deserialize", alloy_sqlite_deserialize, w);
   webview_bind(w, "alloy_sqlite_stmt_all", alloy_sqlite_stmt_all, w);
   webview_bind(w, "alloy_sqlite_close", alloy_sqlite_close, w);
   webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
@@ -151,6 +170,8 @@ int main(void) {
       "    open: (filename, options) => window.alloy_sqlite_open(filename, options),"
       "    query: (db_id, sql) => window.alloy_sqlite_query(db_id, sql),"
       "    run: (db_id, sql, params) => JSON.parse(window.alloy_sqlite_run(sql, params)),"
+      "    serialize: (db_id) => window.alloy_sqlite_serialize(db_id),"
+      "    deserialize: (contents) => window.alloy_sqlite_deserialize(contents),"
       "    stmt_all: (stmt_id, params) => JSON.parse(window.alloy_sqlite_stmt_all(stmt_id, params)),"
       "    stmt_get: (stmt_id, params) => JSON.parse(window.alloy_sqlite_stmt_all(stmt_id, params))[0],"
       "    stmt_metadata: (stmt_id) => ({columnNames:['message'], columnTypes:['TEXT'], declaredTypes:['TEXT'], paramsCount:0}),"

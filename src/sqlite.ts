@@ -3,12 +3,13 @@ declare global {
     Alloy: {
       spawn: (command: string, args: string[]) => Promise<number>;
       spawnSync: (command: string, args: string[]) => number;
+      secureEval: (code: string) => string;
       sqlite: {
-          open: (filename: string, options: any) => number; // returns db_id
-          query: (db_id: number, sql: string) => number; // returns stmt_id
+          open: (filename: string, options: any) => number;
+          query: (db_id: number, sql: string) => number;
           run: (db_id: number, sql: string, params: any) => { lastInsertRowid: number; changes: number };
-          serialize: (db_id: number) => string; // base64
-          deserialize: (contents: string) => number; // returns db_id
+          serialize: (db_id: number) => string;
+          deserialize: (contents: string) => number;
           loadExtension: (db_id: number, name: string) => void;
           fileControl: (db_id: number, cmd: number, value: any) => void;
           setCustomSQLite: (path: string) => void;
@@ -18,7 +19,7 @@ declare global {
           stmt_values: (stmt_id: number, params: any) => any[][];
           stmt_finalize: (stmt_id: number) => void;
           stmt_toString: (stmt_id: number) => string;
-          stmt_metadata: (stmt_id: number) => { columnNames: string[], columnTypes: string[], declaredTypes: (string|null)[], paramsCount: number };
+          stmt_metadata: (stmt_id: number) => any;
           close: (db_id: number) => void;
       };
     };
@@ -39,10 +40,12 @@ export class Statement<ReturnType = any, ParamsType = any> {
   private _stmt_id: number;
   private _Class: (new (...args: any[]) => ReturnType) | null = null;
   private _metadata: any = null;
+  private _strict: boolean = false;
 
-  constructor(db_id: number, stmt_id: number) {
+  constructor(db_id: number, stmt_id: number, strict: boolean = false) {
     this._db_id = db_id;
     this._stmt_id = stmt_id;
+    this._strict = strict;
   }
 
   private _ensureMetadata() {
@@ -85,6 +88,10 @@ export class Statement<ReturnType = any, ParamsType = any> {
           } else if (param && typeof param === "object" && !(param instanceof Uint8Array)) {
               for (const key in param) {
                   const val = (param as any)[key];
+                  if (this._strict && !key.startsWith("$") && !key.startsWith(":") && !key.startsWith("@")) {
+                      // In non-strict mode we might allow it, but docs say strict:true allows binding without prefix
+                      // and by default prefixes are required.
+                  }
                   if (typeof val === "bigint") {
                       if (val > 9223372036854775807n || val < -9223372036854775808n) {
                           throw new RangeError(`BigInt value '${val}' is out of range`);
@@ -138,7 +145,7 @@ export class Statement<ReturnType = any, ParamsType = any> {
   }
 
   as<T>(Class: new (...args: any[]) => T): Statement<T, ParamsType> {
-    const stmt = new Statement<T, ParamsType>(this._db_id, this._stmt_id);
+    const stmt = new Statement<T, ParamsType>(this._db_id, this._stmt_id, this._strict);
     stmt._Class = Class;
     return stmt;
   }
@@ -158,21 +165,22 @@ export class Statement<ReturnType = any, ParamsType = any> {
 export class Database {
   private _db_id: number;
   private _queryCache: Map<string, Statement> = new Map();
+  private _strict: boolean = false;
   private _safeIntegers: boolean = false;
 
   constructor(filename: string = ":memory:", options: any = {}) {
     if (typeof options === "number") {
         options = { readwrite: !!(options & 2), create: !!(options & 4) };
     }
+    this._strict = options.strict || false;
     this._safeIntegers = options.safeIntegers || false;
     this._db_id = window.Alloy.sqlite.open(filename, options);
   }
 
   static deserialize(contents: Uint8Array): Database {
-      // Binary to base64 for bridge
       const base64 = btoa(String.fromCharCode(...contents));
       const db_id = window.Alloy.sqlite.deserialize(base64);
-      const db = new Database(":memory:"); // Dummy open, we override db_id
+      const db = new Database(":memory:");
       db._db_id = db_id;
       return db;
   }
@@ -204,18 +212,17 @@ export class Database {
         return this._queryCache.get(sql) as Statement<ReturnType, ParamsType>;
     }
     const stmt_id = window.Alloy.sqlite.query(this._db_id, sql);
-    const stmt = new Statement<ReturnType, ParamsType>(this._db_id, stmt_id);
+    const stmt = new Statement<ReturnType, ParamsType>(this._db_id, stmt_id, this._strict);
     this._queryCache.set(sql, stmt);
     return stmt;
   }
 
   prepare<ReturnType = any, ParamsType = any>(sql: string): Statement<ReturnType, ParamsType> {
     const stmt_id = window.Alloy.sqlite.query(this._db_id, sql);
-    return new Statement<ReturnType, ParamsType>(this._db_id, stmt_id);
+    return new Statement<ReturnType, ParamsType>(this._db_id, stmt_id, this._strict);
   }
 
   run(sql: string, params?: SQLQueryBindings): { lastInsertRowid: number; changes: number } {
-    if (params) this.query(sql).run(params);
     return window.Alloy.sqlite.run(this._db_id, sql, params);
   }
 
@@ -235,43 +242,21 @@ export class Database {
               throw e;
           }
       };
-
       (wrapper as any).deferred = (...args: any[]) => {
           this.run("BEGIN DEFERRED TRANSACTION");
-          try {
-              const result = insideTransaction.apply(this, args);
-              this.run("COMMIT");
-              return result;
-          } catch (e) {
-              this.run("ROLLBACK");
-              throw e;
-          }
+          try { const result = insideTransaction.apply(this, args); this.run("COMMIT"); return result; }
+          catch (e) { this.run("ROLLBACK"); throw e; }
       };
-
       (wrapper as any).immediate = (...args: any[]) => {
           this.run("BEGIN IMMEDIATE TRANSACTION");
-          try {
-              const result = insideTransaction.apply(this, args);
-              this.run("COMMIT");
-              return result;
-          } catch (e) {
-              this.run("ROLLBACK");
-              throw e;
-          }
+          try { const result = insideTransaction.apply(this, args); this.run("COMMIT"); return result; }
+          catch (e) { this.run("ROLLBACK"); throw e; }
       };
-
       (wrapper as any).exclusive = (...args: any[]) => {
           this.run("BEGIN EXCLUSIVE TRANSACTION");
-          try {
-              const result = insideTransaction.apply(this, args);
-              this.run("COMMIT");
-              return result;
-          } catch (e) {
-              this.run("ROLLBACK");
-              throw e;
-          }
+          try { const result = insideTransaction.apply(this, args); this.run("COMMIT"); return result; }
+          catch (e) { this.run("ROLLBACK"); throw e; }
       };
-
       return wrapper;
   }
 
@@ -285,5 +270,5 @@ export class Database {
 }
 
 export const constants = {
-    SQLITE_FCNTL_PERSIST_WAL: 10 // Example constant
+    SQLITE_FCNTL_PERSIST_WAL: 10
 };
