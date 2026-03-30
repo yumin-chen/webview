@@ -504,6 +504,55 @@ protected:
         return std::to_string(reinterpret_cast<uintptr_t>(vs));
     });
 
+    bind("Alloy_guiCreateHStack", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto hs = alloy_create_hstack(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(hs));
+    });
+
+    bind("Alloy_guiCreateTextField", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_textfield(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateTextArea", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_textarea(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateCheckBox", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_checkbox(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateSwitch", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_switch(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateSlider", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_slider(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateImage", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_image(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiImageLoadFile", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto path = json_parse(req, "", 1);
+        alloy_image_load_file(h, path.c_str());
+        return "true";
+    });
+
     bind("Alloy_guiSetText", [this](const std::string &req) -> std::string {
         auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
         auto txt = json_parse(req, "", 1);
@@ -686,6 +735,39 @@ protected:
       VStack: function(parent) {
           this.id = null;
           this.init = async () => { this.id = await window.Alloy_guiCreateVStack(parent.id); return this; };
+      },
+      HStack: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateHStack(parent.id); return this; };
+      },
+      TextField: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateTextField(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      TextArea: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateTextArea(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      CheckBox: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateCheckBox(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      Switch: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateSwitch(parent.id); return this; };
+      },
+      Slider: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateSlider(parent.id); return this; };
+          this.setValue = (val) => window.Alloy_guiSetValue(this.id, val);
+      },
+      Image: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateImage(parent.id); return this; };
+          this.loadFile = (path) => window.Alloy_guiImageLoadFile(this.id, path);
       }
   };
 

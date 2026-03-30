@@ -26,16 +26,29 @@ public:
       gtk_label_set_text(GTK_LABEL(m_widget), text.c_str());
     } else if (GTK_IS_ENTRY(m_widget)) {
       gtk_entry_set_text(GTK_ENTRY(m_widget), text.c_str());
+    } else if (GTK_IS_TEXT_VIEW(m_widget)) {
+      GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(m_widget));
+      gtk_text_buffer_set_text(buffer, text.c_str(), -1);
     }
     return ALLOY_OK;
   }
 
   alloy_error_t get_text(char *buf, size_t len) override {
     const char *text = "";
+    std::string temp;
     if (GTK_IS_WINDOW(m_widget)) text = gtk_window_get_title(GTK_WINDOW(m_widget));
     else if (GTK_IS_BUTTON(m_widget)) text = gtk_button_get_label(GTK_BUTTON(m_widget));
     else if (GTK_IS_LABEL(m_widget)) text = gtk_label_get_text(GTK_LABEL(m_widget));
     else if (GTK_IS_ENTRY(m_widget)) text = gtk_entry_get_text(GTK_ENTRY(m_widget));
+    else if (GTK_IS_TEXT_VIEW(m_widget)) {
+      GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(m_widget));
+      GtkTextIter start, end;
+      gtk_text_buffer_get_bounds(buffer, &start, &end);
+      char *raw = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+      temp = raw;
+      g_free(raw);
+      text = temp.c_str();
+    }
 
     if (!text) text = "";
     size_t n = strlen(text);
@@ -48,13 +61,16 @@ public:
   }
 
   alloy_error_t set_checked(bool v) override {
-    if (GTK_IS_CHECK_BUTTON(m_widget)) {
+    if (GTK_IS_TOGGLE_BUTTON(m_widget)) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(m_widget), v);
+    } else if (GTK_IS_SWITCH(m_widget)) {
+      gtk_switch_set_active(GTK_SWITCH(m_widget), v);
     }
     return ALLOY_OK;
   }
   bool get_checked() override {
     if (GTK_IS_TOGGLE_BUTTON(m_widget)) return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(m_widget));
+    if (GTK_IS_SWITCH(m_widget)) return gtk_switch_get_active(GTK_SWITCH(m_widget));
     return false;
   }
 

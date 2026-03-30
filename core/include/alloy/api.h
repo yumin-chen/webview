@@ -65,6 +65,7 @@ ALLOY_API alloy_component_t alloy_create_textfield(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_textarea(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_label(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_checkbox(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_switch(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_radiobutton(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_combobox(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_slider(alloy_component_t parent);
@@ -75,6 +76,7 @@ ALLOY_API alloy_component_t alloy_create_treeview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_webview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_vstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_hstack(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_image(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_scrollview(alloy_component_t parent);
 
 ALLOY_API alloy_error_t alloy_destroy(alloy_component_t handle);
@@ -90,6 +92,8 @@ ALLOY_API int alloy_get_enabled(alloy_component_t h);
 ALLOY_API alloy_error_t alloy_set_visible(alloy_component_t h, int visible);
 ALLOY_API int alloy_get_visible(alloy_component_t h);
 ALLOY_API alloy_error_t alloy_set_style(alloy_component_t h, const alloy_style_t *style);
+
+ALLOY_API alloy_error_t alloy_image_load_file(alloy_component_t h, const char *path);
 
 ALLOY_API alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child);
 ALLOY_API alloy_error_t alloy_set_flex(alloy_component_t h, float flex);
