@@ -1,5 +1,5 @@
 
-// MetaScript Runtime
+// AlloyScript Runtime
 (function() {
   'use strict';
 
@@ -92,26 +92,31 @@
     handle: string; pid: number | null = null; options: any; exited: Promise<number>;
     private _exited_resolve!: (code: number) => void;
     exitCode: number | null = null; signalCode: string | null = null; killed = false;
-    terminal: Terminal | null = null; stdout: ReadableStream | null = null; stderr: ReadableStream | null = null; stdin: any = null;
+    terminal: Terminal | null = null; stdout: any = null; stderr: any = null; stdin: any = null;
     private _stdout_controller: ReadableStreamDefaultController | null = null;
     private _stderr_controller: ReadableStreamDefaultController | null = null;
 
     constructor(handle: string, options: any) {
       this.handle = handle; this.options = options || {};
       this.exited = new Promise(resolve => { this._exited_resolve = resolve; });
-      if (this.options.terminal) { this.terminal = new Terminal(this); } else {
+      if (this.options.terminal) {
+        this.terminal = new Terminal(this);
+      } else {
         this.stdout = new ReadableStream({ start: (c) => { this._stdout_controller = c; } });
         this.stderr = new ReadableStream({ start: (c) => { this._stderr_controller = c; } });
         this.stdin = {
-          write: (data: any) => { (window as any).meta._write(this.handle, data); },
-          end: () => { (window as any).meta._closeStdin(this.handle); },
+          write: (data: any) => { (window as any).Alloy._write(this.handle, data); },
+          end: () => { (window as any).Alloy._closeStdin(this.handle); },
           flush: () => {}
         };
       }
     }
-    kill(sig?: string | number) { this.killed = true; (window as any).meta._kill(this.handle, sig || 'SIGTERM'); }
+    kill(sig?: string | number) { this.killed = true; (window as any).Alloy._kill(this.handle, sig || 'SIGTERM'); }
     ref() {} unref() {}
     resourceUsage() { return { maxRSS: 0, cpuTime: { user: 0, system: 0, total: 0 }, contextSwitches: { voluntary: 0, involuntary: 0 }, ops: { in: 0, out: 0 } }; }
+    disconnect() {}
+    send(msg: any) {}
+
     _onData(type: string, encodedData: string) {
         const data = b64ToUint8(encodedData);
         if (type === 'stdout' && this._stdout_controller) this._stdout_controller.enqueue(data);
@@ -132,10 +137,10 @@
     proc?: Subprocess; handle: string; options?: any; closed = false;
     constructor(options_or_proc: any) {
       if (options_or_proc instanceof Subprocess) { this.proc = options_or_proc; this.handle = this.proc.handle; }
-      else { this.options = options_or_proc || {}; this.handle = "term_" + (++(window as any).meta._handleCounter); }
+      else { this.options = options_or_proc || {}; this.handle = "term_" + (++(window as any).Alloy._handleCounter); }
     }
-    write(data: any) { (window as any).meta._write(this.handle, data); }
-    resize(c: number, r: number) { (window as any).meta._resize(this.handle, c, r); }
+    write(data: any) { (window as any).Alloy._write(this.handle, data); }
+    resize(c: number, r: number) { (window as any).Alloy._resize(this.handle, c, r); }
     setRawMode(e: boolean) {} close() { this.closed = true; } ref() {} unref() {}
   }
 
@@ -144,15 +149,16 @@
     handle: string; type: string; props: any; children: NativeComponent[] = [];
     constructor(type: string, props: any) {
       this.type = type; this.props = props || {};
-      this.handle = "gui_" + (++(window as any).meta._handleCounter);
-      (window as any).meta._widgets[this.handle] = this;
-      (window as any).__meta_gui_create(this.handle, this.type, JSON.stringify(this.props));
+      this.handle = "gui_" + (++(window as any).Alloy._handleCounter);
+      (window as any).Alloy._widgets[this.handle] = this;
+      (window as any).__alloy_gui_create(this.handle, this.type, JSON.stringify(this.props));
     }
     append(child: NativeComponent) {
       this.children.push(child);
-      (window as any).__meta_gui_append(this.handle, child.handle);
+      (window as any).__alloy_gui_append(this.handle, child.handle);
     }
-    setText(text: string) { (window as any).__meta_gui_set_text(this.handle, text); }
+    setText(text: string) { (window as any).__alloy_gui_set_text(this.handle, text); }
+    setValue(value: any) { (window as any).__alloy_gui_set_value(this.handle, String(value)); }
     addEventListener(event: string, handler: Function) {
       if (!this.props.handlers) this.props.handlers = {};
       this.props.handlers[event] = handler;
@@ -162,70 +168,84 @@
     }
   }
 
-  const meta: any = async function(path: string, schedule: string, title: string) {
-    await (window as any).__meta_cron_register(path, schedule, title);
+  const Alloy: any = async function(path: string, schedule: string, title: string) {
+    await (window as any).__alloy_cron_register(path, schedule, title);
   };
 
-  meta._processes = {} as Record<string, Subprocess>;
-  meta._widgets = {} as Record<string, NativeComponent>;
-  meta._handleCounter = 0;
-  meta.Terminal = Terminal;
-  meta.spawn = function(cmd: string[], opts: any) {
+  Alloy._processes = {} as Record<string, Subprocess>;
+  Alloy._widgets = {} as Record<string, NativeComponent>;
+  Alloy._handleCounter = 0;
+  Alloy.Terminal = Terminal;
+  Alloy.file = (path: string) => ({ type: "file", path: path });
+
+  Alloy.spawn = function(cmd: any, opts: any) {
+    let command = Array.isArray(cmd) ? cmd : (cmd.cmd || []);
+    let options = Array.isArray(cmd) ? (opts || {}) : (cmd || {});
     const handle = "proc_" + (++this._handleCounter);
-    const proc = new Subprocess(handle, opts);
+    const proc = new Subprocess(handle, options);
     this._processes[handle] = proc;
     (async () => {
       try {
-        const res = await (window as any).__meta_spawn(handle, JSON.stringify(cmd), JSON.stringify(opts || {}));
-        if (res.error) return console.error("meta.spawn error:", res.error);
+        const res_json = await (window as any).__alloy_spawn(handle, JSON.stringify(command), JSON.stringify(options || {}));
+        const res = JSON.parse(res_json);
+        if (res.error) return console.error("Alloy.spawn error:", res.error);
         proc.pid = res.pid;
-      } catch (e) { console.error("meta.spawn failed:", e); }
+      } catch (e) { console.error("Alloy.spawn failed:", e); }
     })();
     return proc;
   };
-  meta.spawnSync = async function(cmd: string[], opts: any) {
-    const res_raw = await (window as any).__meta_spawnSync(JSON.stringify(cmd), JSON.stringify(opts || {}));
+
+  Alloy.spawnSync = async function(cmd: any, opts: any) {
+    let command = Array.isArray(cmd) ? cmd : (cmd.cmd || []);
+    let options = Array.isArray(cmd) ? (opts || {}) : (cmd || {});
+    const res_raw = await (window as any).__alloy_spawnSync(JSON.stringify(command), JSON.stringify(options || {}));
     const res = typeof res_raw === 'string' ? JSON.parse(res_raw) : res_raw;
     if (res.stdout) res.stdout = b64ToUint8(res.stdout);
     if (res.stderr) res.stderr = b64ToUint8(res.stderr);
     return res;
   };
-  meta.cron = meta;
-  meta.cron.parse = function(expr: string, relativeDate?: Date | number) {
+
+  Alloy.cron = Alloy;
+  Alloy.cron.parse = function(expr: string, relativeDate?: Date | number) {
     try { return new CronParser(expr).next(relativeDate); } catch (e) { return null; }
   };
-  meta.cron.remove = async function(title: string) { await (window as any).__meta_cron_remove(title); };
+  Alloy.cron.remove = async function(title: string) { await (window as any).__alloy_cron_remove(title); };
 
-  meta.gui = {
-    Window: function(props: any) { return new NativeComponent("Window", props); },
-    Button: function(props: any) { return new NativeComponent("Button", props); },
-    Label: function(props: any) { return new NativeComponent("Label", props); },
-    VStack: function(props: any) { return new NativeComponent("VStack", props); },
-    HStack: function(props: any) { return new NativeComponent("HStack", props); },
-    TextField: function(props: any) { return new NativeComponent("TextField", props); },
+  Alloy.gui = {
+    Window: (props: any) => new NativeComponent("Window", props),
+    Button: (props: any) => new NativeComponent("Button", props),
+    Label: (props: any) => new NativeComponent("Label", props),
+    VStack: (props: any) => new NativeComponent("VStack", props),
+    HStack: (props: any) => new NativeComponent("HStack", props),
+    TextField: (props: any) => new NativeComponent("TextField", props),
+    TextArea: (props: any) => new NativeComponent("TextArea", props),
+    CheckBox: (props: any) => new NativeComponent("CheckBox", props),
+    Slider: (props: any) => new NativeComponent("Slider", props),
+    ProgressBar: (props: any) => new NativeComponent("ProgressBar", props),
+    Switch: (props: any) => new NativeComponent("Switch", props),
     _onEvent: function(handle: string, event: string) {
-      const comp = meta._widgets[handle];
+      const comp = Alloy._widgets[handle];
       if (comp) comp._trigger(event);
     }
   };
 
-  meta._onData = function(handle: string, type: string, data_b64: string) {
+  Alloy._onData = function(handle: string, type: string, data_b64: string) {
     const proc = this._processes[handle];
     if (proc) proc._onData(type, data_b64);
   };
-  meta._onExit = function(handle: string, exitCode: number, signalCode: number) {
+  Alloy._onExit = function(handle: string, exitCode: number, signalCode: number) {
     const proc = this._processes[handle];
-    if (proc) { proc._onExit(exitCode, signalCode); delete this._processes[handle]; (window as any).__meta_cleanup(handle); }
+    if (proc) { proc._onExit(exitCode, signalCode); delete this._processes[handle]; (window as any).__alloy_cleanup(handle); }
   };
-  meta._write = function(h: string, d: any) {
+  Alloy._write = function(h: string, d: any) {
     if (h === null) return;
     let b64;
     if (typeof d === 'string') b64 = btoa(d); else b64 = uint8ToB64(new Uint8Array(d));
-    (window as any).__meta_write(h, b64);
+    (window as any).__alloy_write(h, b64);
   };
-  meta._closeStdin = function(h: string) { if (h !== null) (window as any).__meta_closeStdin(h); };
-  meta._kill = function(h: string, s: string) { if (h !== null) (window as any).__meta_kill(h, s); };
-  meta._resize = function(h: string, c: number, r: number) { if (h !== null) (window as any).__meta_resize(h, c, r); };
+  Alloy._closeStdin = function(h: string) { if (h !== null) (window as any).__alloy_closeStdin(h); };
+  Alloy._kill = function(h: string, s: string) { if (h !== null) (window as any).__alloy_kill(h, s); };
+  Alloy._resize = function(h: string, c: number, r: number) { if (h !== null) (window as any).__alloy_resize(h, c, r); };
 
   if (!ReadableStream.prototype.hasOwnProperty('text')) {
     (ReadableStream.prototype as any).text = async function() {
@@ -238,5 +258,5 @@
     };
   }
 
-  (window as any).meta = meta;
+  (window as any).Alloy = Alloy;
 })();

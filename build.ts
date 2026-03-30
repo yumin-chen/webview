@@ -1,7 +1,7 @@
 import { build } from "bun";
 import { spawnSync } from "child_process";
 import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
-import { join, basename, resolve } from "path";
+import { join, basename } from "path";
 
 async function run() {
     const entry = process.argv[2] || "index.ts";
@@ -12,10 +12,9 @@ async function run() {
         process.exit(1);
     }
 
-    console.log("Building MetaScript bundle...");
+    console.log("Building AlloyScript bundle...");
 
-    // Create a temporary entry point that imports the runtime and the user code
-    const tempEntry = ".metascript_entry.ts";
+    const tempEntry = ".alloyscript_entry.ts";
     const entryRel = "./" + basename(entry);
     const runtimeRel = "./src/runtime.ts";
 
@@ -25,7 +24,6 @@ import userCode from "${entryRel}";
 (window as any).defaultExport = userCode;
 `);
 
-    // Bundle everything
     const result = await build({
         entrypoints: [tempEntry],
         minify: true,
@@ -42,15 +40,13 @@ import userCode from "${entryRel}";
 
     const bundledJs = readFileSync("dist/bundle.js", "utf-8");
 
-    // Generate C header
     console.log("Generating host bundle...");
     const escapedJs = JSON.stringify(bundledJs);
-    const headerContent = `#ifndef METASCRIPT_BUNDLE_H\n#define METASCRIPT_BUNDLE_H\nstatic const char* METASCRIPT_BUNDLE = ${escapedJs};\n#endif\n`;
+    const headerContent = `#ifndef ALLOYSCRIPT_BUNDLE_H\n#define ALLOYSCRIPT_BUNDLE_H\nstatic const char* ALLOYSCRIPT_BUNDLE = ${escapedJs};\n#endif\n`;
 
     if (!existsSync("dist")) mkdirSync("dist");
     writeFileSync("dist/bundle.h", headerContent);
 
-    // Compile C++ host
     console.log("Compiling binary...");
 
     let cflags: string[] = [];
@@ -59,9 +55,7 @@ import userCode from "${entryRel}";
     try {
         cflags = spawnSync("pkg-config", ["--cflags", "gtk+-3.0", "webkit2gtk-4.1"]).stdout.toString().trim().split(/\s+/);
         libs = spawnSync("pkg-config", ["--libs", "gtk+-3.0", "webkit2gtk-4.1"]).stdout.toString().trim().split(/\s+/);
-    } catch (e) {
-        console.error("pkg-config failed, trying default paths...");
-    }
+    } catch (e) {}
 
     const compileArgs = [
         "-std=c++11",

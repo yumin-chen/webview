@@ -88,33 +88,33 @@ public:
         m_webview = &w;
         auto self = shared_from_this();
 
-        w.bind("__meta_spawn", [self](const std::string& id, const std::string& req, void*) {
+        w.bind("__alloy_spawn", [self](const std::string& id, const std::string& req, void*) {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string cmd_j = ::webview::detail::json_parse(req, "", 1);
             std::string opt_j = ::webview::detail::json_parse(req, "", 2);
             self->m_webview->resolve(id, 0, self->spawn(h, parse_array(cmd_j), opt_j));
         }, nullptr);
 
-        w.bind("__meta_spawnSync", [self](const std::string& id, const std::string& req, void*) {
+        w.bind("__alloy_spawnSync", [self](const std::string& id, const std::string& req, void*) {
             std::string cmd_j = ::webview::detail::json_parse(req, "", 0);
             std::string opt_j = ::webview::detail::json_parse(req, "", 1);
             self->m_webview->resolve(id, 0, self->spawnSync(parse_array(cmd_j), opt_j));
         }, nullptr);
 
-        w.bind("__meta_write", [self](const std::string& req) -> std::string {
+        w.bind("__alloy_write", [self](const std::string& req) -> std::string {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string d = ::webview::detail::json_parse(req, "", 1);
             if (!h.empty()) self->writeStdin(h, ::webview::detail::base64_decode(d));
             return "";
         });
 
-        w.bind("__meta_closeStdin", [self](const std::string& req) -> std::string {
+        w.bind("__alloy_closeStdin", [self](const std::string& req) -> std::string {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             if (!h.empty()) self->closeStdin(h);
             return "";
         });
 
-        w.bind("__meta_kill", [self](const std::string& req) -> std::string {
+        w.bind("__alloy_kill", [self](const std::string& req) -> std::string {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string s = ::webview::detail::json_parse(req, "", 1);
             if (!h.empty()) {
@@ -125,7 +125,7 @@ public:
             return "";
         });
 
-        w.bind("__meta_resize", [self](const std::string& req) -> std::string {
+        w.bind("__alloy_resize", [self](const std::string& req) -> std::string {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string c = ::webview::detail::json_parse(req, "", 1);
             std::string r = ::webview::detail::json_parse(req, "", 2);
@@ -133,26 +133,26 @@ public:
             return "";
         });
 
-        w.bind("__meta_cleanup", [self](const std::string& req) -> std::string {
+        w.bind("__alloy_cleanup", [self](const std::string& req) -> std::string {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             if (!h.empty()) self->cleanup(h);
             return "";
         });
 
-        w.bind("__meta_cron_register", [self](const std::string& id, const std::string& req, void*) {
+        w.bind("__alloy_cron_register", [self](const std::string& id, const std::string& req, void*) {
             std::string p = ::webview::detail::json_parse(req, "", 0);
             std::string s = ::webview::detail::json_parse(req, "", 1);
             std::string t = ::webview::detail::json_parse(req, "", 2);
             self->m_webview->resolve(id, 0, self->registerCronJob(p, s, t));
         }, nullptr);
 
-        w.bind("__meta_cron_remove", [self](const std::string& id, const std::string& req, void*) {
+        w.bind("__alloy_cron_remove", [self](const std::string& id, const std::string& req, void*) {
             std::string t = ::webview::detail::json_parse(req, "", 0);
             self->m_webview->resolve(id, 0, self->removeCronJob(t));
         }, nullptr);
 
 #ifdef WEBVIEW_GTK
-        w.bind("__meta_gui_create", [self](const std::string& id, const std::string& req, void*) {
+        w.bind("__alloy_gui_create", [self](const std::string& id, const std::string& req, void*) {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string t = ::webview::detail::json_parse(req, "", 1);
             std::string p = ::webview::detail::json_parse(req, "", 2);
@@ -160,17 +160,24 @@ public:
             self->m_webview->resolve(id, 0, "true");
         }, nullptr);
 
-        w.bind("__meta_gui_append", [self](const std::string& id, const std::string& req, void*) {
+        w.bind("__alloy_gui_append", [self](const std::string& id, const std::string& req, void*) {
             std::string ph = ::webview::detail::json_parse(req, "", 0);
             std::string ch = ::webview::detail::json_parse(req, "", 1);
             self->gui_append(ph, ch);
             self->m_webview->resolve(id, 0, "true");
         }, nullptr);
 
-        w.bind("__meta_gui_set_text", [self](const std::string& req) -> std::string {
+        w.bind("__alloy_gui_set_text", [self](const std::string& req) -> std::string {
             std::string h = ::webview::detail::json_parse(req, "", 0);
             std::string t = ::webview::detail::json_parse(req, "", 1);
             self->gui_set_text(h, t);
+            return "";
+        });
+
+        w.bind("__alloy_gui_set_value", [self](const std::string& req) -> std::string {
+            std::string h = ::webview::detail::json_parse(req, "", 0);
+            std::string v = ::webview::detail::json_parse(req, "", 1);
+            self->gui_set_value(h, v);
             return "";
         });
 #endif
@@ -282,7 +289,6 @@ public:
 
     void apply_env(const std::string& env_json) {
         if (env_json.empty() || env_json == "null" || env_json == "{}") return;
-        // Simple robust object parsing
         size_t pos = 0;
         while ((pos = env_json.find('"', pos)) != std::string::npos) {
             size_t k_end = env_json.find('"', pos + 1);
@@ -341,8 +347,8 @@ public:
 #if defined(__linux__)
         std::string meta_path = get_executable_path();
         std::string entry = schedule + " '" + meta_path + "' run --cron-title='" + title + "' --cron-period='" + schedule + "' '" + script_path + "'";
-        std::string marker = "# Meta-cron: " + title;
-        system(("crontab -l 2>/dev/null | grep -v '# Meta-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
+        std::string marker = "# Alloy-cron: " + title;
+        system(("crontab -l 2>/dev/null | grep -v '# Alloy-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
         std::ofstream out("/tmp/crontab.tmp", std::ios::app);
         out << marker << "\n" << entry << "\n";
         out.close();
@@ -357,7 +363,7 @@ public:
 
     std::string removeCronJob(const std::string& title) {
 #if defined(__linux__)
-        system(("crontab -l 2>/dev/null | grep -v '# Meta-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
+        system(("crontab -l 2>/dev/null | grep -v '# Alloy-cron: " + title + "' | grep -v '--cron-title=" + title + "' > /tmp/crontab.tmp").c_str());
         system("crontab /tmp/crontab.tmp && rm /tmp/crontab.tmp");
         return "true";
 #elif defined(__APPLE__)
@@ -400,7 +406,7 @@ public:
                 auto mgr = ed->manager.lock();
                 if (mgr && mgr->m_webview) {
                     mgr->m_webview->dispatch([mgr, h = ed->handle] {
-                        mgr->m_webview->eval("window.meta.gui._onEvent(" + ::webview::detail::json_escape(h) + ", 'click')");
+                        mgr->m_webview->eval("window.Alloy.gui._onEvent(" + ::webview::detail::json_escape(h) + ", 'click')");
                     });
                 }
             }), ed);
@@ -413,6 +419,18 @@ public:
             widget = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
         } else if (type == "TextField") {
             widget = gtk_entry_new();
+        } else if (type == "TextArea") {
+            widget = gtk_text_view_new();
+        } else if (type == "CheckBox") {
+            widget = gtk_check_button_new();
+            std::string label = ::webview::detail::json_parse(props_json, "label", -1);
+            if (!label.empty()) gtk_button_set_label(GTK_BUTTON(widget), label.c_str());
+        } else if (type == "Slider") {
+            widget = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+        } else if (type == "ProgressBar") {
+            widget = gtk_progress_bar_new();
+        } else if (type == "Switch") {
+            widget = gtk_switch_new();
         }
 
         if (widget) {
@@ -441,6 +459,20 @@ public:
             if (GTK_IS_LABEL(it->second.widget)) gtk_label_set_text(GTK_LABEL(it->second.widget), text.c_str());
             else if (GTK_IS_BUTTON(it->second.widget)) gtk_button_set_label(GTK_BUTTON(it->second.widget), text.c_str());
             else if (GTK_IS_ENTRY(it->second.widget)) gtk_entry_set_text(GTK_ENTRY(it->second.widget), text.c_str());
+            else if (GTK_IS_TEXT_VIEW(it->second.widget)) {
+                GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(it->second.widget));
+                gtk_text_buffer_set_text(buffer, text.c_str(), -1);
+            }
+        }
+    }
+
+    void gui_set_value(const std::string& handle, const std::string& value) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_widgets.find(handle);
+        if (it != m_widgets.end()) {
+            if (GTK_IS_RANGE(it->second.widget)) gtk_range_set_value(GTK_RANGE(it->second.widget), std::stod(value));
+            else if (GTK_IS_PROGRESS_BAR(it->second.widget)) gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(it->second.widget), std::stod(value));
+            else if (GTK_IS_SWITCH(it->second.widget)) gtk_switch_set_active(GTK_SWITCH(it->second.widget), value == "true");
         }
     }
 #endif
@@ -462,7 +494,7 @@ private:
                     auto it = mgr->m_processes.find(h);
                     if (it != mgr->m_processes.end()) {
                         std::string type = it->second->pty_master != -1 ? "terminal" : (is_err ? "stderr" : "stdout");
-                        std::string js = "window.meta._onData(" + ::webview::detail::json_escape(h) + ", " +
+                        std::string js = "window.Alloy._onData(" + ::webview::detail::json_escape(h) + ", " +
                                          ::webview::detail::json_escape(type) + ", " +
                                          ::webview::detail::json_escape(::webview::detail::base64_encode(s)) + ")";
                         mgr->m_webview->eval(js);
@@ -485,7 +517,7 @@ private:
                     it->second->exited = true;
                     it->second->exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
                     it->second->signal_code = WIFSIGNALED(status) ? WTERMSIG(status) : -1;
-                    std::string js = "window.meta._onExit(" + ::webview::detail::json_escape(h) + ", " +
+                    std::string js = "window.Alloy._onExit(" + ::webview::detail::json_escape(h) + ", " +
                                      std::to_string(it->second->exit_code) + ", " +
                                      std::to_string(it->second->signal_code) + ")";
                     mgr->m_webview->eval(js);

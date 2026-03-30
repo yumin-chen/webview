@@ -22,22 +22,20 @@ int main(int argc, char** argv) {
 
     try {
         auto w = std::make_shared<webview::webview>(is_cron ? false : true, nullptr);
+
         auto mgr = std::make_shared<webview::meta::SubprocessManager>(w.get());
         mgr->bind(*w);
-        w->init(METASCRIPT_BUNDLE);
+        w->init(ALLOYSCRIPT_BUNDLE);
 
         if (is_cron) {
             std::string js = "window.onload = () => { if (typeof window.defaultExport !== 'undefined' && window.defaultExport.scheduled) { "
                              "window.defaultExport.scheduled({ cron: '" + cron_period + "', type: 'scheduled', scheduledTime: Date.now() }); "
                              "} else { console.error('No scheduled() handler found'); } "
-                             "setTimeout(() => window.__meta_terminate(), 1000); };";
-            w->bind("__meta_terminate", [&](const std::string&) -> std::string { w->terminate(); return ""; });
+                             "setTimeout(() => window.__alloy_terminate(), 1000); };";
+            w->bind("__alloy_terminate", [&](const std::string&) -> std::string { w->terminate(); return ""; });
             w->init(js);
-            // Script content is already in METASCRIPT_BUNDLE if it's the main entry.
-            // But if it's a separate script_path, we'd need to load it.
-            // In the Bun build architecture, the script is usually already bundled.
         } else {
-            w->set_title("MetaScript Executable");
+            w->set_title("AlloyScript Application");
             w->set_size(1024, 768, WEBVIEW_HINT_NONE);
             w->set_html("<!DOCTYPE html><html><body><div id='root'></div></body></html>");
         }
