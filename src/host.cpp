@@ -84,13 +84,22 @@ extern "C" void alloy_sqlite_open(const char *id, const char *req, void *arg) {
 
 extern "C" void alloy_sqlite_query(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
+    std::string request(req);
+    int db_idx = std::stoi(webview::detail::json_parse(request, "", 0)) - 1;
+    std::string sql = webview::detail::json_parse(request, "", 1);
+
+    if (db_idx < 0 || db_idx >= MAX_DBS || !g_dbs[db_idx]) {
+        webview_return(w, id, 1, "Invalid database ID");
+        return;
+    }
+
     int stmt_idx = -1;
     for(int i=0; i<MAX_STMTS; i++) { if(!g_stmts[i]) { stmt_idx = i; break; } }
     if (stmt_idx == -1) { webview_return(w, id, 1, "Too many statements"); return; }
 
-    int rc = sqlite3_prepare_v2(g_dbs[0], req, -1, &g_stmts[stmt_idx], NULL);
+    int rc = sqlite3_prepare_v2(g_dbs[db_idx], sql.c_str(), -1, &g_stmts[stmt_idx], NULL);
     if (rc != SQLITE_OK) {
-        webview_return(w, id, 1, sqlite3_errmsg(g_dbs[0]));
+        webview_return(w, id, 1, sqlite3_errmsg(g_dbs[db_idx]));
     } else {
         char buf[16];
         sprintf(buf, "%d", stmt_idx + 1);
@@ -100,18 +109,56 @@ extern "C" void alloy_sqlite_query(const char *id, const char *req, void *arg) {
 
 extern "C" void alloy_sqlite_stmt_all(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "[{\"message\": \"Hello world\"}]");
+    int stmt_idx = std::stoi(req) - 1;
+    if (stmt_idx < 0 || stmt_idx >= MAX_STMTS || !g_stmts[stmt_idx]) {
+        webview_return(w, id, 1, "Invalid statement ID");
+        return;
+    }
+
+    std::string json = "[";
+    bool first = true;
+    while (sqlite3_step(g_stmts[stmt_idx]) == SQLITE_ROW) {
+        if (!first) json += ",";
+        json += "{";
+        int cols = sqlite3_column_count(g_stmts[stmt_idx]);
+        for (int i = 0; i < cols; ++i) {
+            if (i > 0) json += ",";
+            json += "\"" + std::string(sqlite3_column_name(g_stmts[stmt_idx], i)) + "\":";
+            int type = sqlite3_column_type(g_stmts[stmt_idx], i);
+            if (type == SQLITE_INTEGER) json += std::to_string(sqlite3_column_int(g_stmts[stmt_idx], i));
+            else if (type == SQLITE_FLOAT) json += std::to_string(sqlite3_column_double(g_stmts[stmt_idx], i));
+            else if (type == SQLITE_NULL) json += "null";
+            else json += "\"" + std::string((const char*)sqlite3_column_text(g_stmts[stmt_idx], i)) + "\"";
+        }
+        json += "}";
+        first = false;
+    }
+    json += "]";
+    sqlite3_reset(g_stmts[stmt_idx]);
+    webview_return(w, id, 0, json.c_str());
 }
 
 extern "C" void alloy_sqlite_run(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
+    std::string request(req);
+    int db_idx = std::stoi(webview::detail::json_parse(request, "", 0)) - 1;
+    std::string sql = webview::detail::json_parse(request, "", 1);
+
+    if (db_idx < 0 || db_idx >= MAX_DBS || !g_dbs[db_idx]) {
+        webview_return(w, id, 1, "Invalid database ID");
+        return;
+    }
+
     char *err_msg = NULL;
-    int rc = sqlite3_exec(g_dbs[0], req, NULL, NULL, &err_msg);
+    int rc = sqlite3_exec(g_dbs[db_idx], sql.c_str(), NULL, NULL, &err_msg);
     if (rc != SQLITE_OK) {
-        webview_return(w, id, 1, err_msg);
-        sqlite3_free(err_msg);
+        webview_return(w, id, 1, err_msg ? err_msg : "SQLite execution error");
+        if (err_msg) sqlite3_free(err_msg);
     } else {
-        webview_return(w, id, 0, "{\"lastInsertRowid\":0, \"changes\":0}");
+        long long last_id = sqlite3_last_insert_rowid(g_dbs[db_idx]);
+        int changes = sqlite3_changes(g_dbs[db_idx]);
+        std::string res = "{\"lastInsertRowid\":" + std::to_string(last_id) + ", \"changes\":" + std::to_string(changes) + "}";
+        webview_return(w, id, 0, res.c_str());
     }
 }
 
@@ -149,7 +196,15 @@ extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
 
     alloy_component_t comp = nullptr;
 
-    if (type == "Button") comp = alloy_create_button(root_parent);
+    if (type == "Window") {
+        std::string title = webview::detail::json_parse(props, "title", 0);
+        std::string w_str = webview::detail::json_parse(props, "width", 0);
+        std::string h_str = webview::detail::json_parse(props, "height", 0);
+        comp = alloy_create_window(title.empty() ? "Alloy" : title.c_str(),
+                                   w_str.empty() ? 800 : std::stoi(w_str),
+                                   h_str.empty() ? 600 : std::stoi(h_str));
+    }
+    else if (type == "Button") comp = alloy_create_button(root_parent);
     else if (type == "TextField") comp = alloy_create_textfield(root_parent);
     else if (type == "TextArea") comp = alloy_create_textarea(root_parent);
     else if (type == "Label") comp = alloy_create_label(root_parent);
@@ -215,6 +270,18 @@ extern "C" void alloy_gui_create(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, buf);
 }
 
+extern "C" void alloy_gui_add_child(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    std::string request(req);
+    int parent_id = std::stoi(webview::detail::json_parse(request, "", 0));
+    int child_id = std::stoi(webview::detail::json_parse(request, "", 1));
+
+    if (g_components.count(parent_id) && g_components.count(child_id)) {
+        alloy_add_child(g_components[parent_id], g_components[child_id]);
+    }
+    webview_return(w, id, 0, "0");
+}
+
 extern "C" void alloy_gui_update(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
     std::string request(req);
@@ -227,6 +294,11 @@ extern "C" void alloy_gui_update(const char *id, const char *req, void *arg) {
         std::string label = webview::detail::json_parse(props, "label", 0);
         if (label.empty()) label = webview::detail::json_parse(props, "text", 0);
         if (!label.empty()) alloy_set_text(comp, label.c_str());
+
+        std::string w_str = webview::detail::json_parse(props, "width", 0);
+        std::string h_str = webview::detail::json_parse(props, "height", 0);
+        if (!w_str.empty()) alloy_set_width(comp, std::stof(w_str));
+        if (!h_str.empty()) alloy_set_height(comp, std::stof(h_str));
     }
 
     webview_return(w, id, 0, "0");
@@ -270,6 +342,7 @@ int main(void) {
   webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
   webview_bind(w, "alloy_gui_update", alloy_gui_update, w);
   webview_bind(w, "alloy_gui_destroy", alloy_gui_destroy, w);
+  webview_bind(w, "alloy_gui_add_child", alloy_gui_add_child, w);
 
   const char* bridge_js =
       "window.Alloy = {"
@@ -290,7 +363,8 @@ int main(void) {
       "  gui: {"
       "    create: (type, props) => window.alloy_gui_create(type, props),"
       "    update: (id, props) => window.alloy_gui_update(id, props),"
-      "    destroy: (id) => window.alloy_gui_destroy(id)"
+      "    destroy: (id) => window.alloy_gui_destroy(id),"
+      "    addChild: (parent, child) => window.alloy_gui_add_child(parent, child)"
       "  }"
       "};"
       "window._forbidden_eval = window.eval;"

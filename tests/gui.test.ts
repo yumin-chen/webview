@@ -1,6 +1,6 @@
 import { expect, test, describe, spyOn } from "bun:test";
 import {
-    createComponent, updateComponent, destroyComponent,
+    createComponent, updateComponent, destroyComponent, addChild,
     Window, Button, TextField, Color, VStack, HStack,
     TextArea, Label, CheckBox, RadioButton, ComboBox,
     Slider, Spinner, Switch, ProgressBar, ListView,
@@ -21,7 +21,8 @@ if (typeof window === "undefined") {
 (window as any).Alloy.gui = {
     create: (type: string, props: any) => 1,
     update: (id: number, props: any) => {},
-    destroy: (id: number) => {}
+    destroy: (id: number) => {},
+    addChild: (parent: number, child: number) => {}
 };
 
 describe("Alloy:gui", () => {
@@ -127,15 +128,19 @@ describe("Alloy:gui", () => {
         });
     });
 
-    test("Component lifecycle: update and destroy", () => {
+    test("Component lifecycle: update, destroy, and addChild", () => {
         const updateSpy = spyOn(window.Alloy.gui, "update");
         const destroySpy = spyOn(window.Alloy.gui, "destroy");
+        const addChildSpy = spyOn(window.Alloy.gui, "addChild");
 
         updateComponent(1, { label: "New" });
         expect(updateSpy).toHaveBeenCalledWith(1, { label: "New" });
 
         destroyComponent(1);
         expect(destroySpy).toHaveBeenCalledWith(1);
+
+        addChild(1, 2);
+        expect(addChildSpy).toHaveBeenCalledWith(1, 2);
     });
   });
 });

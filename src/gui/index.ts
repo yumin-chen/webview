@@ -8,6 +8,7 @@ declare global {
         create: (type: string, props: any) => number; // returns component_id
         update: (id: number, props: any) => void;
         destroy: (id: number) => void;
+        addChild: (parent: number, child: number) => void;
       };
     };
   }
@@ -73,4 +74,8 @@ export const updateComponent = (id: number, props: any) => {
 
 export const destroyComponent = (id: number) => {
     window.Alloy.gui.destroy(id);
+};
+
+export const addChild = (parent: number, child: number) => {
+    window.Alloy.gui.addChild(parent, child);
 };

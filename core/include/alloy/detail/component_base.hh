@@ -46,11 +46,22 @@ public:
 
   bool is_container() const { return m_is_container; }
 
+  struct layout_props {
+      float flex = 0.0f;
+      float width = -1.0f; // -1 for auto
+      float height = -1.0f;
+      float padding[4] = {0,0,0,0}; // t, r, b, l
+      float margin[4] = {0,0,0,0};
+  };
+
+  layout_props& layout() { return m_layout; }
+
 protected:
   explicit component_base(bool is_container = false)
       : m_is_container{is_container} {}
 
   bool m_is_container{};
+  layout_props m_layout;
 
 private:
   std::unordered_map<alloy_event_type_t, event_slot> m_events;

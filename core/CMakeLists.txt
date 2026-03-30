@@ -23,6 +23,7 @@ if(WEBVIEW_BUILD_SHARED_LIBRARY)
     target_sources(webview_core_shared PRIVATE
         src/webview.cc
         src/alloy_gui.cpp
+        src/signals.cpp
         src/components/button.cpp
         src/components/textfield.cpp
         src/components/textarea.cpp
@@ -68,6 +69,7 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
     target_sources(webview_core_static PRIVATE
         src/webview.cc
         src/alloy_gui.cpp
+        src/signals.cpp
         src/components/button.cpp
         src/components/textfield.cpp
         src/components/textarea.cpp

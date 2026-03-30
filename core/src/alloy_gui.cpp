@@ -102,11 +102,37 @@ alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t chi
     return ALLOY_OK;
 }
 
-alloy_error_t alloy_set_flex(alloy_component_t h, float flex) { return ALLOY_OK; }
-alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
-alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) { return ALLOY_OK; }
-alloy_error_t alloy_set_width(alloy_component_t h, float width) { return ALLOY_OK; }
-alloy_error_t alloy_set_height(alloy_component_t h, float height) { return ALLOY_OK; }
+alloy_error_t alloy_set_flex(alloy_component_t h, float flex) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+    static_cast<alloy::detail::component_base*>(h)->layout().flex = flex;
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_set_padding(alloy_component_t h, float t, float r, float b, float l) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+    auto& lp = static_cast<alloy::detail::component_base*>(h)->layout();
+    lp.padding[0] = t; lp.padding[1] = r; lp.padding[2] = b; lp.padding[3] = l;
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_set_margin(alloy_component_t h, float t, float r, float b, float l) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+    auto& lp = static_cast<alloy::detail::component_base*>(h)->layout();
+    lp.margin[0] = t; lp.margin[1] = r; lp.margin[2] = b; lp.margin[3] = l;
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_set_width(alloy_component_t h, float width) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+    static_cast<alloy::detail::component_base*>(h)->layout().width = width;
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_set_height(alloy_component_t h, float height) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+    static_cast<alloy::detail::component_base*>(h)->layout().height = height;
+    return ALLOY_OK;
+}
 
 alloy_error_t alloy_layout(alloy_component_t window) {
     if (!window) return ALLOY_ERROR_INVALID_ARGUMENT;

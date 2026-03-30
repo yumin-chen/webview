@@ -4,11 +4,17 @@
 namespace alloy::detail {
 
 #if defined(ALLOY_PLATFORM_WINDOWS)
+#include "alloy/detail/platform/windows/theme_fluent.hh"
+
 LRESULT CALLBACK AlloyWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* comp = (alloy::detail::win32_component*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     switch (msg) {
         case WM_COMMAND: {
-            if (comp) comp->fire_event(ALLOY_EVENT_CLICK);
+            HWND child_hwnd = (HWND)lp;
+            if (child_hwnd) {
+                auto* child_comp = (alloy::detail::win32_component*)GetWindowLongPtr(child_hwnd, GWLP_USERDATA);
+                if (child_comp) child_comp->fire_event(ALLOY_EVENT_CLICK);
+            }
             break;
         }
         case WM_DESTROY: PostQuitMessage(0); return 0;
@@ -24,8 +30,21 @@ alloy_component_t create_window_win(const char *title, int width, int height) {
     wc.lpszClassName = L"AlloyWindow";
     RegisterClassExW(&wc);
 
-    HWND hwnd = CreateWindowExW(0, L"AlloyWindow", L"Alloy", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+    std::wstring wtitle = L"Alloy";
+    if (title) {
+        int len = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+        if (len > 0) {
+            std::vector<wchar_t> buf(len);
+            MultiByteToWideChar(CP_UTF8, 0, title, -1, buf.data(), len);
+            wtitle = buf.data();
+        }
+    }
+
+    HWND hwnd = CreateWindowExW(0, L"AlloyWindow", wtitle.c_str(), WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                CW_USEDEFAULT, CW_USEDEFAULT, width, height, NULL, NULL, GetModuleHandle(NULL), NULL);
+
+    alloy::detail::apply_fluent_theme(hwnd);
+
     return new win32_window(hwnd);
 }
 #elif defined(ALLOY_PLATFORM_DARWIN)

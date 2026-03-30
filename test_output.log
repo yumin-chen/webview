@@ -1,0 +1,16 @@
+bun test v1.2.14 (6a363a38)
+
+tests/gui.test.ts:
+(pass) Alloy:gui > Native Component Generation > TextField creation [0.29ms]
+(pass) Alloy:gui > Native Component Generation > VStack and HStack layout [0.31ms]
+(pass) Alloy:gui > Native Component Generation > Comprehensive component test suite [10.38ms]
+(pass) Alloy:gui > Native Component Generation > Component lifecycle: update, destroy, and addChild [2.24ms]
+(pass) Alloy:gui > Component object creation (ASX representation) [0.11ms]
+(pass) Alloy:gui > Bridge createComponent [0.04ms]
+(pass) Alloy:gui > Styling and Color API [0.12ms]
+(pass) Alloy:gui > Complex Layout props [0.13ms]
+
+ 8 pass
+ 0 fail
+ 97 expect() calls
+Ran 8 tests across 1 files. [84.00ms]
