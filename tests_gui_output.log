@@ -1,0 +1,39 @@
+bun test v1.2.14 (6a363a38)
+
+tests/gui/progressbar.test.ts:
+(pass) Alloy:gui > ProgressBar > creation with props [0.27ms]
+
+tests/gui/textarea.test.ts:
+(pass) Alloy:gui > TextArea > creation with props [0.16ms]
+
+tests/gui/radiobutton.test.ts:
+(pass) Alloy:gui > RadioButton > creation with props [0.09ms]
+
+tests/gui/window.test.ts:
+(pass) Alloy:gui > Window > creation with complex props [0.10ms]
+
+tests/gui/listview.test.ts:
+(pass) Alloy:gui > ListView > creation with props [0.22ms]
+
+tests/gui/textfield.test.ts:
+(pass) Alloy:gui > TextField > creation with props [0.14ms]
+
+tests/gui/combobox.test.ts:
+(pass) Alloy:gui > ComboBox > creation with props [0.19ms]
+
+tests/gui/slider.test.ts:
+(pass) Alloy:gui > Slider > creation with props [0.09ms]
+
+tests/gui/label.test.ts:
+(pass) Alloy:gui > Label > creation with props [0.37ms]
+
+tests/gui/button.test.ts:
+(pass) Alloy:gui > Button > creation with props [0.26ms]
+
+tests/gui/checkbox.test.ts:
+(pass) Alloy:gui > CheckBox > creation with props [0.29ms]
+
+ 11 pass
+ 0 fail
+ 41 expect() calls
+Ran 11 tests across 11 files. [149.00ms]
