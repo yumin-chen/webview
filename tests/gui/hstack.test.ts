@@ -1,5 +1,5 @@
 import { expect, test, describe, spyOn } from "bun:test";
-import { TreeView, createComponent, updateComponent, destroyComponent } from "../../src/gui";
+import { HStack, createComponent, updateComponent, destroyComponent } from "../../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -13,11 +13,11 @@ if (typeof window === "undefined") {
     addChild: (parent: number, child: number) => {}
 };
 
-describe("Alloy:gui > TreeView", () => {
+describe("Alloy:gui > HStack", () => {
   test("creation with props", () => {
-    const props = { root: { id: 'root', label: 'Root' } };
-    const element = TreeView(props);
-    expect(element.type).toBe("TreeView");
+    const props = { children: [] };
+    const element = HStack(props);
+    expect(element.type).toBe("HStack");
     const id = createComponent(element.type, element.props);
     expect(id).toBe(1);
   });

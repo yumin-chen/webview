@@ -134,9 +134,65 @@ alloy_error_t alloy_set_height(alloy_component_t h, float height) {
     return ALLOY_OK;
 }
 
+void perform_recursive_layout(alloy::detail::component_base* comp, float x, float y, float w, float h) {
+    if (!comp) return;
+
+    // Set native frame (platform specific)
+#if defined(_WIN32)
+    MoveWindow((HWND)comp->native_handle(), (int)x, (int)y, (int)w, (int)h, TRUE);
+#endif
+
+    if (comp->is_container()) {
+        // Implementation of basic layout for VStack/HStack
+        // For now, simple stacking logic
+        float child_y = 0;
+        // This would iterate children and apply layout
+    }
+}
+
 alloy_error_t alloy_layout(alloy_component_t window) {
     if (!window) return ALLOY_ERROR_INVALID_ARGUMENT;
-    // Yoga layout calculation entry point
+    auto w = static_cast<alloy::detail::component_base*>(window);
+    perform_recursive_layout(w, 0, 0, 800, 600); // Root layout
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_run(alloy_component_t window) {
+    if (!window) return ALLOY_ERROR_INVALID_ARGUMENT;
+#if defined(_WIN32)
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+#elif defined(__APPLE__)
+    // Cocoa run loop handled by NSApplication
+#else
+    gtk_main();
+#endif
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_terminate(alloy_component_t window) {
+    if (!window) return ALLOY_ERROR_INVALID_ARGUMENT;
+#if defined(_WIN32)
+    PostQuitMessage(0);
+#elif defined(__APPLE__)
+    // Terminate Cocoa app
+#else
+    gtk_main_quit();
+#endif
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_dispatch(alloy_component_t window, void (*fn)(void *arg), void *arg) {
+    if (!fn) return ALLOY_ERROR_INVALID_ARGUMENT;
+#if defined(_WIN32)
+    // Post custom message to window thread
+    SendMessage((HWND)static_cast<alloy::detail::component_base*>(window)->native_handle(), WM_APP + 1, (WPARAM)fn, (LPARAM)arg);
+#else
+    fn(arg);
+#endif
     return ALLOY_OK;
 }
 

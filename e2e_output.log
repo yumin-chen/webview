@@ -1,0 +1,9 @@
+bun test v1.2.14 (6a363a38)
+
+tests/e2e.test.ts:
+(pass) Alloy:gui E2E Bridge > Full lifecycle: tree construction and updates [4.62ms]
+
+ 1 pass
+ 0 fail
+ 7 expect() calls
+Ran 1 tests across 1 files. [51.00ms]

@@ -1,5 +1,5 @@
-import { expect, test, describe } from "bun:test";
-import { Icon, createComponent } from "../../src/gui";
+import { expect, test, describe, spyOn } from "bun:test";
+import { Icon, createComponent, updateComponent, destroyComponent } from "../../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -15,9 +15,21 @@ if (typeof window === "undefined") {
 
 describe("Alloy:gui > Icon", () => {
   test("creation with props", () => {
-    const element = Icon({ name: 'i' });
+    const props = { name: 'user' };
+    const element = Icon(props);
     expect(element.type).toBe("Icon");
     const id = createComponent(element.type, element.props);
     expect(id).toBe(1);
+  });
+
+  test("lifecycle: update and destroy", () => {
+    const updateSpy = spyOn(window.Alloy.gui, "update");
+    const destroySpy = spyOn(window.Alloy.gui, "destroy");
+
+    updateComponent(1, { someProp: "new value" });
+    expect(updateSpy).toHaveBeenCalled();
+
+    destroyComponent(1);
+    expect(destroySpy).toHaveBeenCalled();
   });
 });

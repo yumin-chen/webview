@@ -1,0 +1,193 @@
+bun test v1.2.14 (6a363a38)
+
+tests/e2e.test.ts:
+(pass) Alloy:gui E2E Bridge > Full lifecycle: tree construction and updates [0.38ms]
+
+tests/gui/progressbar.test.ts:
+(pass) Alloy:gui > ProgressBar > creation with props [0.15ms]
+(pass) Alloy:gui > ProgressBar > lifecycle: update and destroy [0.23ms]
+
+tests/gui/treeview.test.ts:
+(pass) Alloy:gui > TreeView > creation with props [0.13ms]
+(pass) Alloy:gui > TreeView > lifecycle: update and destroy [0.15ms]
+
+tests/gui/tooltip.test.ts:
+(pass) Alloy:gui > Tooltip > creation with props [0.12ms]
+(pass) Alloy:gui > Tooltip > lifecycle: update and destroy [0.16ms]
+
+tests/gui/codeeditor.test.ts:
+(pass) Alloy:gui > CodeEditor > creation with props [0.17ms]
+(pass) Alloy:gui > CodeEditor > lifecycle: update and destroy [0.23ms]
+
+tests/gui/datepicker.test.ts:
+(pass) Alloy:gui > DatePicker > creation with props [0.09ms]
+(pass) Alloy:gui > DatePicker > lifecycle: update and destroy [0.06ms]
+
+tests/gui/statusbar.test.ts:
+(pass) Alloy:gui > StatusBar > creation with props [0.08ms]
+(pass) Alloy:gui > StatusBar > lifecycle: update and destroy [0.06ms]
+
+tests/gui/tabview.test.ts:
+(pass) Alloy:gui > TabView > creation with props [0.22ms]
+(pass) Alloy:gui > TabView > lifecycle: update and destroy [0.07ms]
+
+tests/gui/richtext.test.ts:
+(pass) Alloy:gui > RichText > creation with props [0.16ms]
+(pass) Alloy:gui > RichText > lifecycle: update and destroy [0.13ms]
+
+tests/gui/menu.test.ts:
+(pass) Alloy:gui > Menu > creation with props [0.12ms]
+(pass) Alloy:gui > Menu > lifecycle: update and destroy [0.14ms]
+
+tests/gui/accordion.test.ts:
+(pass) Alloy:gui > Accordion > creation with props [0.19ms]
+(pass) Alloy:gui > Accordion > lifecycle: update and destroy [0.12ms]
+
+tests/gui/popover.test.ts:
+(pass) Alloy:gui > Popover > creation with props [0.16ms]
+(pass) Alloy:gui > Popover > lifecycle: update and destroy [0.20ms]
+
+tests/gui/textarea.test.ts:
+(pass) Alloy:gui > TextArea > creation with props [0.12ms]
+(pass) Alloy:gui > TextArea > lifecycle: update and destroy [0.16ms]
+
+tests/gui/colorpicker.test.ts:
+(pass) Alloy:gui > ColorPicker > creation with props [0.12ms]
+(pass) Alloy:gui > ColorPicker > lifecycle: update and destroy [0.06ms]
+
+tests/gui/radiobutton.test.ts:
+(pass) Alloy:gui > RadioButton > creation with props [0.19ms]
+(pass) Alloy:gui > RadioButton > lifecycle: update and destroy [0.07ms]
+
+tests/gui/switch.test.ts:
+(pass) Alloy:gui > Switch > creation with props [0.13ms]
+(pass) Alloy:gui > Switch > lifecycle: update and destroy [0.19ms]
+
+tests/gui/hstack.test.ts:
+(pass) Alloy:gui > HStack > creation with props [0.11ms]
+(pass) Alloy:gui > HStack > lifecycle: update and destroy [0.22ms]
+
+tests/gui/window.test.ts:
+(pass) Alloy:gui > Window > creation with props [0.06ms]
+(pass) Alloy:gui > Window > lifecycle: update and destroy [0.06ms]
+
+tests/gui/chip.test.ts:
+(pass) Alloy:gui > Chip > creation with props [0.19ms]
+(pass) Alloy:gui > Chip > lifecycle: update and destroy [0.08ms]
+
+tests/gui/listview.test.ts:
+(pass) Alloy:gui > ListView > creation with props [0.22ms]
+(pass) Alloy:gui > ListView > lifecycle: update and destroy [0.21ms]
+
+tests/gui/toolbar.test.ts:
+(pass) Alloy:gui > Toolbar > creation with props [0.07ms]
+(pass) Alloy:gui > Toolbar > lifecycle: update and destroy [0.06ms]
+
+tests/gui/divider.test.ts:
+(pass) Alloy:gui > Divider > creation with props [0.07ms]
+(pass) Alloy:gui > Divider > lifecycle: update and destroy [0.11ms]
+
+tests/gui/webview.test.ts:
+(pass) Alloy:gui > WebView > creation with props [0.20ms]
+(pass) Alloy:gui > WebView > lifecycle: update and destroy [0.11ms]
+
+tests/gui/separator.test.ts:
+(pass) Alloy:gui > Separator > creation with props [0.26ms]
+(pass) Alloy:gui > Separator > lifecycle: update and destroy [0.15ms]
+
+tests/gui/textfield.test.ts:
+(pass) Alloy:gui > TextField > creation with props [0.09ms]
+(pass) Alloy:gui > TextField > lifecycle: update and destroy [0.06ms]
+
+tests/gui/filedialog.test.ts:
+(pass) Alloy:gui > FileDialog > creation with props [0.31ms]
+(pass) Alloy:gui > FileDialog > lifecycle: update and destroy [0.07ms]
+
+tests/gui/combobox.test.ts:
+(pass) Alloy:gui > ComboBox > creation with props [0.08ms]
+(pass) Alloy:gui > ComboBox > lifecycle: update and destroy [0.07ms]
+
+tests/gui/slider.test.ts:
+(pass) Alloy:gui > Slider > creation with props [0.07ms]
+(pass) Alloy:gui > Slider > lifecycle: update and destroy [0.11ms]
+
+tests/gui/vstack.test.ts:
+(pass) Alloy:gui > VStack > creation with props [0.18ms]
+(pass) Alloy:gui > VStack > lifecycle: update and destroy [0.07ms]
+
+tests/gui/badge.test.ts:
+(pass) Alloy:gui > Badge > creation with props [0.06ms]
+(pass) Alloy:gui > Badge > lifecycle: update and destroy [0.06ms]
+
+tests/gui/scrollview.test.ts:
+(pass) Alloy:gui > ScrollView > creation with props [0.07ms]
+(pass) Alloy:gui > ScrollView > lifecycle: update and destroy [0.10ms]
+
+tests/gui/label.test.ts:
+(pass) Alloy:gui > Label > creation with props [0.20ms]
+(pass) Alloy:gui > Label > lifecycle: update and destroy [0.07ms]
+
+tests/gui/rating.test.ts:
+(pass) Alloy:gui > Rating > creation with props [0.09ms]
+(pass) Alloy:gui > Rating > lifecycle: update and destroy [0.12ms]
+
+tests/gui/timepicker.test.ts:
+(pass) Alloy:gui > TimePicker > creation with props [0.21ms]
+(pass) Alloy:gui > TimePicker > lifecycle: update and destroy [0.15ms]
+
+tests/gui/card.test.ts:
+(pass) Alloy:gui > Card > creation with props [0.12ms]
+(pass) Alloy:gui > Card > lifecycle: update and destroy [0.18ms]
+
+tests/gui/spinner.test.ts:
+(pass) Alloy:gui > Spinner > creation with props [0.21ms]
+(pass) Alloy:gui > Spinner > lifecycle: update and destroy [0.14ms]
+
+tests/gui/button.test.ts:
+(pass) Alloy:gui > Button > creation with props [0.07ms]
+(pass) Alloy:gui > Button > lifecycle: update and destroy [0.07ms]
+
+tests/gui/menubar.test.ts:
+(pass) Alloy:gui > MenuBar > creation with props [0.06ms]
+(pass) Alloy:gui > MenuBar > lifecycle: update and destroy [0.20ms]
+
+tests/gui/checkbox.test.ts:
+(pass) Alloy:gui > CheckBox > creation with props [0.23ms]
+(pass) Alloy:gui > CheckBox > lifecycle: update and destroy [0.12ms]
+
+tests/gui/image.test.ts:
+(pass) Alloy:gui > Image > creation with props [0.21ms]
+(pass) Alloy:gui > Image > lifecycle: update and destroy [0.12ms]
+
+tests/gui/icon.test.ts:
+(pass) Alloy:gui > Icon > creation with props [0.15ms]
+(pass) Alloy:gui > Icon > lifecycle: update and destroy [0.16ms]
+
+tests/gui/spinnerloading.test.ts:
+(pass) Alloy:gui > SpinnerLoading > creation with props [0.11ms]
+(pass) Alloy:gui > SpinnerLoading > lifecycle: update and destroy [0.25ms]
+
+tests/gui/dialog.test.ts:
+(pass) Alloy:gui > Dialog > creation with props [0.07ms]
+(pass) Alloy:gui > Dialog > lifecycle: update and destroy [0.11ms]
+
+tests/gui/groupbox.test.ts:
+(pass) Alloy:gui > GroupBox > creation with props [0.07ms]
+(pass) Alloy:gui > GroupBox > lifecycle: update and destroy [0.11ms]
+
+tests/gui/splitter.test.ts:
+(pass) Alloy:gui > Splitter > creation with props [0.07ms]
+(pass) Alloy:gui > Splitter > lifecycle: update and destroy [0.12ms]
+
+tests/gui/link.test.ts:
+(pass) Alloy:gui > Link > creation with props [0.08ms]
+(pass) Alloy:gui > Link > lifecycle: update and destroy [0.30ms]
+
+tests/gui/contextmenu.test.ts:
+(pass) Alloy:gui > ContextMenu > creation with props [0.11ms]
+(pass) Alloy:gui > ContextMenu > lifecycle: update and destroy [0.22ms]
+
+ 93 pass
+ 0 fail
+ 191 expect() calls
+Ran 93 tests across 47 files. [118.00ms]

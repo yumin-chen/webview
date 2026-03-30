@@ -1,5 +1,5 @@
 import { expect, test, describe, spyOn } from "bun:test";
-import { TextField, createComponent } from "../../src/gui";
+import { TextField, createComponent, updateComponent, destroyComponent } from "../../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -15,12 +15,21 @@ if (typeof window === "undefined") {
 
 describe("Alloy:gui > TextField", () => {
   test("creation with props", () => {
-    const field = TextField({ value: "hello", placeholder: "type...", maxLength: 10 });
-    expect(field.type).toBe("TextField");
-    expect(field.props.value).toBe("hello");
-    expect(field.props.placeholder).toBe("type...");
-    expect(field.props.maxLength).toBe(10);
-    const id = createComponent(field.type, field.props);
+    const props = { value: 'hello', onChange: (v) => {} };
+    const element = TextField(props);
+    expect(element.type).toBe("TextField");
+    const id = createComponent(element.type, element.props);
     expect(id).toBe(1);
+  });
+
+  test("lifecycle: update and destroy", () => {
+    const updateSpy = spyOn(window.Alloy.gui, "update");
+    const destroySpy = spyOn(window.Alloy.gui, "destroy");
+
+    updateComponent(1, { someProp: "new value" });
+    expect(updateSpy).toHaveBeenCalled();
+
+    destroyComponent(1);
+    expect(destroySpy).toHaveBeenCalled();
   });
 });

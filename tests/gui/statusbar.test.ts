@@ -1,5 +1,5 @@
-import { expect, test, describe } from "bun:test";
-import { StatusBar, createComponent } from "../../src/gui";
+import { expect, test, describe, spyOn } from "bun:test";
+import { StatusBar, createComponent, updateComponent, destroyComponent } from "../../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -15,9 +15,21 @@ if (typeof window === "undefined") {
 
 describe("Alloy:gui > StatusBar", () => {
   test("creation with props", () => {
-    const element = StatusBar({ text: 's' });
+    const props = { text: 'Ready' };
+    const element = StatusBar(props);
     expect(element.type).toBe("StatusBar");
     const id = createComponent(element.type, element.props);
     expect(id).toBe(1);
+  });
+
+  test("lifecycle: update and destroy", () => {
+    const updateSpy = spyOn(window.Alloy.gui, "update");
+    const destroySpy = spyOn(window.Alloy.gui, "destroy");
+
+    updateComponent(1, { someProp: "new value" });
+    expect(updateSpy).toHaveBeenCalled();
+
+    destroyComponent(1);
+    expect(destroySpy).toHaveBeenCalled();
   });
 });

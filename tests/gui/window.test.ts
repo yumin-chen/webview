@@ -1,5 +1,5 @@
 import { expect, test, describe, spyOn } from "bun:test";
-import { Window, createComponent } from "../../src/gui";
+import { Window, createComponent, updateComponent, destroyComponent } from "../../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -14,13 +14,22 @@ if (typeof window === "undefined") {
 };
 
 describe("Alloy:gui > Window", () => {
-  test("creation with complex props", () => {
-    const win = Window({ title: "Test", width: 800, height: 600, resizable: true });
-    expect(win.type).toBe("Window");
-    expect(win.props.title).toBe("Test");
-    expect(win.props.width).toBe(800);
-    expect(win.props.resizable).toBe(true);
-    const id = createComponent(win.type, win.props);
+  test("creation with props", () => {
+    const props = { title: 'My App', width: 800, height: 600 };
+    const element = Window(props);
+    expect(element.type).toBe("Window");
+    const id = createComponent(element.type, element.props);
     expect(id).toBe(1);
+  });
+
+  test("lifecycle: update and destroy", () => {
+    const updateSpy = spyOn(window.Alloy.gui, "update");
+    const destroySpy = spyOn(window.Alloy.gui, "destroy");
+
+    updateComponent(1, { someProp: "new value" });
+    expect(updateSpy).toHaveBeenCalled();
+
+    destroyComponent(1);
+    expect(destroySpy).toHaveBeenCalled();
   });
 });

@@ -13,8 +13,26 @@ LRESULT CALLBACK AlloyWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             HWND child_hwnd = (HWND)lp;
             if (child_hwnd) {
                 auto* child_comp = (alloy::detail::win32_component*)GetWindowLongPtr(child_hwnd, GWLP_USERDATA);
-                if (child_comp) child_comp->fire_event(ALLOY_EVENT_CLICK);
+                if (child_comp) {
+                    if (HIWORD(wp) == BN_CLICKED) child_comp->fire_event(ALLOY_EVENT_CLICK);
+                    else if (HIWORD(wp) == EN_CHANGE) child_comp->fire_event(ALLOY_EVENT_CHANGE);
+                }
             }
+            break;
+        }
+        case WM_NOTIFY: {
+            NMHDR* nmhdr = (NMHDR*)lp;
+            if (nmhdr->hwndFrom) {
+                auto* child_comp = (alloy::detail::win32_component*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+                if (child_comp) {
+                    if (nmhdr->code == NM_CLICK) child_comp->fire_event(ALLOY_EVENT_CLICK);
+                }
+            }
+            break;
+        }
+        case WM_APP + 1: {
+            void (*fn)(void *arg) = (void (*)(void *))wp;
+            fn((void*)lp);
             break;
         }
         case WM_DESTROY: PostQuitMessage(0); return 0;

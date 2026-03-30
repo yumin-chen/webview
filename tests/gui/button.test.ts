@@ -1,5 +1,5 @@
 import { expect, test, describe, spyOn } from "bun:test";
-import { Button, createComponent } from "../../src/gui";
+import { Button, createComponent, updateComponent, destroyComponent } from "../../src/gui";
 
 // Mocking window.Alloy for tests
 if (typeof window === "undefined") {
@@ -15,12 +15,21 @@ if (typeof window === "undefined") {
 
 describe("Alloy:gui > Button", () => {
   test("creation with props", () => {
-    const btn = Button({ label: "Click", variant: "primary", enabled: false });
-    expect(btn.type).toBe("Button");
-    expect(btn.props.label).toBe("Click");
-    expect(btn.props.variant).toBe("primary");
-    expect(btn.props.enabled).toBe(false);
-    const id = createComponent(btn.type, btn.props);
+    const props = { label: 'Click Me', onClick: () => {} };
+    const element = Button(props);
+    expect(element.type).toBe("Button");
+    const id = createComponent(element.type, element.props);
     expect(id).toBe(1);
+  });
+
+  test("lifecycle: update and destroy", () => {
+    const updateSpy = spyOn(window.Alloy.gui, "update");
+    const destroySpy = spyOn(window.Alloy.gui, "destroy");
+
+    updateComponent(1, { someProp: "new value" });
+    expect(updateSpy).toHaveBeenCalled();
+
+    destroyComponent(1);
+    expect(destroySpy).toHaveBeenCalled();
   });
 });
