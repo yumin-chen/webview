@@ -41,11 +41,13 @@ export class Statement<ReturnType = any, ParamsType = any> {
   private _Class: (new (...args: any[]) => ReturnType) | null = null;
   private _metadata: any = null;
   private _strict: boolean = false;
+  private _safeIntegers: boolean = false;
 
-  constructor(db_id: number, stmt_id: number, strict: boolean = false) {
+  constructor(db_id: number, stmt_id: number, strict: boolean = false, safeIntegers: boolean = false) {
     this._db_id = db_id;
     this._stmt_id = stmt_id;
     this._strict = strict;
+    this._safeIntegers = safeIntegers;
   }
 
   private _ensureMetadata() {
@@ -60,12 +62,17 @@ export class Statement<ReturnType = any, ParamsType = any> {
   get paramsCount(): number { this._ensureMetadata(); return this._metadata.paramsCount; }
   get native(): any { return { stmt_id: this._stmt_id }; }
 
-  private _handleConversions(row: any): any {
+  private _handleConversions(row: any, safeIntegers: boolean): any {
       if (!row) return row;
       for (const key in row) {
           const val = row[key];
           if (typeof val === "string" && val.endsWith("n") && /^-?\d+n$/.test(val)) {
-              row[key] = BigInt(val.slice(0, -1));
+              const big = BigInt(val.slice(0, -1));
+              if (safeIntegers) {
+                  row[key] = big;
+              } else {
+                  row[key] = Number(big);
+              }
           } else if (typeof val === "string" && val.startsWith("blob:")) {
               const base64 = val.slice(5);
               const binaryString = atob(base64);
@@ -80,7 +87,8 @@ export class Statement<ReturnType = any, ParamsType = any> {
   }
 
   private _validateParams(params: any[]) {
-      for (const param of params) {
+      for (let i = 0; i < params.length; i++) {
+          const param = params[i];
           if (typeof param === "bigint") {
               if (param > 9223372036854775807n || param < -9223372036854775808n) {
                   throw new RangeError(`BigInt value '${param}' is out of range`);
@@ -88,10 +96,6 @@ export class Statement<ReturnType = any, ParamsType = any> {
           } else if (param && typeof param === "object" && !(param instanceof Uint8Array)) {
               for (const key in param) {
                   const val = (param as any)[key];
-                  if (this._strict && !key.startsWith("$") && !key.startsWith(":") && !key.startsWith("@")) {
-                      // In non-strict mode we might allow it, but docs say strict:true allows binding without prefix
-                      // and by default prefixes are required.
-                  }
                   if (typeof val === "bigint") {
                       if (val > 9223372036854775807n || val < -9223372036854775808n) {
                           throw new RangeError(`BigInt value '${val}' is out of range`);
@@ -104,7 +108,7 @@ export class Statement<ReturnType = any, ParamsType = any> {
 
   all(...params: ParamsType[]): ReturnType[] {
     this._validateParams(params);
-    const results = window.Alloy.sqlite.stmt_all(this._stmt_id, params).map(r => this._handleConversions(r));
+    const results = window.Alloy.sqlite.stmt_all(this._stmt_id, params).map(r => this._handleConversions(r, (this as any)._safeIntegers));
     if (this._Class) {
         return results.map(r => {
             const obj = Object.create(this._Class!.prototype);
@@ -117,7 +121,7 @@ export class Statement<ReturnType = any, ParamsType = any> {
 
   get(...params: ParamsType[]): ReturnType | null {
     this._validateParams(params);
-    const result = this._handleConversions(window.Alloy.sqlite.stmt_get(this._stmt_id, params));
+    const result = this._handleConversions(window.Alloy.sqlite.stmt_get(this._stmt_id, params), (this as any)._safeIntegers);
     if (result && this._Class) {
         const obj = Object.create(this._Class.prototype);
         Object.assign(obj, result);
@@ -145,7 +149,7 @@ export class Statement<ReturnType = any, ParamsType = any> {
   }
 
   as<T>(Class: new (...args: any[]) => T): Statement<T, ParamsType> {
-    const stmt = new Statement<T, ParamsType>(this._db_id, this._stmt_id, this._strict);
+    const stmt = new Statement<T, ParamsType>(this._db_id, this._stmt_id, this._strict, this._safeIntegers);
     stmt._Class = Class;
     return stmt;
   }
@@ -212,14 +216,14 @@ export class Database {
         return this._queryCache.get(sql) as Statement<ReturnType, ParamsType>;
     }
     const stmt_id = window.Alloy.sqlite.query(this._db_id, sql);
-    const stmt = new Statement<ReturnType, ParamsType>(this._db_id, stmt_id, this._strict);
+    const stmt = new Statement<ReturnType, ParamsType>(this._db_id, stmt_id, this._strict, this._safeIntegers);
     this._queryCache.set(sql, stmt);
     return stmt;
   }
 
   prepare<ReturnType = any, ParamsType = any>(sql: string): Statement<ReturnType, ParamsType> {
     const stmt_id = window.Alloy.sqlite.query(this._db_id, sql);
-    return new Statement<ReturnType, ParamsType>(this._db_id, stmt_id, this._strict);
+    return new Statement<ReturnType, ParamsType>(this._db_id, stmt_id, this._strict, this._safeIntegers);
   }
 
   run(sql: string, params?: SQLQueryBindings): { lastInsertRowid: number; changes: number } {
@@ -231,33 +235,34 @@ export class Database {
   }
 
   transaction(insideTransaction: (...args: any) => any): any {
-      const wrapper = (...args: any[]) => {
-          this.run("BEGIN TRANSACTION");
+      const db = this;
+      const fn = (...args: any[]) => {
+          db.run("BEGIN");
           try {
-              const result = insideTransaction.apply(this, args);
-              this.run("COMMIT");
+              const result = insideTransaction.apply(db, args);
+              db.run("COMMIT");
               return result;
           } catch (e) {
-              this.run("ROLLBACK");
+              db.run("ROLLBACK");
               throw e;
           }
       };
-      (wrapper as any).deferred = (...args: any[]) => {
-          this.run("BEGIN DEFERRED TRANSACTION");
-          try { const result = insideTransaction.apply(this, args); this.run("COMMIT"); return result; }
-          catch (e) { this.run("ROLLBACK"); throw e; }
+      fn.deferred = (...args: any[]) => {
+          db.run("BEGIN DEFERRED");
+          try { const result = insideTransaction.apply(db, args); db.run("COMMIT"); return result; }
+          catch (e) { db.run("ROLLBACK"); throw e; }
       };
-      (wrapper as any).immediate = (...args: any[]) => {
-          this.run("BEGIN IMMEDIATE TRANSACTION");
-          try { const result = insideTransaction.apply(this, args); this.run("COMMIT"); return result; }
-          catch (e) { this.run("ROLLBACK"); throw e; }
+      fn.immediate = (...args: any[]) => {
+          db.run("BEGIN IMMEDIATE");
+          try { const result = insideTransaction.apply(db, args); db.run("COMMIT"); return result; }
+          catch (e) { db.run("ROLLBACK"); throw e; }
       };
-      (wrapper as any).exclusive = (...args: any[]) => {
-          this.run("BEGIN EXCLUSIVE TRANSACTION");
-          try { const result = insideTransaction.apply(this, args); this.run("COMMIT"); return result; }
-          catch (e) { this.run("ROLLBACK"); throw e; }
+      fn.exclusive = (...args: any[]) => {
+          db.run("BEGIN EXCLUSIVE");
+          try { const result = insideTransaction.apply(db, args); db.run("COMMIT"); return result; }
+          catch (e) { db.run("ROLLBACK"); throw e; }
       };
-      return wrapper;
+      return fn;
   }
 
   close(throwOnError: boolean = false): void {

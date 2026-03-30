@@ -65,7 +65,7 @@ describe("Alloy:sqlite expanded", () => {
 
   test("bigint conversion", () => {
       mockSQLite.stmt_get = () => ({ val: "9007199254741093n" });
-      const db = new Database();
+      const db = new Database(":memory:", { safeIntegers: true });
       const res = db.query("SELECT ...").get();
       expect(typeof res.val).toBe("bigint");
       expect(res.val).toBe(9007199254741093n);
