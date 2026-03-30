@@ -55,12 +55,40 @@ describe("Alloy:gui", () => {
   });
 
   describe("Native Component Generation", () => {
-    test("TextField creation", () => {
-      const field = TextField({ value: "hello", placeholder: "type..." });
-      expect(field.type).toBe("TextField");
-      expect(field.props.value).toBe("hello");
-      const id = createComponent(field.type, field.props);
-      expect(id).toBe(1);
+    describe("Button", () => {
+      test("creation with props", () => {
+        const btn = Button({ label: "Click", variant: "primary", enabled: false });
+        expect(btn.type).toBe("Button");
+        expect(btn.props.label).toBe("Click");
+        expect(btn.props.variant).toBe("primary");
+        expect(btn.props.enabled).toBe(false);
+        const id = createComponent(btn.type, btn.props);
+        expect(id).toBe(1);
+      });
+    });
+
+    describe("TextField", () => {
+      test("creation with props", () => {
+        const field = TextField({ value: "hello", placeholder: "type...", maxLength: 10 });
+        expect(field.type).toBe("TextField");
+        expect(field.props.value).toBe("hello");
+        expect(field.props.placeholder).toBe("type...");
+        expect(field.props.maxLength).toBe(10);
+        const id = createComponent(field.type, field.props);
+        expect(id).toBe(1);
+      });
+    });
+
+    describe("Window", () => {
+      test("creation with complex props", () => {
+        const win = Window({ title: "Test", width: 800, height: 600, resizable: true });
+        expect(win.type).toBe("Window");
+        expect(win.props.title).toBe("Test");
+        expect(win.props.width).toBe(800);
+        expect(win.props.resizable).toBe(true);
+        const id = createComponent(win.type, win.props);
+        expect(id).toBe(1);
+      });
     });
 
     test("VStack and HStack layout", () => {
