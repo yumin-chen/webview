@@ -580,6 +580,10 @@ protected:
         if (proc._resolveExit) proc._resolveExit(exitCode);
       }
     },
+    gui: {
+        create: async (type, props) => window.Alloy_gui_create(type, props),
+        createSignal: async (initial) => window.Alloy_gui_create_signal(initial)
+    },
     sqlite: (function() {
       const constants = {
         SQLITE_FCNTL_PERSIST_WAL: 10,
@@ -735,7 +739,8 @@ protected:
   script.textContent = JSON.stringify({
     imports: {
       "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
-      "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;"
+      "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
+      "alloy:gui": "data:text/javascript,export const Window = (p) => window.Alloy.gui.create('Window', p); export const Button = (p) => window.Alloy.gui.create('Button', p); export const Label = (p) => window.Alloy.gui.create('Label', p); export const TextField = (p) => window.Alloy.gui.create('TextField', p); export const TextArea = (p) => window.Alloy.gui.create('TextArea', p); export const CheckBox = (p) => window.Alloy.gui.create('CheckBox', p); export const RadioButton = (p) => window.Alloy.gui.create('RadioButton', p); export const ComboBox = (p) => window.Alloy.gui.create('ComboBox', p); export const Slider = (p) => window.Alloy.gui.create('Slider', p); export const ProgressBar = (p) => window.Alloy.gui.create('ProgressBar', p); export const TabView = (p) => window.Alloy.gui.create('TabView', p); export const ListView = (p) => window.Alloy.gui.create('ListView', p); export const TreeView = (p) => window.Alloy.gui.create('TreeView', p); export const WebView = (p) => window.Alloy.gui.create('WebView', p); export const VStack = (p) => window.Alloy.gui.create('VStack', p); export const HStack = (p) => window.Alloy.gui.create('HStack', p); export const ScrollView = (p) => window.Alloy.gui.create('ScrollView', p); export const useSignal = (v) => window.Alloy.gui.createSignal(v);"
     }
   });
   document.head.appendChild(script);
@@ -743,10 +748,24 @@ protected:
 )js";
   }
 
+  void add_gui_bindings() {
+    bind("Alloy_gui_create", [this](const std::string &seq, const std::string &req, void *) {
+      auto type = json_parse(req, "", 0);
+      auto props = json_parse(req, "", 1);
+      resolve(seq, 0, "\"handle_123\"");
+    }, nullptr);
+
+    bind("Alloy_gui_create_signal", [this](const std::string &seq, const std::string &req, void *) {
+      auto initial = json_parse(req, "", 0);
+      resolve(seq, 0, "\"signal_123\"");
+    }, nullptr);
+  }
+
   void add_init_script(const std::string &post_fn) {
     add_user_script(create_init_script(post_fn));
     add_user_script(create_alloy_script());
     add_alloy_bindings();
+    add_gui_bindings();
     m_is_init_script_added = true;
   }
 

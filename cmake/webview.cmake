@@ -72,9 +72,53 @@ macro(webview_find_dependencies)
         list(APPEND WEBVIEW_DEPENDENCIES PkgConfig::WEBVIEW_WEBKITGTK PkgConfig::WEBVIEW_GTK dl)
     endif()
 
-    find_package(SQLite3 REQUIRED)
-    list(APPEND WEBVIEW_DEPENDENCIES SQLite3::SQLite3)
+    webview_fetch_sqlite()
+    list(APPEND WEBVIEW_DEPENDENCIES sqlite3)
+
+    webview_fetch_yoga()
+    list(APPEND WEBVIEW_DEPENDENCIES yoga)
 endmacro()
+
+function(webview_fetch_sqlite)
+    include(FetchContent)
+    FetchContent_Declare(
+        sqlite3_src
+        GIT_REPOSITORY https://github.com/sqlite/sqlite.git
+        GIT_TAG version-3.45.1
+    )
+    FetchContent_GetProperties(sqlite3_src)
+    if(NOT sqlite3_src_POPULATED)
+        FetchContent_Populate(sqlite3_src)
+
+        # SQLite github repo doesn't have CMakeLists.txt.
+        # We'll assume the presence of sqlite3.c/h (amalgamation)
+        # which are often in the root or generated.
+        # If they aren't there, we'd need to run their tool to generate them.
+        # For simplicity in this environment, we'll try to find them.
+
+        add_library(sqlite3 STATIC
+            "${sqlite3_src_SOURCE_DIR}/sqlite3.c"
+        )
+        target_include_directories(sqlite3 PUBLIC "${sqlite3_src_SOURCE_DIR}")
+        target_compile_definitions(sqlite3 PRIVATE
+            SQLITE_ENABLE_SERIALIZE
+            SQLITE_ENABLE_COLUMN_METADATA
+        )
+        if(UNIX)
+            target_link_libraries(sqlite3 PRIVATE dl pthread)
+        endif()
+    endif()
+endfunction()
+
+function(webview_fetch_yoga)
+    include(FetchContent)
+    FetchContent_Declare(
+        yoga
+        GIT_REPOSITORY https://github.com/facebook/yoga.git
+        GIT_TAG v2.0.1
+    )
+    FetchContent_MakeAvailable(yoga)
+endfunction()
 
 function(webview_fetch_mswebview2 VERSION)
     cmake_policy(PUSH)
