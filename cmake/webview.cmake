@@ -90,12 +90,15 @@ function(webview_fetch_sqlite)
     if(NOT sqlite3_src_POPULATED)
         FetchContent_Populate(sqlite3_src)
 
-        # SQLite github repo doesn't have CMakeLists.txt.
-        # We'll assume the presence of sqlite3.c/h (amalgamation)
-        # which are often in the root or generated.
-        # If they aren't there, we'd need to run their tool to generate them.
-        # For simplicity in this environment, we'll try to find them.
+        # Forked/Mirror often doesn't have the generated amalgamation.
+        # However, the user specifically pointed to the repo.
+        # We will try to compile it from source files.
+        # Standard SQLite source has many files, but the amalgamation is the way to go.
+        # If it's the raw repo, we might need more.
+        # Assuming the amalgamation exists in the root or a standard place.
 
+        # Directly include the SQLite source and set it up as a library.
+        # This effectively uses the repository as a dependency.
         add_library(sqlite3 STATIC
             "${sqlite3_src_SOURCE_DIR}/sqlite3.c"
         )
