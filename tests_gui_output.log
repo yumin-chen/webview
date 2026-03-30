@@ -1,39 +1,138 @@
 bun test v1.2.14 (6a363a38)
 
 tests/gui/progressbar.test.ts:
-(pass) Alloy:gui > ProgressBar > creation with props [0.27ms]
+(pass) Alloy:gui > ProgressBar > creation with props [1.82ms]
+
+tests/gui/treeview.test.ts:
+(pass) Alloy:gui > TreeView > creation with props [0.15ms]
+
+tests/gui/tooltip.test.ts:
+(pass) Alloy:gui > Tooltip > creation with props [0.28ms]
+
+tests/gui/codeeditor.test.ts:
+(pass) Alloy:gui > CodeEditor > creation with props [0.28ms]
+
+tests/gui/datepicker.test.ts:
+(pass) Alloy:gui > DatePicker > creation with props [0.10ms]
+
+tests/gui/statusbar.test.ts:
+(pass) Alloy:gui > StatusBar > creation with props [0.12ms]
+
+tests/gui/tabview.test.ts:
+(pass) Alloy:gui > TabView > creation with props [0.16ms]
+
+tests/gui/richtext.test.ts:
+(pass) Alloy:gui > RichText > creation with props [0.10ms]
+
+tests/gui/menu.test.ts:
+(pass) Alloy:gui > Menu > creation with props [0.07ms]
+
+tests/gui/accordion.test.ts:
+(pass) Alloy:gui > Accordion > creation with props [0.08ms]
+
+tests/gui/popover.test.ts:
+(pass) Alloy:gui > Popover > creation with props [0.10ms]
 
 tests/gui/textarea.test.ts:
-(pass) Alloy:gui > TextArea > creation with props [0.16ms]
+(pass) Alloy:gui > TextArea > creation with props [0.08ms]
+
+tests/gui/colorpicker.test.ts:
+(pass) Alloy:gui > ColorPicker > creation with props [0.37ms]
 
 tests/gui/radiobutton.test.ts:
-(pass) Alloy:gui > RadioButton > creation with props [0.09ms]
+(pass) Alloy:gui > RadioButton > creation with props [0.10ms]
+
+tests/gui/switch.test.ts:
+(pass) Alloy:gui > Switch > creation with props [0.17ms]
 
 tests/gui/window.test.ts:
-(pass) Alloy:gui > Window > creation with complex props [0.10ms]
+(pass) Alloy:gui > Window > creation with complex props [0.24ms]
+
+tests/gui/chip.test.ts:
+(pass) Alloy:gui > Chip > creation with props [0.22ms]
 
 tests/gui/listview.test.ts:
-(pass) Alloy:gui > ListView > creation with props [0.22ms]
+(pass) Alloy:gui > ListView > creation with props [0.40ms]
+
+tests/gui/toolbar.test.ts:
+(pass) Alloy:gui > Toolbar > creation with props [0.20ms]
+
+tests/gui/divider.test.ts:
+(pass) Alloy:gui > Divider > creation with props [0.13ms]
+
+tests/gui/webview.test.ts:
+(pass) Alloy:gui > WebView > creation with props [0.09ms]
+
+tests/gui/separator.test.ts:
+(pass) Alloy:gui > Separator > creation with props [0.08ms]
 
 tests/gui/textfield.test.ts:
-(pass) Alloy:gui > TextField > creation with props [0.14ms]
+(pass) Alloy:gui > TextField > creation with props [0.15ms]
+
+tests/gui/filedialog.test.ts:
+(pass) Alloy:gui > FileDialog > creation with props [0.06ms]
 
 tests/gui/combobox.test.ts:
-(pass) Alloy:gui > ComboBox > creation with props [0.19ms]
+(pass) Alloy:gui > ComboBox > creation with props [0.18ms]
 
 tests/gui/slider.test.ts:
-(pass) Alloy:gui > Slider > creation with props [0.09ms]
+(pass) Alloy:gui > Slider > creation with props [0.16ms]
+
+tests/gui/badge.test.ts:
+(pass) Alloy:gui > Badge > creation with props [0.07ms]
+
+tests/gui/scrollview.test.ts:
+(pass) Alloy:gui > ScrollView > creation with props [0.07ms]
 
 tests/gui/label.test.ts:
-(pass) Alloy:gui > Label > creation with props [0.37ms]
+(pass) Alloy:gui > Label > creation with props [0.08ms]
+
+tests/gui/rating.test.ts:
+(pass) Alloy:gui > Rating > creation with props [0.07ms]
+
+tests/gui/timepicker.test.ts:
+(pass) Alloy:gui > TimePicker > creation with props [0.07ms]
+
+tests/gui/card.test.ts:
+(pass) Alloy:gui > Card > creation with props [0.08ms]
+
+tests/gui/spinner.test.ts:
+(pass) Alloy:gui > Spinner > creation with props [0.09ms]
 
 tests/gui/button.test.ts:
-(pass) Alloy:gui > Button > creation with props [0.26ms]
+(pass) Alloy:gui > Button > creation with props [0.17ms]
+
+tests/gui/menubar.test.ts:
+(pass) Alloy:gui > MenuBar > creation with props [0.09ms]
 
 tests/gui/checkbox.test.ts:
-(pass) Alloy:gui > CheckBox > creation with props [0.29ms]
+(pass) Alloy:gui > CheckBox > creation with props [0.25ms]
 
- 11 pass
+tests/gui/image.test.ts:
+(pass) Alloy:gui > Image > creation with props [0.12ms]
+
+tests/gui/icon.test.ts:
+(pass) Alloy:gui > Icon > creation with props [0.16ms]
+
+tests/gui/spinnerloading.test.ts:
+(pass) Alloy:gui > SpinnerLoading > creation with props [0.08ms]
+
+tests/gui/dialog.test.ts:
+(pass) Alloy:gui > Dialog > creation with props [0.20ms]
+
+tests/gui/groupbox.test.ts:
+(pass) Alloy:gui > GroupBox > creation with props [0.27ms]
+
+tests/gui/splitter.test.ts:
+(pass) Alloy:gui > Splitter > creation with props [0.11ms]
+
+tests/gui/link.test.ts:
+(pass) Alloy:gui > Link > creation with props [0.08ms]
+
+tests/gui/contextmenu.test.ts:
+(pass) Alloy:gui > ContextMenu > creation with props [0.14ms]
+
+ 44 pass
  0 fail
- 41 expect() calls
-Ran 11 tests across 11 files. [149.00ms]
+ 107 expect() calls
+Ran 44 tests across 44 files. [320.00ms]
