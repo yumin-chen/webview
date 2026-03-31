@@ -46,7 +46,8 @@ async function runBuild() {
 
     // Using forked SQLite from vendor/sqlite
     const sqlitePath = "-Ivendor/sqlite vendor/sqlite/sqlite3.c";
-    const compileCmd = `gcc -O2 src/host.c src/gui/alloy.c build/bundle.c ${sqlitePath} ${includePath} -o build/alloy-runtime -lmquickjs ${platformLibs}`;
+    const nativeComponents = "src/gui/native/window.c src/gui/native/button.c src/gui/native/textfield.c";
+    const compileCmd = `gcc -O2 src/host.c src/gui/alloy.c ${nativeComponents} build/bundle.c ${sqlitePath} ${includePath} -o build/alloy-runtime -lmquickjs ${platformLibs}`;
     console.log(`Running: ${compileCmd}`);
     // execSync(compileCmd);
     console.log("Compilation step skipped for this draft - but command is ready.");
