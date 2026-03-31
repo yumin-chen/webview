@@ -22,20 +22,20 @@ TEST_CASE("Alloy spawnSync") {
 
     SECTION("Successful command") {
         std::vector<std::string> args = {"echo", "test-output"};
-        std::string result_json = runtime.spawnSync(args);
+        std::string result_json = runtime.spawnSync(args, "", {}, 0);
         REQUIRE(result_json.find("\"success\": true") != std::string::npos);
         REQUIRE(result_json.find("test-output") != std::string::npos);
     }
 
     SECTION("Failed command") {
         std::vector<std::string> args = {"false"};
-        std::string result_json = runtime.spawnSync(args);
+        std::string result_json = runtime.spawnSync(args, "", {}, 0);
         REQUIRE(result_json.find("\"success\": false") != std::string::npos);
     }
 
     SECTION("Stderr capture") {
         std::vector<std::string> args = {"sh", "-c", "echo sync-error >&2"};
-        std::string result_json = runtime.spawnSync(args);
+        std::string result_json = runtime.spawnSync(args, "", {}, 0);
         REQUIRE(result_json.find("sync-error") != std::string::npos);
     }
 }
@@ -47,7 +47,7 @@ TEST_CASE("Alloy spawn (Async)") {
         std::map<std::string, std::string> env = {{"FOO", "BAR"}};
         // Use full path for printenv to avoid PATH issues with execve
         std::vector<std::string> args = {"/usr/bin/printenv", "FOO"};
-        auto state = runtime.spawn(args, "", env);
+        auto state = runtime.spawn(args, "", env, false, 0, 15);
         REQUIRE(state != nullptr);
 
         std::string stdout_data;
@@ -66,7 +66,7 @@ TEST_CASE("Alloy spawn (Async)") {
 
     SECTION("Working directory") {
         std::vector<std::string> args = {"/usr/bin/pwd"};
-        auto state = runtime.spawn(args, "/tmp");
+        auto state = runtime.spawn(args, "/tmp", {}, false, 0, 15);
         REQUIRE(state != nullptr);
 
         std::string stdout_data;
@@ -103,6 +103,29 @@ TEST_CASE("Alloy SQLite BigInt Round-tripping") {
     // Check if it matches std::stoll conversion
     long long val = sqlite3_column_int64(stmt_sel, 0);
     REQUIRE(std::to_string(val) == large_int);
+}
+
+TEST_CASE("Alloy Spawn Timeout") {
+    alloyscript_runtime runtime;
+    // sleep for 10 seconds, but timeout in 100ms
+    auto state = runtime.spawn({"/usr/bin/sleep", "10"}, "", {}, false, 100, 9);
+    REQUIRE(state != nullptr);
+
+    std::atomic<bool> exited{false};
+    state->on_exit = [&](int code, int sig) { exited = true; };
+
+    runtime.start_monitoring(state, 100, 9);
+    int timeout = 100; // 1 second total wait
+    while (!exited && timeout > 0) { std::this_thread::sleep_for(std::chrono::milliseconds(10)); timeout--; }
+
+    REQUIRE(exited == true);
+}
+
+TEST_CASE("Alloy Spawn Sync MaxBuffer") {
+    alloyscript_runtime runtime;
+    // Generates a lot of output, should be killed by maxBuffer
+    auto result_json = runtime.spawnSync({"/usr/bin/yes"}, "", {}, 100);
+    REQUIRE(result_json.find("\"exitedDueToMaxBuffer\": true") != std::string::npos);
 }
 
 TEST_CASE("Alloy Shell Pipelines") {

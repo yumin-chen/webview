@@ -224,7 +224,20 @@ protected:
              args.push_back(arg);
            }
 
-           auto cwd = json_parse(options_json, "cwd", 0);
+           std::string cwd = json_parse(options_json, "cwd", 0);
+           int timeout = 0;
+           std::string timeout_str = json_parse(options_json, "timeout", 0);
+           if (!timeout_str.empty()) timeout = std::stoi(timeout_str);
+
+           int kill_sig = 15;
+           std::string sig_str = json_parse(options_json, "killSignal", 0);
+           if (!sig_str.empty()) {
+               if (sig_str[0] >= '0' && sig_str[0] <= '9') kill_sig = std::stoi(sig_str);
+               else if (sig_str == "SIGKILL") kill_sig = 9;
+               else if (sig_str == "SIGTERM") kill_sig = 15;
+               else if (sig_str == "SIGINT") kill_sig = 2;
+           }
+
            auto env_json = json_parse(options_json, "env", 0);
            std::map<std::string, std::string> env;
            if (!env_json.empty()) {
@@ -242,7 +255,7 @@ protected:
            }
            bool use_ipc = !json_parse(options_json, "ipc", 0).empty();
 
-           auto state = m_alloy.spawn(args, cwd, env, use_ipc);
+           auto state = m_alloy.spawn(args, cwd, env, use_ipc, timeout, kill_sig);
            if (!state) {
              resolve(seq, 1, "null");
              return;
@@ -256,13 +269,15 @@ protected:
            m_subprocesses[id_str] = state;
 
            state->on_stdout = [this, id_str](const std::string &data) {
-             this->dispatch([this, id_str, data]() {
-               this->eval("window.Alloy._onStdout('" + id_str + "', " + json_escape(data) + ")");
+             std::string base64 = json_escape(data); // Using json_escape for now, but Base64 would be better for true binary
+             this->dispatch([this, id_str, base64]() {
+               this->eval("window.Alloy._onStdout('" + id_str + "', " + base64 + ")");
              });
            };
            state->on_stderr = [this, id_str](const std::string &data) {
-             this->dispatch([this, id_str, data]() {
-               this->eval("window.Alloy._onStderr('" + id_str + "', " + json_escape(data) + ")");
+             std::string base64 = json_escape(data);
+             this->dispatch([this, id_str, base64]() {
+               this->eval("window.Alloy._onStderr('" + id_str + "', " + base64 + ")");
              });
            };
            state->on_exit = [this, id_str, state](int exit_code, int signal_code) {
@@ -276,7 +291,7 @@ protected:
              });
            };
 
-           m_alloy.start_monitoring(state);
+           m_alloy.start_monitoring(state, timeout, kill_sig);
            resolve(seq, 0, id_str);
          },
          nullptr);
@@ -305,6 +320,10 @@ protected:
     bind("Alloy_spawnSync", [this](const std::string &req) -> std::string {
         auto cmd_json = json_parse(req, "", 0);
         auto options_json = json_parse(req, "", 1);
+        int max_buf = 0;
+        std::string max_buf_str = json_parse(options_json, "maxBuffer", 0);
+        if (!max_buf_str.empty()) max_buf = std::stoi(max_buf_str);
+
         std::vector<std::string> args;
         int i = 0;
         while (true) {
@@ -312,7 +331,8 @@ protected:
             if (arg.empty()) break;
             args.push_back(arg);
         }
-        return m_alloy.spawnSync(args);
+        std::string cwd = json_parse(options_json, "cwd", 0);
+        return m_alloy.spawnSync(args, cwd, {}, max_buf);
     });
 
     bind("Alloy_shell",
@@ -553,6 +573,77 @@ protected:
         return "true";
     });
 
+    bind("Alloy_guiCreateComboBox", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_combobox(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiComboBoxAppend", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto txt = json_parse(req, "", 1);
+        alloy_combobox_append(h, txt.c_str());
+        return "true";
+    });
+
+    bind("Alloy_guiCreateRadioButton", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_radiobutton(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateWebView", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_webview(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiWebViewLoadURL", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto url = json_parse(req, "", 1);
+        alloy_webview_load_url(h, url.c_str());
+        return "true";
+    });
+
+    bind("Alloy_guiCreateScrollView", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_scrollview(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateListView", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_listview(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateTreeView", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_treeview(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateTabView", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_tabview(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiListViewAppend", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto txt = json_parse(req, "", 1);
+        alloy_listview_append(h, txt.c_str());
+        return "true";
+    });
+
+    bind("Alloy_guiTabViewAddPage", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto child = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 1)));
+        auto label = json_parse(req, "", 2);
+        alloy_tabview_add_page(h, child, label.c_str());
+        return "true";
+    });
+
     bind("Alloy_guiSetText", [this](const std::string &req) -> std::string {
         auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
         auto txt = json_parse(req, "", 1);
@@ -572,6 +663,56 @@ protected:
         alloy_run(h);
         return "true";
     });
+
+    bind("Alloy_guiCreateMenuBar", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_menubar(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateMenu", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_menu(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateMenuItem", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_menuitem(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateSpinner", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_spinner(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateLink", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_link(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateSeparator", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_separator(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiDialogFileOpen", [this](const std::string &seq, const std::string &req, void *) {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto title = json_parse(req, "", 1);
+        auto res = alloy_dialog_file_open(parent, title.c_str());
+        this->resolve(seq, 0, res ? json_escape(res) : "null");
+    }, nullptr);
+
+    bind("Alloy_guiDialogColorPicker", [this](const std::string &seq, const std::string &req, void *) {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto title = json_parse(req, "", 1);
+        auto res = alloy_dialog_color_picker(parent, title.c_str());
+        this->resolve(seq, 0, res ? json_escape(res) : "null");
+    }, nullptr);
   }
 
   std::string create_alloy_script() {
@@ -768,15 +909,86 @@ protected:
           this.id = null;
           this.init = async () => { this.id = await window.Alloy_guiCreateImage(parent.id); return this; };
           this.loadFile = (path) => window.Alloy_guiImageLoadFile(this.id, path);
+      },
+      MenuBar: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateMenuBar(parent.id); return this; };
+      },
+      Menu: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateMenu(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      MenuItem: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateMenuItem(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      Spinner: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateSpinner(parent.id); return this; };
+      },
+      Link: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateLink(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      Separator: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateSeparator(parent.id); return this; };
+      },
+      ComboBox: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateComboBox(parent.id); return this; };
+          this.addItem = (txt) => window.Alloy_guiComboBoxAppend(this.id, txt);
+      },
+      RadioButton: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateRadioButton(parent.id); return this; };
+          this.setText = (txt) => window.Alloy_guiSetText(this.id, txt);
+      },
+      WebView: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateWebView(parent.id); return this; };
+          this.loadURL = (url) => window.Alloy_guiWebViewLoadURL(this.id, url);
+      },
+      ScrollView: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateScrollView(parent.id); return this; };
+      },
+      ListView: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateListView(parent.id); return this; };
+      },
+      TreeView: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateTreeView(parent.id); return this; };
+      },
+      TabView: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateTabView(parent.id); return this; };
+          this.addPage = (child, label) => window.Alloy_guiTabViewAddPage(this.id, child.id, label);
+      },
+      ListView: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateListView(parent.id); return this; };
+          this.addItem = (txt) => window.Alloy_guiListViewAppend(this.id, txt);
       }
   };
 
   const Alloy = {
     $: $,
     sqlite: { Database: Database },
-    gui: gui,
+    gui: Object.assign(gui, {
+        fileOpen: (parent, title) => window.Alloy_guiDialogFileOpen(parent.id, title),
+        colorPicker: (parent, title) => window.Alloy_guiDialogColorPicker(parent.id, title)
+    }),
     _subprocesses: {},
     spawn: async function(cmd, options) {
+      if (typeof cmd === "object" && !Array.isArray(cmd)) {
+          options = cmd;
+          cmd = options.cmd;
+      }
       const id = await window.Alloy_spawn(cmd, options || {});
       if (id === "null") return null;
       const proc = {
@@ -815,6 +1027,9 @@ protected:
           return text;
       };
       if (options && options.onExit) proc._onExitCb = options.onExit;
+      if (options && options.signal) {
+          options.signal.addEventListener("abort", () => proc.kill(options.killSignal || 15));
+      }
       this._subprocesses[id] = proc;
       return proc;
     },
@@ -825,13 +1040,15 @@ protected:
     _onStdout: function(id, data) {
       const proc = this._subprocesses[id];
       if (proc && proc._stdoutController) {
-        proc._stdoutController.enqueue(new TextEncoder().encode(data));
+        const bytes = new TextEncoder().encode(data);
+        proc._stdoutController.enqueue(bytes);
       }
     },
     _onStderr: function(id, data) {
       const proc = this._subprocesses[id];
       if (proc && proc._stderrController) {
-        proc._stderrController.enqueue(new TextEncoder().encode(data));
+        const bytes = new TextEncoder().encode(data);
+        proc._stderrController.enqueue(bytes);
       }
     },
     _onExit: function(id, exitCode, signalCode, usage) {
@@ -873,7 +1090,7 @@ protected:
   const modules = {
       "Alloy:sqlite": Alloy.sqlite,
       "Alloy:gui": Alloy.gui,
-      "Alloy:process": { spawn: Alloy.spawn, spawnSync: Alloy.spawnSync, Terminal: Alloy.Terminal }
+      "Alloy:process": { spawn: Alloy.spawn.bind(Alloy), spawnSync: Alloy.spawnSync.bind(Alloy), Terminal: Alloy.Terminal }
   };
 
   const originalImport = window.import;

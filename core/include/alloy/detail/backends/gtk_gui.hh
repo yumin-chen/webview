@@ -26,6 +26,8 @@ public:
       gtk_label_set_text(GTK_LABEL(m_widget), text.c_str());
     } else if (GTK_IS_ENTRY(m_widget)) {
       gtk_entry_set_text(GTK_ENTRY(m_widget), text.c_str());
+    } else if (GTK_IS_LINK_BUTTON(m_widget)) {
+      gtk_button_set_label(GTK_BUTTON(m_widget), text.c_str());
     } else if (GTK_IS_TEXT_VIEW(m_widget)) {
       GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(m_widget));
       gtk_text_buffer_set_text(buffer, text.c_str(), -1);

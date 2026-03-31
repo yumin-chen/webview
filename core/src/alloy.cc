@@ -39,7 +39,12 @@ const char *alloy_error_message(alloy_error_t err) {
 }
 
 alloy_component_t alloy_create_window(const char *title, int width, int height) {
+#if defined(ALLOY_PLATFORM_LINUX) || defined(ALLOY_PLATFORM_WINDOWS)
     return new window_impl(title, width, height);
+#else
+    (void)title; (void)width; (void)height;
+    return nullptr;
+#endif
 }
 
 alloy_component_t alloy_create_button(alloy_component_t parent) {
@@ -50,6 +55,70 @@ alloy_component_t alloy_create_button(alloy_component_t parent) {
 #elif defined(ALLOY_PLATFORM_WINDOWS)
     auto btn = new win32_component(CreateWindowExA(0, "BUTTON", "", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 100, 30, (HWND)cast(parent)->native_handle(), NULL, GetModuleHandle(NULL), NULL));
     return btn;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_spinner(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto spin = new gtk_component(gtk_spinner_new());
+    gtk_spinner_start(GTK_SPINNER(spin->native_handle()));
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(spin->native_handle()));
+    return spin;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_menubar(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto mb = new gtk_component(gtk_menu_bar_new());
+    if (parent && GTK_IS_BOX(cast(parent)->native_handle())) {
+        gtk_box_pack_start(GTK_BOX(cast(parent)->native_handle()), GTK_WIDGET(mb->native_handle()), FALSE, FALSE, 0);
+        gtk_box_reorder_child(GTK_BOX(cast(parent)->native_handle()), GTK_WIDGET(mb->native_handle()), 0);
+    }
+    return mb;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_link(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto link = new gtk_component(gtk_link_button_new(""));
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(link->native_handle()));
+    return link;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_separator(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto sep = new gtk_component(gtk_separator_new(GTK_ORIENTATION_HORIZONTAL));
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(sep->native_handle()));
+    return sep;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_menu(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto m = new gtk_component(gtk_menu_new());
+    if (parent && GTK_IS_MENU_ITEM(cast(parent)->native_handle())) {
+        gtk_menu_item_set_submenu(GTK_MENU_ITEM(cast(parent)->native_handle()), GTK_WIDGET(m->native_handle()));
+    }
+    return m;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_menuitem(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto mi = new gtk_component(gtk_menu_item_new_with_label(""));
+    if (parent) {
+        if (GTK_IS_MENU_SHELL(cast(parent)->native_handle())) {
+            gtk_menu_shell_append(GTK_MENU_SHELL(cast(parent)->native_handle()), GTK_WIDGET(mi->native_handle()));
+        }
+    }
+    return mi;
 #endif
     return nullptr;
 }
@@ -141,6 +210,43 @@ alloy_error_t alloy_image_load_file(alloy_component_t h, const char *path) {
     return ALLOY_ERROR_NOT_SUPPORTED;
 }
 
+alloy_error_t alloy_listview_append(alloy_component_t h, const char *text) {
+#ifdef ALLOY_PLATFORM_LINUX
+    GtkTreeView *tv = GTK_TREE_VIEW(cast(h)->native_handle());
+    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(tv));
+    GtkTreeIter iter;
+    gtk_list_store_append(store, &iter);
+    gtk_list_store_set(store, &iter, 0, text, -1);
+    return ALLOY_OK;
+#endif
+    return ALLOY_ERROR_NOT_SUPPORTED;
+}
+
+alloy_error_t alloy_tabview_add_page(alloy_component_t h, alloy_component_t child, const char *label) {
+#ifdef ALLOY_PLATFORM_LINUX
+    GtkNotebook *nb = GTK_NOTEBOOK(cast(h)->native_handle());
+    gtk_notebook_append_page(nb, GTK_WIDGET(cast(child)->native_handle()), gtk_label_new(label));
+    return ALLOY_OK;
+#endif
+    return ALLOY_ERROR_NOT_SUPPORTED;
+}
+
+alloy_error_t alloy_combobox_append(alloy_component_t h, const char *text) {
+#ifdef ALLOY_PLATFORM_LINUX
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(cast(h)->native_handle()), text);
+    return ALLOY_OK;
+#endif
+    return ALLOY_ERROR_NOT_SUPPORTED;
+}
+
+alloy_error_t alloy_webview_load_url(alloy_component_t h, const char *url) {
+#ifdef ALLOY_PLATFORM_LINUX
+    webkit_web_view_load_uri(WEBKIT_WEB_VIEW(cast(h)->native_handle()), url);
+    return ALLOY_OK;
+#endif
+    return ALLOY_ERROR_NOT_SUPPORTED;
+}
+
 alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
 #ifdef ALLOY_PLATFORM_LINUX
     if (GTK_IS_CONTAINER(cast(container)->native_handle())) {
@@ -159,8 +265,50 @@ alloy_error_t alloy_set_event_callback(alloy_component_t handle, alloy_event_typ
     return ALLOY_OK;
 }
 
-alloy_error_t alloy_run(alloy_component_t window) {
+const char* alloy_dialog_file_open(alloy_component_t parent, const char* title) {
 #ifdef ALLOY_PLATFORM_LINUX
+    GtkWidget *dialog = gtk_file_chooser_dialog_new(title,
+        GTK_WINDOW(cast(parent)->native_handle()),
+        GTK_FILE_CHOOSER_ACTION_OPEN,
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        "_Open", GTK_RESPONSE_ACCEPT,
+        NULL);
+    static std::string result;
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        result = filename;
+        g_free(filename);
+    } else {
+        result = "";
+    }
+    gtk_widget_destroy(dialog);
+    return result.empty() ? NULL : result.c_str();
+#endif
+    return NULL;
+}
+
+const char* alloy_dialog_color_picker(alloy_component_t parent, const char* title) {
+#ifdef ALLOY_PLATFORM_LINUX
+    GtkWidget *dialog = gtk_color_chooser_dialog_new(title, GTK_WINDOW(cast(parent)->native_handle()));
+    static std::string result;
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+        GdkRGBA color;
+        gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(dialog), &color);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "#%02x%02x%02x",
+            (int)(color.red * 255), (int)(color.green * 255), (int)(color.blue * 255));
+        result = buf;
+    } else {
+        result = "";
+    }
+    gtk_widget_destroy(dialog);
+    return result.empty() ? NULL : result.c_str();
+#endif
+    return NULL;
+}
+
+alloy_error_t alloy_run(alloy_component_t window) {
+#if defined(ALLOY_PLATFORM_LINUX)
     auto widget = GTK_WIDGET(cast(window)->native_handle());
     gtk_widget_show_all(widget);
 
@@ -176,6 +324,13 @@ alloy_error_t alloy_run(alloy_component_t window) {
     g_object_unref(provider);
 
     gtk_main();
+#elif defined(ALLOY_PLATFORM_WINDOWS)
+    (void)window;
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
 #endif
     return ALLOY_OK;
 }
@@ -253,9 +408,40 @@ alloy_component_t alloy_create_slider(alloy_component_t parent) {
 #endif
     return nullptr;
 }
-alloy_component_t alloy_create_tabview(alloy_component_t p) { return nullptr; }
-alloy_component_t alloy_create_listview(alloy_component_t p) { return nullptr; }
-alloy_component_t alloy_create_treeview(alloy_component_t p) { return nullptr; }
+alloy_component_t alloy_create_tabview(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto nb = new gtk_component(gtk_notebook_new(), true);
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(nb->native_handle()));
+    return nb;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_listview(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    GtkListStore *store = gtk_list_store_new(1, G_TYPE_STRING);
+    auto tv = new gtk_component(gtk_tree_view_new_with_model(GTK_TREE_MODEL(store)));
+    g_object_unref(store);
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(tv->native_handle()), -1, "Items", renderer, "text", 0, NULL);
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(tv->native_handle()));
+    return tv;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_treeview(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    GtkTreeStore *store = gtk_tree_store_new(1, G_TYPE_STRING);
+    auto tv = new gtk_component(gtk_tree_view_new_with_model(GTK_TREE_MODEL(store)));
+    g_object_unref(store);
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(tv->native_handle()), -1, "Nodes", renderer, "text", 0, NULL);
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(tv->native_handle()));
+    return tv;
+#endif
+    return nullptr;
+}
 
 alloy_component_t alloy_create_webview(alloy_component_t parent) {
 #ifdef ALLOY_PLATFORM_LINUX

@@ -443,10 +443,12 @@ public:
   std::shared_ptr<shared_state> spawn(const std::vector<std::string> &args,
                                           const std::string &cwd = "",
                                           const std::map<std::string, std::string> &env = {},
-                                          bool use_ipc = false) {
+                                          bool use_ipc = false,
+                                          int timeout_ms = 0,
+                                          int kill_signal = 15) {
     auto state = std::make_shared<shared_state>();
 #ifdef _WIN32
-    (void)env; (void)use_ipc;
+    (void)use_ipc; (void)kill_signal; (void)timeout_ms;
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     saAttr.bInheritHandle = TRUE;
@@ -465,8 +467,16 @@ public:
     siStartInfo.cb = sizeof(STARTUPINFO);
     siStartInfo.hStdError = hChildStd_ERR_Wr; siStartInfo.hStdOutput = hChildStd_OUT_Wr; siStartInfo.hStdInput = hChildStd_IN_Rd;
     siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
     std::string cmdLine; for (const auto& arg : args) cmdLine += "\"" + arg + "\" ";
-    if (!CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, TRUE, 0, NULL, cwd.empty() ? NULL : cwd.c_str(), &siStartInfo, &piProcInfo)) return nullptr;
+
+    std::string envBlock;
+    for (auto const& [key, val] : env) {
+        envBlock += key + "=" + val + '\0';
+    }
+    envBlock += '\0';
+
+    if (!CreateProcess(NULL, (LPSTR)cmdLine.c_str(), NULL, NULL, TRUE, 0, env.empty() ? NULL : (LPVOID)envBlock.c_str(), cwd.empty() ? NULL : cwd.c_str(), &siStartInfo, &piProcInfo)) return nullptr;
     CloseHandle(hChildStd_OUT_Wr); CloseHandle(hChildStd_ERR_Wr); CloseHandle(hChildStd_IN_Rd);
     state->hProcess = piProcInfo.hProcess; state->hStdin = hChildStd_IN_Wr; state->hStdout = hChildStd_OUT_Rd; state->hStderr = hChildStd_ERR_Rd; state->dwProcessId = piProcInfo.dwProcessId;
     CloseHandle(piProcInfo.hThread);
@@ -484,7 +494,13 @@ public:
       if (!cwd.empty()) (void)chdir(cwd.c_str());
       for (auto const& [key, val] : env) setenv(key.c_str(), val.c_str(), 1);
       std::vector<char*> c_args; for (const auto& arg : args) c_args.push_back(const_cast<char*>(arg.c_str()));
-      c_args.push_back(nullptr); execvp(c_args[0], c_args.data()); _exit(127);
+      c_args.push_back(nullptr);
+      if (args[0].find('/') == std::string::npos && args[0].find('\\') == std::string::npos) {
+          execvp(c_args[0], c_args.data());
+      } else {
+          execv(c_args[0], c_args.data());
+      }
+      _exit(127);
     }
     close(stdin_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[1]);
     if (use_ipc) close(ipc_socket[1]);
@@ -518,16 +534,28 @@ public:
       state->stdin_queue.push_back(data); state->stdin_cv.notify_one();
   }
 
-  void start_monitoring(std::shared_ptr<shared_state> state) {
+  void start_monitoring(std::shared_ptr<shared_state> state, int timeout_ms = 0, int kill_signal = 15) {
     state->monitoring = true;
     start_stdin_thread(state);
-    state->monitoring_thread = std::thread([state]() {
+    state->monitoring_thread = std::thread([state, timeout_ms, kill_signal, this]() {
 #ifdef _WIN32
         char buffer[4096]; DWORD bytesRead;
+        auto startTime = std::chrono::steady_clock::now();
         while (state->monitoring) {
-            if (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
-                if (state->on_stdout) state->on_stdout(std::string(buffer, bytesRead));
-            } else break;
+            if (timeout_ms > 0) {
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count() > timeout_ms) {
+                    TerminateProcess(state->hProcess, 1);
+                    break;
+                }
+            }
+            DWORD available;
+            if (PeekNamedPipe(state->hStdout, NULL, 0, NULL, &available, NULL) && available > 0) {
+                if (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                    if (state->on_stdout) state->on_stdout(std::string(buffer, bytesRead));
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         WaitForSingleObject(state->hProcess, INFINITE);
         DWORD exitCode; GetExitCodeProcess(state->hProcess, &exitCode);
@@ -539,7 +567,15 @@ public:
         fds[1].fd = state->stderr_fd; fds[1].events = POLLIN;
         fds[2].fd = state->ipc_fd; fds[2].events = (state->ipc_fd != -1) ? POLLIN : 0;
         char buffer[4096]; bool out_eof = false, err_eof = false, ipc_eof = (state->ipc_fd == -1);
+        auto startTime = std::chrono::steady_clock::now();
         while (state->monitoring && (!out_eof || !err_eof || !ipc_eof)) {
+            if (timeout_ms > 0) {
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count() > timeout_ms) {
+                    ::kill(state->pid, kill_signal);
+                }
+            }
+
             int ret = poll(fds, (state->ipc_fd != -1) ? 3 : 2, 100);
             if (ret < 0) break;
             if (fds[0].revents & POLLIN) {
@@ -576,13 +612,22 @@ public:
     });
   }
 
-  std::string spawnSync(const std::vector<std::string> &args, const std::string &cwd = "", const std::map<std::string, std::string> &env = {}) {
-    auto state = spawn(args, cwd, env);
+  std::string spawnSync(const std::vector<std::string> &args, const std::string &cwd = "", const std::map<std::string, std::string> &env = {}, int max_buffer = 0) {
+    auto state = spawn(args, cwd, env, false, 0, 15);
     if (!state) return "{\"success\": false}";
     std::string stdout_acc, stderr_acc; char buffer[4096];
     bool success = false;
+    bool killed_due_to_buffer = false;
 #ifdef _WIN32
-    DWORD bytesRead; while (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) stdout_acc.append(buffer, bytesRead);
+    DWORD bytesRead;
+    while (ReadFile(state->hStdout, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+        stdout_acc.append(buffer, bytesRead);
+        if (max_buffer > 0 && stdout_acc.size() > (size_t)max_buffer) {
+            TerminateProcess(state->hProcess, 1);
+            killed_due_to_buffer = true;
+            break;
+        }
+    }
     WaitForSingleObject(state->hProcess, INFINITE);
     DWORD exitCode; GetExitCodeProcess(state->hProcess, &exitCode);
     success = (exitCode == 0);
@@ -593,7 +638,14 @@ public:
         if (poll(fds, 2, 100) < 0) break;
         if (fds[0].revents & POLLIN) {
             ssize_t n = read(state->stdout_fd, buffer, sizeof(buffer));
-            if (n > 0) stdout_acc.append(buffer, n); else out_eof = true;
+            if (n > 0) {
+                stdout_acc.append(buffer, n);
+                if (max_buffer > 0 && stdout_acc.size() > (size_t)max_buffer) {
+                    ::kill(state->pid, SIGKILL);
+                    killed_due_to_buffer = true;
+                    break;
+                }
+            } else out_eof = true;
         } else if (fds[0].revents & (POLLHUP | POLLERR)) out_eof = true;
         if (fds[1].revents & POLLIN) {
             ssize_t n = read(state->stderr_fd, buffer, sizeof(buffer));
@@ -602,7 +654,13 @@ public:
     }
     int status; waitpid(state->pid, &status, 0); success = WIFEXITED(status) && WEXITSTATUS(status) == 0;
 #endif
-    return "{\"success\": " + std::string(success ? "true" : "false") + ", \"stdout\": " + json_escape(stdout_acc) + ", \"stderr\": " + json_escape(stderr_acc) + "}";
+    std::string res = "{";
+    res += "\"success\": " + std::string(success ? "true" : "false") + ",";
+    res += "\"stdout\": " + json_escape(stdout_acc) + ",";
+    res += "\"stderr\": " + json_escape(stderr_acc);
+    if (killed_due_to_buffer) res += ", \"exitedDueToMaxBuffer\": true";
+    res += "}";
+    return res;
   }
 
   shell_result shell(const std::string &command, const std::string &cwd = "") {

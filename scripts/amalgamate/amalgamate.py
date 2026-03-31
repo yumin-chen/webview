@@ -86,6 +86,11 @@ def process_file(context: ProcessorContext, input: os.PathLike, search_dirs: Seq
             if comment_instruction is not None:
                 skip_include = comment_instruction == "amalgamate(skip)"
 
+            if skip_include:
+                print("Skipped: {}".format(m[1]))
+                input_include.chunks.append(m[0])
+                continue
+
             include_file_in_parent_dir = os.path.realpath(
                 os.path.join(input_parent_dir, m[1]))
             if include_file_in_parent_dir in context.visited_files:
@@ -112,11 +117,6 @@ def process_file(context: ProcessorContext, input: os.PathLike, search_dirs: Seq
                     include_file_in_search_dir_found = True
                     break
             if include_file_in_search_dir_found:
-                continue
-
-            if skip_include:
-                print("Skipped: {}".format(m[1]))
-                input_include.chunks.append(m[0])
                 continue
 
             raise Exception("Not found: {}".format(m[1]))

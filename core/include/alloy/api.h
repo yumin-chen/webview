@@ -69,6 +69,7 @@ ALLOY_API alloy_component_t alloy_create_switch(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_radiobutton(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_combobox(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_slider(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_spinner(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_progressbar(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_tabview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_listview(alloy_component_t parent);
@@ -76,8 +77,13 @@ ALLOY_API alloy_component_t alloy_create_treeview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_webview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_vstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_hstack(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_link(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_separator(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_image(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_scrollview(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_menubar(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_menu(alloy_component_t parent);
+ALLOY_API alloy_component_t alloy_create_menuitem(alloy_component_t parent);
 
 ALLOY_API alloy_error_t alloy_destroy(alloy_component_t handle);
 
@@ -94,6 +100,10 @@ ALLOY_API int alloy_get_visible(alloy_component_t h);
 ALLOY_API alloy_error_t alloy_set_style(alloy_component_t h, const alloy_style_t *style);
 
 ALLOY_API alloy_error_t alloy_image_load_file(alloy_component_t h, const char *path);
+ALLOY_API alloy_error_t alloy_combobox_append(alloy_component_t h, const char *text);
+ALLOY_API alloy_error_t alloy_webview_load_url(alloy_component_t h, const char *url);
+ALLOY_API alloy_error_t alloy_listview_append(alloy_component_t h, const char *text);
+ALLOY_API alloy_error_t alloy_tabview_add_page(alloy_component_t h, alloy_component_t child, const char *label);
 
 ALLOY_API alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child);
 ALLOY_API alloy_error_t alloy_set_flex(alloy_component_t h, float flex);
@@ -102,6 +112,9 @@ ALLOY_API alloy_error_t alloy_set_margin(alloy_component_t h, float top, float r
 ALLOY_API alloy_error_t alloy_layout(alloy_component_t window);
 
 ALLOY_API alloy_error_t alloy_set_event_callback(alloy_component_t handle, alloy_event_type_t event, alloy_event_cb_t callback, void *userdata);
+
+ALLOY_API const char* alloy_dialog_file_open(alloy_component_t parent, const char* title);
+ALLOY_API const char* alloy_dialog_color_picker(alloy_component_t parent, const char* title);
 
 ALLOY_API alloy_error_t alloy_run(alloy_component_t window);
 ALLOY_API alloy_error_t alloy_terminate(alloy_component_t window);
