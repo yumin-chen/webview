@@ -63,3 +63,5 @@ export * from "./components/Chip";
 export * from "./components/Rating";
 export * from "./components/Accordion";
 export * from "./components/CodeEditor";
+export * from "./components/Separator";
+export * from "./components/LoadingSpinner";

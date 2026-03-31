@@ -17,11 +17,21 @@ extern const char* ALLOY_BUNDLE;
 // --- Process Management ---
 void alloy_spawn(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "0");
+    // Basic implementation using system() for the draft
+    // In production, use fork/exec or CreateProcess
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "%s &", req);
+    int res = system(req);
+    char buf[32];
+    sprintf(buf, "%d", res);
+    webview_return(w, id, 0, buf);
 }
 void alloy_spawn_sync(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "0");
+    int res = system(req);
+    char buf[32];
+    sprintf(buf, "%d", res);
+    webview_return(w, id, 0, buf);
 }
 void alloy_secure_eval(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
@@ -54,15 +64,40 @@ void alloy_sqlite_deserialize(const char *id, const char *req, void *arg) {
 }
 void alloy_sqlite_query(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "1");
+    // Simple execution for draft
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(g_db, req, NULL, NULL, &err_msg);
+    webview_return(w, id, rc == SQLITE_OK ? 0 : 1, rc == SQLITE_OK ? "0" : err_msg);
+    if (err_msg) sqlite3_free(err_msg);
 }
 void alloy_sqlite_run(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "{\"lastInsertRowid\":0, \"changes\":0}");
+    int rc = sqlite3_exec(g_db, req, NULL, NULL, NULL);
+    char buf[128];
+    sprintf(buf, "{\"lastInsertRowid\":%lld, \"changes\":%d}",
+            (long long)sqlite3_last_insert_rowid(g_db),
+            sqlite3_changes(g_db));
+    webview_return(w, id, rc == SQLITE_OK ? 0 : 1, buf);
+}
+static int sqlite_callback(void *data, int argc, char **argv, char **azColName) {
+    char *json = (char*)data;
+    strcat(json, "{");
+    for (int i = 0; i < argc; i++) {
+        char buf[256];
+        sprintf(buf, "\"%s\":\"%s\"%s", azColName[i], argv[i] ? argv[i] : "null", (i == argc - 1) ? "" : ",");
+        strcat(json, buf);
+    }
+    strcat(json, "},");
+    return 0;
 }
 void alloy_sqlite_stmt_all(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    webview_return(w, id, 0, "[{\"message\": \"Hello world\"}]");
+    char json_res[4096] = "[";
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(g_db, req, sqlite_callback, json_res, &err_msg);
+    if (json_res[strlen(json_res)-1] == ',') json_res[strlen(json_res)-1] = ']';
+    else strcat(json_res, "]");
+    webview_return(w, id, rc == SQLITE_OK ? 0 : 1, json_res);
 }
 void alloy_sqlite_close(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
