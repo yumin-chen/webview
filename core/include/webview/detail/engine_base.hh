@@ -594,8 +594,11 @@ protected:
           this.db = db;
           this.sql = sql;
           this.use_cache = options.cache !== false;
+          this._initPromise = this._init();
+        }
 
-          const meta = window.Alloy_sqlite_prepare(this.db.id, this.sql, this.use_cache);
+        async _init() {
+          const meta = await window.Alloy_sqlite_prepare(this.db.id, this.sql, this.use_cache);
           if (meta.startsWith('error:')) throw new Error(meta.substring(6));
           const data = JSON.parse(meta);
           this.columnNames = data.columnNames;
@@ -604,13 +607,14 @@ protected:
           this.paramsCount = data.paramsCount;
         }
 
-        _execute(mode, params) {
+        async _execute(mode, params) {
+          await this._initPromise;
           const paramsJson = JSON.stringify(params, (k, v) => typeof v === 'bigint' ? v.toString() + 'n' : v);
-          const res = window.Alloy_sqlite_bind_and_execute(this.db.id, this.sql, paramsJson, mode);
+          const res = await window.Alloy_sqlite_bind_and_execute(this.db.id, this.sql, paramsJson, mode);
           if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
 
           // Update metadata after execution if we fetched a row
-          const meta = window.Alloy_sqlite_prepare(this.db.id, this.sql, true);
+          const meta = await window.Alloy_sqlite_prepare(this.db.id, this.sql, true);
           const metaData = JSON.parse(meta);
           this.columnTypes = metaData.columnTypes;
 
@@ -647,21 +651,22 @@ protected:
           return instance;
         }
 
-        all(...params) { return this._execute('all', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
-        get(...params) { return this._execute('get', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
-        run(...params) { return this._execute('run', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
-        values(...params) { return this._execute('values', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        async all(...params) { return this._execute('all', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        async get(...params) { return this._execute('get', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        async run(...params) { return this._execute('run', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
+        async values(...params) { return this._execute('values', params.length === 1 && typeof params[0] === 'object' ? params[0] : params); }
 
         as(Class) { this._Class = Class; return this; }
         finalize() {}
         toString() { return this.sql; }
 
         [Symbol.iterator]() { return this.iterate(); }
-        *iterate(...params) {
+        async *iterate(...params) {
+          await this._initPromise;
           const paramsJson = JSON.stringify(params.length === 1 && typeof params[0] === 'object' ? params[0] : params, (k, v) => typeof v === 'bigint' ? v.toString() + 'n' : v);
           let first = true;
           while (true) {
-            const res = window.Alloy_sqlite_step(this.db.id, this.sql, paramsJson, first);
+            const res = await window.Alloy_sqlite_step(this.db.id, this.sql, paramsJson, first);
             first = false;
             if (res === 'done') break;
             if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
@@ -676,32 +681,36 @@ protected:
         constructor(filename = ':memory:', options = {}) {
           if (typeof options === 'number') options = { flags: options };
           this.safeIntegers = options.safeIntegers || false;
-          this.id = window.Alloy_sqlite_open(filename, options.readonly || false, options.create || false, this.safeIntegers, options.strict || false);
+          this._initPromise = this._init(filename, options);
+        }
+
+        async _init(filename, options) {
+          this.id = await window.Alloy_sqlite_open(filename, options.readonly || false, options.create || false, this.safeIntegers, options.strict || false);
           if (this.id.startsWith('error:')) throw new Error(this.id.substring(6));
         }
 
         query(sql) { return new Statement(this, sql, { cache: true }); }
         prepare(sql) { return new Statement(this, sql, { cache: false }); }
-        as(Class) { return this.query(sql).as(Class); } // For query.as(MyClass) usage? Wait, query returns statement.
-        run(sql, params) {
+        async run(sql, params) {
+          await this._initPromise;
           if (params === undefined) {
-            const res = window.Alloy_sqlite_exec(this.id, sql);
+            const res = await window.Alloy_sqlite_exec(this.id, sql);
             if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
             return JSON.parse(res);
           }
           return this.query(sql).run(params);
         }
-        exec(sql) { return this.run(sql); }
-        close() { window.Alloy_sqlite_close(this.id); }
+        async exec(sql) { return this.run(sql); }
+        async close() { await this._initPromise; window.Alloy_sqlite_close(this.id); }
         transaction(fn) {
-          const wrapper = (...args) => {
-            this.run("BEGIN");
+          const wrapper = async (...args) => {
+            await this.run("BEGIN");
             try {
-              const res = fn.apply(this, args);
-              this.run("COMMIT");
+              const res = await fn.apply(this, args);
+              await this.run("COMMIT");
               return res;
             } catch (e) {
-              this.run("ROLLBACK");
+              await this.run("ROLLBACK");
               throw e;
             }
           };
@@ -710,16 +719,18 @@ protected:
           wrapper.exclusive = (...args) => { this.run("BEGIN EXCLUSIVE"); try { const res = fn.apply(this, args); this.run("COMMIT"); return res; } catch(e) { this.run("ROLLBACK"); throw e; } };
           return wrapper;
         }
-        serialize() { return new Uint8Array(JSON.parse(window.Alloy_sqlite_serialize(this.id))); }
-        fileControl(cmd, val) { return window.Alloy_sqlite_file_control(this.id, cmd, val); }
-        loadExtension(path) {
-          const res = window.Alloy_sqlite_load_extension(this.id, path);
+        async serialize() { await this._initPromise; return new Uint8Array(JSON.parse(await window.Alloy_sqlite_serialize(this.id))); }
+        async fileControl(cmd, val) { await this._initPromise; return window.Alloy_sqlite_file_control(this.id, cmd, val); }
+        async loadExtension(path) {
+          await this._initPromise;
+          const res = await window.Alloy_sqlite_load_extension(this.id, path);
           if (typeof res === 'string' && res.startsWith('error:')) throw new Error(res.substring(6));
         }
-        static deserialize(data) {
-          const db = new Database(':memory:'); // Dummy open to get instance
+        static async deserialize(data) {
+          const db = new Database(':memory:');
+          await db._initPromise;
           window.Alloy_sqlite_close(db.id);
-          const res = window.Alloy_sqlite_deserialize(JSON.stringify(Array.from(data)));
+          const res = await window.Alloy_sqlite_deserialize(JSON.stringify(Array.from(data)));
           if (res.startsWith('error:')) throw new Error(res.substring(6));
           db.id = res;
           return db;

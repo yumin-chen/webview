@@ -2,17 +2,27 @@
  * @alloyscript/runtime GUI components
  */
 
-const wrap = (type: string) => async (props: any) => {
-    const handle = await (window as any).Alloy.gui.create(type, props);
-    return {
-        handle,
+const wrap = (type: string) => (props: any) => {
+    const createPromise = (async () => {
+        const handle = await (window as any).Alloy.gui.create(type, props);
+        return handle;
+    })();
+
+    const component = {
         type,
         props,
-        addChild(child: any) {
+        handle: undefined as string | undefined,
+        addChild: async function(child: any) {
+            this.handle = await createPromise;
             child.props.parent = this.handle;
             return (window as any).Alloy.gui.create(child.type, child.props);
-        }
+        },
+        then: (onfulfilled: any) => createPromise.then(h => {
+            component.handle = h;
+            return onfulfilled(component);
+        })
     };
+    return component as any;
 };
 
 export const Window = wrap("Window");
