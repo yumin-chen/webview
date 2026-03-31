@@ -15,9 +15,10 @@ async function main() {
       {
         name: "alloy-internal",
         setup(build) {
-          build.onResolve({ filter: /^Alloy(:sqlite)?$/ }, (args) => {
+          build.onResolve({ filter: /^Alloy(:sqlite|:env)?$/ }, (args) => {
             if (args.path === "Alloy") return { path: join(process.cwd(), "index.ts") };
             if (args.path === "Alloy:sqlite") return { path: join(process.cwd(), "sqlite.ts") };
+            if (args.path === "Alloy:env") return { path: join(process.cwd(), "env.ts") };
             return null;
           });
         },

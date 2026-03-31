@@ -1071,13 +1071,88 @@ protected:
         auto path = json_parse(req, "", 0);
         return (remove(path.c_str()) == 0) ? "true" : "false";
     });
+
+    bind("__alloy_get_env", [this](const std::string &req) -> std::string {
+        auto key = json_parse(req, "", 0);
+        const char* val = getenv(key.c_str());
+        return val ? val : "";
+    });
+
+    bind("__alloy_set_env", [this](const std::string &req) -> std::string {
+        auto key = json_parse(req, "", 0);
+        auto val = json_parse(req, "", 1);
+#ifdef _WIN32
+        _putenv_s(key.c_str(), val.c_str());
+#else
+        setenv(key.c_str(), val.c_str(), 1);
+#endif
+        return "true";
+    });
   }
 
   std::string create_alloy_script() {
     return R"js(
 (function() {
   'use strict';
+  function parseEnv(content, existingEnv = {}) {
+    const result = { ...existingEnv };
+    const lines = content.split(/\r?\n/);
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith("#")) continue;
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (!match) continue;
+      const key = match[1].trim();
+      let value = match[2].trim();
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'")) ||
+          (value.startsWith("`") && value.endsWith("`"))) {
+        value = value.substring(1, value.length - 1);
+      }
+      let expandedValue = "";
+      for (let i = 0; i < value.length; i++) {
+        if (value[i] === "$" && (i === 0 || value[i - 1] !== "\\")) {
+          let varName = ""; let j = i + 1;
+          while (j < value.length && /[a-zA-Z0-9_]/.test(value[j])) { varName += value[j]; j++; }
+          if (varName) { expandedValue += result[varName] || ""; i = j - 1; }
+          else { expandedValue += "$"; }
+        } else if (value[i] === "$" && i > 0 && value[i - 1] === "\\") {
+          expandedValue = expandedValue.substring(0, expandedValue.length - 1) + "$";
+        } else { expandedValue += value[i]; }
+      }
+      result[key] = expandedValue;
+    }
+    return result;
+  }
+  'use strict';
   if (window.Alloy) return;
+
+  const initialEnv = { NODE_ENV: window.__alloy_get_env("NODE_ENV") || "development" };
+  const envFiles = [".env", `.env.${initialEnv.NODE_ENV}`, ".env.local"];
+  let loadedEnv = { ...initialEnv };
+  for (const file of envFiles) {
+    if (window.__alloy_file_exists(file) === "true") {
+      const content = window.__alloy_file_read(file);
+      loadedEnv = parseEnv(content, loadedEnv);
+    }
+  }
+
+  window.process = window.process || {};
+  window.process.env = new Proxy(loadedEnv, {
+    get(target, prop) {
+      if (typeof prop !== "string") return undefined;
+      const val = window.__alloy_get_env(prop);
+      return val || target[prop];
+    },
+    set(target, prop, value) {
+      if (typeof prop === "string") {
+        window.__alloy_set_env(prop, String(value));
+        target[prop] = String(value);
+        return true;
+      }
+      return false;
+    }
+  });
 
   // Optimized ReadableStream
   const NativeReadableStream = window.ReadableStream;
@@ -1289,6 +1364,7 @@ protected:
       stdout: new AlloyFile("/dev/stdout"),
       stderr: new AlloyFile("/dev/stderr"),
       ArrayBufferSink: ArrayBufferSink,
+      env: window.process.env,
     gui: {
       createWindow: function(title, w, h) { return window.__alloy_gui_create_window(title, w, h); },
       createButton: function(parent) { return window.__alloy_gui_create_button(parent); },
