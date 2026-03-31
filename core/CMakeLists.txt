@@ -19,12 +19,30 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND WEBVIEW_USE_COMPAT_MINGW)
     target_link_libraries(webview_core_headers INTERFACE webview::compat_mingw)
 endif()
 
+set(ALLOY_GUI_SOURCES
+    src/alloy_gui/signals.cc
+    src/alloy_gui/window.cc
+    src/alloy_gui/button.cc
+    src/alloy_gui/label.cc
+    src/alloy_gui/input.cc
+    src/alloy_gui/layout.cc
+    src/alloy_gui/selection.cc
+    src/alloy_gui/navigation.cc
+    src/alloy_gui/dialog.cc
+    src/alloy_gui/extra.cc
+)
+
 # Core shared library
 if(WEBVIEW_BUILD_SHARED_LIBRARY)
     add_library(webview_core_shared SHARED)
     add_library(webview::core_shared ALIAS webview_core_shared)
-    target_sources(webview_core_shared PRIVATE src/webview.cc src/alloy.cc src/alloy_gui.cc)
+    target_sources(webview_core_shared PRIVATE
+        src/webview.cc
+        src/alloy.cc
+        ${ALLOY_GUI_SOURCES}
+    )
     target_link_libraries(webview_core_shared PUBLIC webview_core_headers)
+    target_link_libraries(webview_core_shared PRIVATE util sqlite3)
     set_target_properties(webview_core_shared PROPERTIES
         OUTPUT_NAME webview
         VERSION "${WEBVIEW_VERSION_NUMBER}"
@@ -46,8 +64,13 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
 
     add_library(webview_core_static STATIC)
     add_library(webview::core_static ALIAS webview_core_static)
-    target_sources(webview_core_static PRIVATE src/webview.cc src/alloy.cc src/alloy_gui.cc)
+    target_sources(webview_core_static PRIVATE
+        src/webview.cc
+        src/alloy.cc
+        ${ALLOY_GUI_SOURCES}
+    )
     target_link_libraries(webview_core_static PUBLIC webview_core_headers)
+    target_link_libraries(webview_core_static PRIVATE util sqlite3)
 
     # Requirements Document: expose alloy_gui target
     add_library(alloy_gui ALIAS webview_core_static)

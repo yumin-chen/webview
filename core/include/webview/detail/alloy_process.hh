@@ -13,10 +13,16 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
-#include <pty.h>
 #include <sys/resource.h>
+
+#if defined(__linux__)
+#include <pty.h>
+#include <utmp.h>
+#elif defined(__APPLE__)
+#include <util.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#endif
 
 extern char **environ;
 
@@ -102,9 +108,16 @@ public:
         posix_spawn_file_actions_addclose(&actions, m_stdout_pipe[0]);
         posix_spawn_file_actions_addclose(&actions, m_stderr_pipe[0]);
 
+#if defined(__GLIBC__) || defined(__APPLE__)
         if (!options.cwd.empty()) {
+#if defined(__APPLE__)
+            // macOS 10.15+
+            posix_spawn_file_actions_addchdir(&actions, options.cwd.c_str());
+#else
             posix_spawn_file_actions_addchdir_np(&actions, options.cwd.c_str());
+#endif
         }
+#endif
 
         std::vector<char*> argv;
         for (const auto& arg : options.argv) {
@@ -148,6 +161,7 @@ public:
     }
 
     bool spawn_pty(const Options& options, DataCallback data_cb, ExitCallback exit_cb) {
+#if defined(__linux__) || defined(__APPLE__)
         struct winsize ws = { (unsigned short)options.terminal->rows, (unsigned short)options.terminal->cols, 0, 0 };
         pid_t pid = forkpty(&m_pty_master, nullptr, nullptr, &ws);
         if (pid < 0) return false;
@@ -179,6 +193,9 @@ public:
         m_stdout_thread = std::thread(&AlloyProcess::read_loop, this, m_pty_master, data_cb);
         m_exit_thread = std::thread(&AlloyProcess::wait_loop, this, exit_cb);
         return true;
+#else
+        return false;
+#endif
     }
 
     SyncResult spawn_sync(const Options& options) {
@@ -201,9 +218,16 @@ public:
         posix_spawn_file_actions_addclose(&actions, m_stdin_pipe[1]);
         posix_spawn_file_actions_addclose(&actions, m_stdout_pipe[0]);
         posix_spawn_file_actions_addclose(&actions, m_stderr_pipe[0]);
+
+#if defined(__GLIBC__) || defined(__APPLE__)
         if (!options.cwd.empty()) {
+#if defined(__APPLE__)
+            posix_spawn_file_actions_addchdir(&actions, options.cwd.c_str());
+#else
             posix_spawn_file_actions_addchdir_np(&actions, options.cwd.c_str());
+#endif
         }
+#endif
 
         std::vector<char*> argv;
         for (const auto& arg : options.argv) {
@@ -286,7 +310,7 @@ public:
     void write_stdin(const std::vector<char>& data) {
         int fd = (m_pty_master != -1) ? m_pty_master : m_stdin_pipe[1];
         if (fd != -1) {
-            write(fd, data.data(), data.size());
+            (void)write(fd, data.data(), data.size());
         }
     }
 
@@ -305,10 +329,12 @@ public:
     }
 
     void resize_terminal(int cols, int rows) {
+#if defined(__linux__) || defined(__APPLE__)
         if (m_pty_master != -1) {
             struct winsize ws = { (unsigned short)rows, (unsigned short)cols, 0, 0 };
             ioctl(m_pty_master, TIOCSWINSZ, &ws);
         }
+#endif
     }
 
     pid_t get_pid() const { return m_pid; }
@@ -334,7 +360,7 @@ private:
         waitpid(m_pid, &status, 0);
         m_running = false;
 
-        ResourceUsage usage = {0};
+        ResourceUsage usage = {0, {0, 0}};
         struct rusage r_usage;
         if (getrusage(RUSAGE_CHILDREN, &r_usage) == 0) {
             usage.maxRSS = r_usage.ru_maxrss * 1024;
