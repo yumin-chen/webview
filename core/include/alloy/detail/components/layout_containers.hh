@@ -10,7 +10,7 @@ namespace alloy::detail {
 class gtk_layout_container : public component_base {
 public:
   explicit gtk_layout_container(bool horizontal) : component_base(true) {
-    m_widget = gtk_box_new(horizontal ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL, 0);
+    m_widget = gtk_fixed_new();
     g_object_ref_sink(m_widget);
     YGNodeStyleSetFlexDirection(m_yoga_node, horizontal ? YGFlexDirectionRow : YGFlexDirectionColumn);
   }

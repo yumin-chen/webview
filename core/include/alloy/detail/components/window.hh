@@ -14,8 +14,14 @@ public:
     m_widget = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(m_widget), title);
     gtk_window_set_default_size(GTK_WINDOW(m_widget), width, height);
+
+    m_fixed = gtk_fixed_new();
+    gtk_container_add(GTK_CONTAINER(m_widget), m_fixed);
+    gtk_widget_show(m_fixed);
     gtk_widget_show(m_widget);
   }
+
+  void *native_handle() override { return m_fixed; }
 
   alloy_error_t set_text(std::string_view text) override {
     gtk_window_set_title(GTK_WINDOW(m_widget), text.data());
@@ -47,10 +53,10 @@ public:
   bool get_visible() override { return gtk_widget_get_visible(m_widget); }
 
   alloy_error_t set_style(const alloy_style_t &s) override { return ALLOY_OK; }
-  void* native_handle() override { return m_widget; }
 
 private:
   GtkWidget* m_widget;
+  GtkWidget* m_fixed;
 };
 
 } // namespace alloy::detail

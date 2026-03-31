@@ -21,6 +21,17 @@ export interface FileSink {
   unref(): void;
 }
 
+export interface ArrayBufferSink {
+  start(options?: {
+    asUint8Array?: boolean;
+    highWaterMark?: number;
+    stream?: boolean;
+  }): void;
+  write(chunk: string | ArrayBufferView | ArrayBuffer | SharedArrayBuffer): number;
+  flush(): number | Uint8Array | ArrayBuffer;
+  end(): ArrayBuffer | Uint8Array;
+}
+
 declare global {
   interface Window {
     Alloy: {
@@ -29,6 +40,7 @@ declare global {
       stdin: AlloyFile;
       stdout: AlloyFile;
       stderr: AlloyFile;
+      ArrayBufferSink: { new(): ArrayBufferSink };
       gui: any;
       cron: any;
       spawn: any;

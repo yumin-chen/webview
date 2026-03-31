@@ -53,9 +53,11 @@ class Statement {
 
   run(...params) {
     this._bind(params);
-    const res = window.__alloy_sqlite_step(this.id, !!this.dbOptions.safeIntegers);
-    // Real implementation should get lastInsertRowid and changes from the DB
-    return { lastInsertRowid: 0, changes: 0 };
+    window.__alloy_sqlite_step(this.id, !!this.dbOptions.safeIntegers);
+    return {
+      lastInsertRowid: parseInt(window.__alloy_sqlite_last_insert_rowid(this.dbId)),
+      changes: parseInt(window.__alloy_sqlite_changes(this.dbId))
+    };
   }
 
   values(...params) {

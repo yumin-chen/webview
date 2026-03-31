@@ -1,5 +1,7 @@
 #include "alloy/api.h"
 #include "alloy/detail/backends/gtk_gui.hh"
+#include "alloy/detail/backends/win32_gui.hh"
+#include "alloy/detail/backends/cocoa_gui.hh"
 #include <string>
 #include <vector>
 
@@ -481,7 +483,7 @@ alloy_error_t alloy_set_margin(alloy_component_t h, float top, float right, floa
     YGNodeStyleSetMargin(node, YGEdgeLeft, left);
     return ALLOY_OK;
 }
-static void apply_layout(component_base *comp) {
+static void apply_layout(component_base *comp, component_base *parent = nullptr) {
     YGNodeRef node = comp->yoga_node();
     float x = YGNodeLayoutGetLeft(node);
     float y = YGNodeLayoutGetTop(node);
@@ -492,12 +494,17 @@ static void apply_layout(component_base *comp) {
     GtkWidget *widget = static_cast<GtkWidget *>(comp->native_handle());
     if (GTK_IS_WIDGET(widget)) {
         gtk_widget_set_size_request(widget, (int)width, (int)height);
-        // If parent is a GtkFixed, we would move it.
+        if (parent) {
+            GtkWidget *parent_widget = static_cast<GtkWidget *>(parent->native_handle());
+            if (GTK_IS_FIXED(parent_widget)) {
+                gtk_fixed_move(GTK_FIXED(parent_widget), widget, (int)x, (int)y);
+            }
+        }
     }
 #endif
 
     for (auto child : comp->children()) {
-        apply_layout(child);
+        apply_layout(child, comp);
     }
 }
 

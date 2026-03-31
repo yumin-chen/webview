@@ -461,6 +461,24 @@ protected:
       return "";
     });
 
+    bind("__alloy_sqlite_last_insert_rowid", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto it = m_sqlite_dbs.find(db_id);
+      if (it != m_sqlite_dbs.end()) {
+        return std::to_string(it->second->last_insert_rowid());
+      }
+      return "0";
+    });
+
+    bind("__alloy_sqlite_changes", [this](const std::string &req) -> std::string {
+      auto db_id = json_parse(req, "", 0);
+      auto it = m_sqlite_dbs.find(db_id);
+      if (it != m_sqlite_dbs.end()) {
+        return std::to_string(it->second->changes());
+      }
+      return "0";
+    });
+
     bind("__alloy_sqlite_reset", [this](const std::string &req) -> std::string {
       auto stmt_id = json_parse(req, "", 0);
       auto it = m_sqlite_stmts.find(stmt_id);
@@ -1061,6 +1079,32 @@ protected:
   'use strict';
   if (window.Alloy) return;
 
+  // Optimized ReadableStream
+  const NativeReadableStream = window.ReadableStream;
+  window.ReadableStream = class extends NativeReadableStream {
+    constructor(underlyingSource, strategy) {
+      if (underlyingSource && underlyingSource.type === 'direct') {
+        let controller;
+        const source = {
+          start(c) {
+            controller = c;
+            controller.write = (chunk) => controller.enqueue(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+            if (underlyingSource.start) underlyingSource.start(controller);
+          },
+          pull(c) {
+            if (underlyingSource.pull) underlyingSource.pull(controller);
+          },
+          cancel(reason) {
+            if (underlyingSource.cancel) underlyingSource.cancel(reason);
+          }
+        };
+        super(source, strategy);
+      } else {
+        super(underlyingSource, strategy);
+      }
+    }
+  };
+
   // Security: Replace eval with secureEval
   if (typeof window._forbidden_eval === 'undefined') {
     window._forbidden_eval = window.eval;
@@ -1198,6 +1242,42 @@ protected:
       unref() {}
     }
 
+    class ArrayBufferSink {
+      constructor() {
+        this._chunks = [];
+        this._totalLength = 0;
+        this._options = {};
+      }
+      start(options) {
+        this._options = options || {};
+      }
+      write(chunk) {
+        let b;
+        if (typeof chunk === 'string') b = new TextEncoder().encode(chunk);
+        else if (chunk instanceof ArrayBuffer) b = new Uint8Array(chunk);
+        else if (ArrayBuffer.isView(chunk)) b = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+        else b = new Uint8Array(chunk);
+        this._chunks.push(b);
+        this._totalLength += b.length;
+        return b.length;
+      }
+      flush() {
+        const res = this.end();
+        this._chunks = [];
+        this._totalLength = 0;
+        return res;
+      }
+      end() {
+        const res = new Uint8Array(this._totalLength);
+        let offset = 0;
+        for (const chunk of this._chunks) {
+          res.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return this._options.asUint8Array ? res : res.buffer;
+      }
+    }
+
   window.Alloy = {
       file: function(path, options) { return new AlloyFile(path, options); },
       write: async function(dest, data) {
@@ -1208,6 +1288,7 @@ protected:
       stdin: new AlloyFile("/dev/stdin"),
       stdout: new AlloyFile("/dev/stdout"),
       stderr: new AlloyFile("/dev/stderr"),
+      ArrayBufferSink: ArrayBufferSink,
     gui: {
       createWindow: function(title, w, h) { return window.__alloy_gui_create_window(title, w, h); },
       createButton: function(parent) { return window.__alloy_gui_create_button(parent); },

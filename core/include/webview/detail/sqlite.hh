@@ -93,6 +93,8 @@ public:
     }
 
     sqlite3* get_native() { return m_db; }
+    int64_t last_insert_rowid() { return sqlite3_last_insert_rowid(m_db); }
+    int changes() { return sqlite3_changes(m_db); }
 
     void exec(const std::string& sql) {
         char* err = nullptr;

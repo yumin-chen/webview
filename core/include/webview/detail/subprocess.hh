@@ -25,11 +25,10 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <sys/ioctl.h>
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__)
 #include <pty.h>
-#if defined(__APPLE__)
+#elif defined(__APPLE__)
 #include <util.h>
-#endif
 #endif
 extern char **environ;
 #endif
