@@ -12,7 +12,7 @@ async function main() {
   const result = await build({
     entrypoints: [entrypoint], outdir: outDir, target: "browser", minify: false,
     format: "esm",
-    target: "es5",
+    target: "quickjs",
     plugins: [
       {
         name: "alloy-internal",

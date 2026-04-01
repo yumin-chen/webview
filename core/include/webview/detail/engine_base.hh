@@ -36,7 +36,7 @@
 #include "sqlite.hh"
 #include "subprocess.hh"
 #include "user_script.hh"
-#include "quickjs.h"
+#include "mquickjs.h"
 
 #include <atomic>
 #include <functional>
@@ -1141,8 +1141,37 @@ protected:
       auto id = json_parse(req, "", 0);
       auto code = json_parse(req, "", 1);
       auto loader = json_parse(req, "", 2);
-      // Basic implementation: pass-through but could do regex-based type removal
-      return code;
+
+      uint8_t *mem_buf = (uint8_t*)malloc(1024 * 1024);
+      JSContext *ctx = JS_NewContext(mem_buf, 1024 * 1024, NULL);
+      std::string result;
+
+      if (loader == "bytecode") {
+          int bc_len;
+          uint8_t *bc = JS_WriteBytecode(ctx, &bc_len, code.c_str(), code.size(), "<bytecode>");
+          if (bc) {
+              std::string hex = "";
+              for (int i = 0; i < bc_len; i++) {
+                  char buf[3]; sprintf(buf, "%02x", bc[i]); hex += buf;
+              }
+              result = hex;
+          }
+      } else {
+          // Use MQuickJS parser as transpiler to verify/clean code
+          JSValue val = JS_Eval(ctx, code.c_str(), code.size(), "<transpile>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+          if (JS_IsException(val)) {
+              JSValue exception = JS_GetException(ctx);
+              result = std::string("/* Error: ") + JS_ToCString(ctx, exception) + " */\n" + code;
+          } else {
+              // MQuickJS doesn't have a built-in JS printer for compiled functions in the core,
+              // so for non-bytecode we currently return the code as is if it parses.
+              result = code;
+          }
+      }
+
+      JS_FreeContext(ctx);
+      free(mem_buf);
+      return result;
     });
 
     bind_global("__alloy_transpiler_scan", [this](const std::string &req) -> std::string {
@@ -1734,12 +1763,12 @@ protected:
 
   bool owns_window() const { return m_owns_window; }
 
-  static JSValue js_alloy_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  static JSValue js_alloy_log(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
       for (int i = 0; i < argc; i++) {
           const char *str = JS_ToCString(ctx, argv[i]);
           if (str) {
               printf("%s%s", str, i == argc - 1 ? "" : " ");
-              JS_FreeCString(ctx, str);
+              // MQuickJS does not need JS_FreeCString
           }
       }
       printf("\n");
@@ -1749,37 +1778,39 @@ protected:
   std::string secure_eval_internal(const std::string& js) {
       if (js.empty()) return "null";
 
-      JSRuntime *rt = JS_NewRuntime();
-      JSContext *ctx = JS_NewContext(rt);
+      uint8_t *mem_buf = (uint8_t*)malloc(1024 * 1024); // 1MB buffer
+      JSContext *ctx = JS_NewContext(mem_buf, 1024 * 1024, NULL);
 
-      // Bind Alloy global to microquickjs
-      JSValue global_obj = JS_GetGlobalObject(ctx);
-      JSValue alloy_obj = JS_NewObject(ctx);
+      JSGCRef global_ref, alloy_ref, val_ref;
+      JSValue *global_obj = JS_PushGCRef(ctx, &global_ref);
+      JSValue *alloy_obj = JS_PushGCRef(ctx, &alloy_ref);
+      JSValue *val = JS_PushGCRef(ctx, &val_ref);
 
-      // Add 'log' to Alloy object
-      JS_SetPropertyStr(ctx, alloy_obj, "log",
+      *global_obj = JS_GetGlobalObject(ctx);
+      *alloy_obj = JS_NewObject(ctx);
+
+      JS_SetPropertyStr(ctx, *alloy_obj, "log",
           JS_NewCFunction(ctx, js_alloy_log, "log", 1));
 
-      JS_SetPropertyStr(ctx, global_obj, "Alloy", alloy_obj);
-      JS_FreeValue(ctx, global_obj);
+      JS_SetPropertyStr(ctx, *global_obj, "Alloy", *alloy_obj);
 
-      JSValue val = JS_Eval(ctx, js.c_str(), js.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
+      *val = JS_Eval(ctx, js.c_str(), js.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
       std::string result;
-      if (JS_IsException(val)) {
+      if (JS_IsException(*val)) {
           JSValue exception = JS_GetException(ctx);
           const char *str = JS_ToCString(ctx, exception);
           result = "{\"error\":" + json_escape(str) + "}";
-          JS_FreeCString(ctx, str);
-          JS_FreeValue(ctx, exception);
       } else {
-          const char *str = JS_ToCString(ctx, val);
+          const char *str = JS_ToCString(ctx, *val);
           result = "{\"result\":" + json_escape(str ? str : "undefined") + "}";
-          JS_FreeCString(ctx, str);
       }
 
-      JS_FreeValue(ctx, val);
+      JS_PopGCRef(ctx, &val_ref);
+      JS_PopGCRef(ctx, &alloy_ref);
+      JS_PopGCRef(ctx, &global_ref);
+
       JS_FreeContext(ctx);
-      JS_FreeRuntime(rt);
+      free(mem_buf);
 
       return result;
   }
