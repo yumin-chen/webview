@@ -232,6 +232,13 @@ WEBVIEW_API webview_error_t webview_bind(webview_t w, const char *name,
   });
 }
 
+WEBVIEW_API webview_error_t webview_bind_global(webview_t w, const char *name,
+                                                void (*fn)(const char *id,
+                                                           const char *req, void *arg),
+                                                void *arg) {
+  return webview_bind(w, name, fn, arg);
+}
+
 WEBVIEW_API webview_error_t webview_unbind(webview_t w, const char *name) {
   using namespace webview::detail;
   if (!name) {
@@ -248,6 +255,30 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
   }
   return api_filter(
       [=] { return cast_to_webview(w)->resolve(id, status, result); });
+}
+
+WEBVIEW_API webview_error_t webview_set_session_token(webview_t w, const char *token) {
+  using namespace webview::detail;
+  if (!token) {
+    return WEBVIEW_ERROR_INVALID_ARGUMENT;
+  }
+  return api_filter([=] {
+    cast_to_webview(w)->set_session_token(token);
+    return webview::noresult{};
+  });
+}
+
+WEBVIEW_API webview_error_t webview_set_decrypt_fn(webview_t w, const char *(*fn)(const char *msg)) {
+  using namespace webview::detail;
+  if (!fn) {
+    return WEBVIEW_ERROR_INVALID_ARGUMENT;
+  }
+  return api_filter([=] {
+    cast_to_webview(w)->set_decrypt_fn([=](const std::string &s) {
+      return std::string(fn(s.c_str()));
+    });
+    return webview::noresult{};
+  });
 }
 
 WEBVIEW_API const webview_version_info_t *webview_version(void) {

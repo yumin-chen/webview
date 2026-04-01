@@ -1,3 +1,8 @@
+/*
+ * AlloyScript Build System - Amalgamation Utility
+ *
+ * This is free and unencumbered software released into the public domain.
+ */
 from argparse import ArgumentParser
 from dataclasses import dataclass, field
 import graphlib

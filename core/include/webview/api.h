@@ -212,7 +212,22 @@ WEBVIEW_API webview_error_t webview_bind(webview_t w, const char *name,
                                          void *arg);
 
 /**
- * Removes a binding created with webview_bind().
+ * Binds a function pointer to a global JavaScript path, supporting nested objects.
+ *
+ * @param w The webview instance.
+ * @param name Global JavaScript path (e.g. "Alloy.sqlite.query").
+ * @param fn Callback function.
+ * @param arg User argument.
+ * @retval WEBVIEW_ERROR_DUPLICATE
+ *         A binding already exists with the specified name.
+ */
+WEBVIEW_API webview_error_t webview_bind_global(webview_t w, const char *name,
+                                                void (*fn)(const char *id,
+                                                           const char *req, void *arg),
+                                                void *arg);
+
+/**
+ * Removes a binding created with webview_bind() or webview_bind_global().
  *
  * @param w The webview instance.
  * @param name Name of the binding.
@@ -236,6 +251,22 @@ WEBVIEW_API webview_error_t webview_unbind(webview_t w, const char *name);
  */
 WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
                                            int status, const char *result);
+
+/**
+ * Sets the session token for IPC validation.
+ *
+ * @param w The webview instance.
+ * @param token The 32-byte (or longer) session token.
+ */
+WEBVIEW_API webview_error_t webview_set_session_token(webview_t w, const char *token);
+
+/**
+ * Sets the decryption function for IPC.
+ *
+ * @param w The webview instance.
+ * @param fn The decryption callback.
+ */
+WEBVIEW_API webview_error_t webview_set_decrypt_fn(webview_t w, const char *(*fn)(const char *msg));
 
 /**
  * Get the library's version information.
