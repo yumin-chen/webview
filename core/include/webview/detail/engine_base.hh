@@ -1071,7 +1071,7 @@ protected:
       return "true";
     });
 
-    bind_global("__alloy_secure_eval", [this](const std::string &req) -> std::string {
+    bind_global("eval", [this](const std::string &req) -> std::string {
       auto js = json_parse(req, "", 0);
       return this->secure_eval_internal(js);
     });
@@ -1218,15 +1218,6 @@ protected:
     }
   };
 
-  // Security: Replace eval with secureEval
-  if (typeof window._forbidden_eval === 'undefined') {
-    window._forbidden_eval = window.eval;
-    window.secureEval = function(code) {
-      const res = JSON.parse(window.__alloy_secure_eval(code));
-      return res.result;
-    };
-    window.eval = window.secureEval;
-  }
 
   if (typeof Buffer === 'undefined') {
     window.Buffer = class extends Uint8Array {
@@ -1601,13 +1592,19 @@ protected:
         promise.reject(result);\n\
       }\n\
     };\n\
-    Webview_.prototype.onBind = function(name) {\n\
+    Webview_.prototype.onBind = function(name, warn) {\n\
+      if (warn && window.hasOwnProperty(name)) {\n\
+        console.warn('Alloy: binding \"' + name + '\" is overwriting an existing property on window.');\n\
+      }\n\
       window[name] = (function() {\n\
         var params = [name].concat(Array.prototype.slice.call(arguments));\n\
         return Webview_.prototype.call.apply(this, params);\n\
       }).bind(this);\n\
     };\n\
-    Webview_.prototype.onBindGlobal = function(name) {\n\
+    Webview_.prototype.onBindGlobal = function(name, warn) {\n\
+      if (warn && window.hasOwnProperty(name)) {\n\
+        console.warn('Alloy: global binding \"' + name + '\" is overwriting an existing property.');\n\
+      }\n\
       Object.defineProperty(window, name, {\n\
         value: (function() {\n\
           var params = [name].concat(Array.prototype.slice.call(arguments));\n\
@@ -1632,11 +1629,12 @@ protected:
 
   std::string create_bind_script() {
     std::string js = "(function() {\n  'use strict';\n";
+    std::string warn = m_warn_overwrite_on_bind ? "true" : "false";
     for (const auto &binding : bindings) {
         if (binding.second.is_global) {
-            js += "  window.__webview__.onBindGlobal(" + json_escape(binding.first) + ");\n";
+            js += "  window.__webview__.onBindGlobal(" + json_escape(binding.first) + ", " + warn + ");\n";
         } else {
-            js += "  window.__webview__.onBind(" + json_escape(binding.first) + ");\n";
+            js += "  window.__webview__.onBind(" + json_escape(binding.first) + ", " + warn + ");\n";
         }
     }
     js += "})()";
@@ -1674,6 +1672,8 @@ protected:
 
   // Runs the event loop while the passed-in function returns true.
   virtual void run_event_loop_while(std::function<bool()> fn) = 0;
+
+  bool m_warn_overwrite_on_bind = false;
 
   void dispatch_size_default() {
     if (!owns_window() || !m_is_init_script_added) {
