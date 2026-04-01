@@ -3,7 +3,7 @@ export type Loader = "jsx" | "js" | "ts" | "tsx";
 export interface TranspilerOptions {
   define?: Record<string, string>;
   loader?: Loader;
-  target?: "browser" | "Alloy" | "node" | "AlloyScript";
+  target?: "browser" | "Alloy" | "node.js" | "AlloyScript";
   tsconfig?: string | any;
   macro?: Record<string, Record<string, string>>;
   exports?: {

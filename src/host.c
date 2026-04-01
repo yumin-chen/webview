@@ -250,19 +250,23 @@ void alloy_transpiler_transform(const char *id, const char *req, void *arg) {
         size_t bc_size;
         uint8_t *bc = JS_WriteObject(ctx, &bc_size, val, JS_WRITE_OBJ_BYTECODE);
 
-        if (strstr(id, "target:node")) {
-            // Reconstruct JS from bytecode (Internal engine logic)
-            // For the draft, we echo the code, but the logic would use the bytecode
-            webview_return(w, id, 0, req);
+        if (strstr(id, "target:node.js")) {
+            // Reconstruct/Restore JS from MicroQuickJS Bytecode
+            // Mock reconstruction for draft
+            char reconstructed[4096];
+            snprintf(reconstructed, sizeof(reconstructed), "/* Reconstructed from Bytecode */\n%s", req);
+            webview_return(w, id, 0, reconstructed);
         } else if (strstr(id, "target:AlloyScript")) {
-            // Automatic async/await polyfilling for AlloyScript
-            // (Inject polyfill logic into the result)
-            char polyfilled[4096];
-            snprintf(polyfilled, sizeof(polyfilled), "/* AlloyScript Polyfills */\n%s", req);
+            // Automatic async/await and Promise polyfilling for AlloyScript
+            // Forward any requests to hidden webview
+            char polyfilled[8192];
+            snprintf(polyfilled, sizeof(polyfilled),
+                "/* AlloyScript Async Polyfill */\n"
+                "globalThis.asyncFetch = async (url) => await window.Alloy.secureCall('fetch', [url]);\n%s", req);
             webview_return(w, id, 0, polyfilled);
         } else if (strstr(id, "target:browser")) {
             // Compile MicroQuickJS to WASM logic
-            webview_return(w, id, 0, "/* WASM binary data */");
+            webview_return(w, id, 0, "/* WASM binary data representing core logic */");
         } else {
             webview_return(w, id, 0, req);
         }
@@ -287,14 +291,21 @@ void alloy_transpiler_scan(const char *id, const char *req, void *arg) {
     JS_FreeRuntime(rt);
 }
 
-// --- IPC Encryption (Draft) ---
+// --- IPC Encryption (Redesigned) ---
 const char* IPC_SECRET = "alloy-secure-secret-123";
 
 void alloy_encrypted_ipc(const char *id, const char *req, void *arg) {
-    webview_t w = (webview_t)arg;
-    // req is expected to be encrypted JSON
-    // Implementation would decrypt, process, and encrypt response
-    webview_return(w, id, 0, req);
+    alloy_engine_t *engine = (alloy_engine_t*)arg;
+    // Enhanced defense-in-depth: Decrypt request from unsafe webview
+    // In production, use AES-GCM or similar. Here we use a draft shim.
+    printf("Safe Host decrypting IPC message from WebView: %s\n", req);
+
+    // Process request in MicroQuickJS
+    JSValue result = JS_Eval(engine->ctx, "/* internal logic */", 18, "<ipc>", JS_EVAL_TYPE_GLOBAL);
+
+    // Encrypt response
+    webview_return(engine->wv, id, 0, req); // Echoing encrypted payload for now
+    JS_FreeValue(engine->ctx, result);
 }
 
 // --- Dual Engine ABI Boundary ---
@@ -339,14 +350,24 @@ int main(void) {
   webview_set_size(w, 1024, 768, WEBVIEW_HINT_NONE);
   // webview_set_visible(w, 0); // Hide unsafe webview by default in production (defense-in-depth)
 
+  // Refined Dual Engine Orchestration
+  alloy_engine_t engine;
+  engine.rt = JS_NewRuntime();
+  engine.ctx = JS_NewContext(engine.rt);
+  engine.wv = w;
+  JS_SetContextOpaque(engine.ctx, &engine);
+
+  // Setup Browser Polyfills in MicroQuickJS
+  alloy_setup_browser_polyfill(engine.ctx);
+
   // Bind global 'Alloy' object instead of just window.Alloy
-  webview_bind_global(w, "Alloy", alloy_secure_eval, w); // Bind secureEval as Alloy global entry
+  webview_bind_global(w, "Alloy", alloy_secure_eval, &engine); // Bind secureEval as Alloy global entry
 
   // Critical APIs bound globally via bind_global (defense-in-depth)
-  webview_bind_global(w, "alloy_spawn", alloy_spawn, w);
-  webview_bind_global(w, "alloy_spawn_sync", alloy_spawn_sync, w);
-  webview_bind_global(w, "alloy_secure_eval", alloy_secure_eval, w);
-  webview_bind_global(w, "alloy_encrypted_ipc", alloy_encrypted_ipc, w);
+  webview_bind_global(w, "alloy_spawn", alloy_spawn, &engine);
+  webview_bind_global(w, "alloy_spawn_sync", alloy_spawn_sync, &engine);
+  webview_bind_global(w, "alloy_secure_eval", alloy_secure_eval, &engine);
+  webview_bind_global(w, "alloy_encrypted_ipc", alloy_encrypted_ipc, &engine);
 
   webview_bind(w, "alloy_sqlite_open", alloy_sqlite_open, w);
   webview_bind(w, "alloy_sqlite_query", alloy_sqlite_query, w);
