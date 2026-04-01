@@ -2,6 +2,41 @@
 #include "alloy/detail/component_base.hh"
 #include "alloy/detail/backends.hh"
 #include <string.h>
+#include <vector>
+#include <algorithm>
+
+namespace alloy::detail {
+struct property_binding {
+    alloy_component_t component;
+    alloy_prop_id_t property;
+    alloy_signal_t signal;
+    alloy_effect_t effect;
+};
+static std::vector<property_binding> g_bindings;
+
+void sync_property(void* userdata) {
+    auto* b = static_cast<property_binding*>(userdata);
+    auto* comp = static_cast<alloy::detail::component_base*>(b->component);
+    switch (b->property) {
+        case ALLOY_PROP_TEXT:
+        case ALLOY_PROP_LABEL:
+            comp->set_text(alloy_signal_get_str(b->signal));
+            break;
+        case ALLOY_PROP_CHECKED:
+            comp->set_checked(alloy_signal_get_bool(b->signal) != 0);
+            break;
+        case ALLOY_PROP_VALUE:
+            comp->set_value(alloy_signal_get_double(b->signal));
+            break;
+        case ALLOY_PROP_ENABLED:
+            comp->set_enabled(alloy_signal_get_bool(b->signal) != 0);
+            break;
+        case ALLOY_PROP_VISIBLE:
+            comp->set_visible(alloy_signal_get_bool(b->signal) != 0);
+            break;
+    }
+}
+}
 
 extern "C" {
 
@@ -81,6 +116,33 @@ alloy_error_t alloy_set_event_callback(alloy_component_t handle,
     if (!handle) return ALLOY_ERROR_INVALID_ARGUMENT;
     static_cast<alloy::detail::component_base*>(handle)->set_event_callback(event, callback, userdata);
     return ALLOY_OK;
+}
+
+alloy_error_t alloy_bind_property(alloy_component_t component,
+                                            alloy_prop_id_t property,
+                                            alloy_signal_t signal) {
+    if (!component || !signal) return ALLOY_ERROR_INVALID_ARGUMENT;
+    alloy::detail::property_binding b;
+    b.component = component;
+    b.property = property;
+    b.signal = signal;
+    alloy::detail::g_bindings.push_back(b);
+    auto& ref = alloy::detail::g_bindings.back();
+    ref.effect = alloy_effect_create(&ref.signal, 1, alloy::detail::sync_property, &ref);
+    return ALLOY_OK;
+}
+
+alloy_error_t alloy_unbind_property(alloy_component_t component,
+                                              alloy_prop_id_t property) {
+    auto it = std::find_if(alloy::detail::g_bindings.begin(), alloy::detail::g_bindings.end(), [&](const alloy::detail::property_binding& b) {
+        return b.component == component && b.property == property;
+    });
+    if (it != alloy::detail::g_bindings.end()) {
+        alloy_effect_destroy(it->effect);
+        alloy::detail::g_bindings.erase(it);
+        return ALLOY_OK;
+    }
+    return ALLOY_ERROR_INVALID_ARGUMENT;
 }
 
 alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
