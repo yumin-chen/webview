@@ -437,7 +437,7 @@ int main(void) {
   }
 
   const char* bridge_js =
-      "window.Alloy = {"
+      "globalThis.Alloy = {"
       "  spawn: async (cmd, args) => await window.alloy_spawn(cmd, args),"
       "  spawnSync: (cmd, args) => window.alloy_spawn_sync(cmd, args),"
       "  secureEval: (code) => { if (window.__alloy_secure_eval) return window.__alloy_secure_eval(code); return window.alloy_secure_eval(code); },"
@@ -467,8 +467,7 @@ int main(void) {
       "    scanImports(code) { return this.scan(code).imports; }"
       "  }"
       "};"
-      "window._forbidden_eval = window.eval;"
-      "window.eval = (code) => window.Alloy.secureEval(code);";
+      "globalThis.eval = (code) => Alloy.secureEval(code);";
 
   webview_init(w, bridge_js);
   webview_init(w, ALLOY_BUNDLE);

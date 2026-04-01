@@ -25,20 +25,6 @@ if(WEBVIEW_BUILD_SHARED_LIBRARY)
         src/alloy_gui.cpp
         src/signals.cpp
         src/compiler.cpp
-        src/components/button.cpp
-        src/components/textfield.cpp
-        src/components/textarea.cpp
-        src/components/label.cpp
-        src/components/checkbox.cpp
-        src/components/radiobutton.cpp
-        src/components/combobox.cpp
-        src/components/slider.cpp
-        src/components/progressbar.cpp
-        src/components/window.cpp
-        src/components/spinner.cpp
-        src/components/switch.cpp
-        src/components/tabview.cpp
-        src/components/listview.cpp
         src/components/accordion.cpp
         src/components/badge.cpp
         src/components/button.cpp
@@ -113,20 +99,6 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
         src/alloy_gui.cpp
         src/signals.cpp
         src/compiler.cpp
-        src/components/button.cpp
-        src/components/textfield.cpp
-        src/components/textarea.cpp
-        src/components/label.cpp
-        src/components/checkbox.cpp
-        src/components/radiobutton.cpp
-        src/components/combobox.cpp
-        src/components/slider.cpp
-        src/components/progressbar.cpp
-        src/components/window.cpp
-        src/components/spinner.cpp
-        src/components/switch.cpp
-        src/components/tabview.cpp
-        src/components/listview.cpp
         src/components/accordion.cpp
         src/components/badge.cpp
         src/components/button.cpp
