@@ -17,6 +17,10 @@ if(WEBVIEW_BUILD)
     if(WEBVIEW_BUILD_TESTS)
         include(CTest)
         add_subdirectory(test_driver)
+
+        add_executable(cron_test metascript/tests/cron_test.cc)
+        target_include_directories(cron_test PRIVATE core/include metascript)
+        add_test(NAME cron_test COMMAND cron_test)
     endif()
 
     add_subdirectory(core)

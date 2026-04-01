@@ -1,2 +1,4 @@
-# Build artifacts
-/build
+node_modules/
+test_output.log
+test_timegm
+test_timegm.cc
