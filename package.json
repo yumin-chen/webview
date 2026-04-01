@@ -2,14 +2,11 @@
   "name": "@alloyscript/engine",
   "module": "index.ts",
   "type": "module",
+  "private": true,
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
-  },
-  "scripts": {
-    "build": "bun run scripts/build.ts",
-    "test": "bun test"
   }
 }
