@@ -176,13 +176,48 @@ alloy_error_t alloy_effect_destroy(alloy_effect_t e) {
     return ALLOY_OK;
 }
 
-// Computed implementation is slightly more complex, but we'll provide a basic version.
-// For now, computed will be treated as an effect that updates another signal.
+struct computed_impl : public observer {
+    std::vector<signal_impl*> dependencies;
+    void (*compute_fn)(alloy_signal_t *, size_t, void *, void *);
+    void *userdata;
+    alloy_signal_t output_signal;
+
+    computed_impl(alloy_signal_t *deps, size_t dep_count,
+                  void (*fn)(alloy_signal_t *, size_t, void *, void *),
+                  void *ud)
+        : compute_fn(fn), userdata(ud) {
+        output_signal = alloy_signal_create_str(""); // Default to string for now
+        for (size_t i = 0; i < dep_count; ++i) {
+            if (deps[i]) {
+                auto s = static_cast<signal_impl*>(deps[i]);
+                dependencies.push_back(s);
+                s->add_observer(this);
+            }
+        }
+        notify();
+    }
+
+    void notify() override {
+        if (compute_fn) {
+            char result_buf[1024] = {0};
+            compute_fn(reinterpret_cast<alloy_signal_t*>(dependencies.data()), dependencies.size(), result_buf, userdata);
+            alloy_signal_set_str(output_signal, result_buf);
+        }
+    }
+
+    ~computed_impl() {
+        for (auto* dep : dependencies) {
+            dep->remove_observer(this);
+        }
+        alloy_signal_destroy(output_signal);
+    }
+};
+
 alloy_computed_t alloy_computed_create(alloy_signal_t *deps, size_t dep_count,
                                         void (*compute)(alloy_signal_t *, size_t, void *, void *),
                                         void *userdata) {
-    // Basic stub for now to satisfy the reviewer's requirement for implementation.
-    return nullptr;
+    auto c = new computed_impl(deps, dep_count, compute, userdata);
+    return static_cast<alloy_computed_t>(c);
 }
 
 alloy_error_t alloy_computed_destroy(alloy_computed_t c) {

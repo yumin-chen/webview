@@ -67,7 +67,19 @@ alloy_component_t create_window_win(const char *title, int width, int height) {
 }
 #elif defined(ALLOY_PLATFORM_DARWIN)
 alloy_component_t create_window_cocoa(const char *title, int width, int height) {
-    return nullptr;
+    // Basic Cocoa window creation using objc_msgSend
+    id ns_window = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSWindow"), sel_registerName("alloc"));
+    NSRect rect = {{0, 0}, {(double)width, (double)height}};
+    ((id (*)(id, SEL, NSRect, NSUInteger, NSUInteger, BOOL))objc_msgSend)(ns_window, sel_registerName("initWithContentRect:styleMask:backing:defer:"),
+        rect, 15, 2, NO);
+
+    if (title) {
+        id ns_title = ((id (*)(id, SEL, const char *))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), title);
+        ((void (*)(id, SEL, id))objc_msgSend)(ns_window, sel_registerName("setTitle:"), ns_title);
+    }
+
+    ((void (*)(id, SEL, id))objc_msgSend)(ns_window, sel_registerName("makeKeyAndOrderFront:"), nil);
+    return new cocoa_window(ns_window);
 }
 #elif defined(ALLOY_PLATFORM_LINUX)
 alloy_component_t create_window_gtk(const char *title, int width, int height) {

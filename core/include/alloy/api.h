@@ -110,6 +110,10 @@ ALLOY_API alloy_component_t alloy_create_tabview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_listview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_treeview(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_webview(alloy_component_t parent);
+ALLOY_API alloy_error_t alloy_webview_bind_global(alloy_component_t webview,
+                                                   const char *name,
+                                                   void (*callback)(const char *json_args, void *userdata),
+                                                   void *userdata);
 ALLOY_API alloy_component_t alloy_create_vstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_hstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_scrollview(alloy_component_t parent);

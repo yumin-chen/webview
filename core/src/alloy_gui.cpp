@@ -145,6 +145,14 @@ alloy_error_t alloy_unbind_property(alloy_component_t component,
     return ALLOY_ERROR_INVALID_ARGUMENT;
 }
 
+alloy_error_t alloy_webview_bind_global(alloy_component_t webview,
+                                                   const char *name,
+                                                   void (*callback)(const char *json_args, void *userdata),
+                                                   void *userdata) {
+    if (!webview || !name || !callback) return ALLOY_ERROR_INVALID_ARGUMENT;
+    return static_cast<alloy::detail::component_base*>(webview)->bind_global(name, callback, userdata);
+}
+
 alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
     if (!container || !child) return ALLOY_ERROR_INVALID_ARGUMENT;
     auto c = static_cast<alloy::detail::component_base*>(container);

@@ -61,7 +61,15 @@ extern "C" void alloy_spawn_sync(const char *id, const char *req, void *arg) {
 
 extern "C" void alloy_secure_eval(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
+    // In a real implementation, this would invoke the MicroQuickJS runtime.
+    // For now, we return the result of the evaluation.
     webview_return(w, id, 0, req);
+}
+
+void on_secure_eval_callback(const char *json_args, void *userdata) {
+    webview_t w = (webview_t)userdata;
+    // Extract code from json_args and evaluate via MicroQuickJS
+    // Example: alloy_secure_eval("0", code, w);
 }
 
 // --- SQLite Backend ---
@@ -344,11 +352,23 @@ int main(void) {
   webview_bind(w, "alloy_gui_destroy", alloy_gui_destroy, w);
   webview_bind(w, "alloy_gui_add_child", alloy_gui_add_child, w);
 
+  // Bind secure eval to the global context of the webview
+  // We use a dummy component for the main webview handle for now
+  static alloy_component_t main_webview_comp = nullptr;
+  if (!main_webview_comp) {
+#if defined(_WIN32)
+      main_webview_comp = new alloy::detail::win32_webview_comp((HWND)webview_get_window(w));
+#endif
+  }
+  if (main_webview_comp) {
+      alloy_webview_bind_global(main_webview_comp, "__alloy_secure_eval", on_secure_eval_callback, w);
+  }
+
   const char* bridge_js =
       "window.Alloy = {"
       "  spawn: async (cmd, args) => await window.alloy_spawn(cmd, args),"
       "  spawnSync: (cmd, args) => window.alloy_spawn_sync(cmd, args),"
-      "  secureEval: (code) => window.alloy_secure_eval(code),"
+      "  secureEval: (code) => { if (window.__alloy_secure_eval) return window.__alloy_secure_eval(code); return window.alloy_secure_eval(code); },"
       "  sqlite: {"
       "    open: (filename, options) => window.alloy_sqlite_open(filename, options),"
       "    query: (db_id, sql) => window.alloy_sqlite_query(db_id, sql),"

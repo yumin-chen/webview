@@ -29,6 +29,12 @@ public:
   virtual bool          get_visible()                      = 0;
   virtual alloy_error_t set_style(const alloy_style_t &s)  = 0;
 
+  virtual alloy_error_t bind_global(const char *name,
+                                     void (*cb)(const char *, void *),
+                                     void *ud) {
+    return ALLOY_ERROR_NOT_SUPPORTED;
+  }
+
   virtual void *native_handle() = 0;
 
   void fire_event(alloy_event_type_t ev) {

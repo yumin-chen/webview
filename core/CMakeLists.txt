@@ -38,11 +38,52 @@ if(WEBVIEW_BUILD_SHARED_LIBRARY)
         src/components/switch.cpp
         src/components/tabview.cpp
         src/components/listview.cpp
-        src/components/treeview.cpp
-        src/components/webview.cpp
-        src/components/vstack.cpp
+        src/components/accordion.cpp
+        src/components/badge.cpp
+        src/components/button.cpp
+        src/components/card.cpp
+        src/components/checkbox.cpp
+        src/components/chip.cpp
+        src/components/codeeditor.cpp
+        src/components/colorpicker.cpp
+        src/components/combobox.cpp
+        src/components/contextmenu.cpp
+        src/components/datepicker.cpp
+        src/components/dialog.cpp
+        src/components/divider.cpp
+        src/components/filedialog.cpp
+        src/components/groupbox.cpp
         src/components/hstack.cpp
+        src/components/icon.cpp
+        src/components/image.cpp
+        src/components/label.cpp
+        src/components/link.cpp
+        src/components/listview.cpp
+        src/components/menu.cpp
+        src/components/menubar.cpp
+        src/components/popover.cpp
+        src/components/progressbar.cpp
+        src/components/radiobutton.cpp
+        src/components/rating.cpp
+        src/components/richtext.cpp
         src/components/scrollview.cpp
+        src/components/separator.cpp
+        src/components/slider.cpp
+        src/components/spinner.cpp
+        src/components/spinner_loading.cpp
+        src/components/splitter.cpp
+        src/components/statusbar.cpp
+        src/components/switch.cpp
+        src/components/tabview.cpp
+        src/components/textarea.cpp
+        src/components/textfield.cpp
+        src/components/timepicker.cpp
+        src/components/toolbar.cpp
+        src/components/tooltip.cpp
+        src/components/treeview.cpp
+        src/components/vstack.cpp
+        src/components/webview.cpp
+        src/components/window.cpp
     )
     target_link_libraries(webview_core_shared PUBLIC webview_core_headers)
     set_target_properties(webview_core_shared PROPERTIES
@@ -84,11 +125,52 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
         src/components/switch.cpp
         src/components/tabview.cpp
         src/components/listview.cpp
-        src/components/treeview.cpp
-        src/components/webview.cpp
-        src/components/vstack.cpp
+        src/components/accordion.cpp
+        src/components/badge.cpp
+        src/components/button.cpp
+        src/components/card.cpp
+        src/components/checkbox.cpp
+        src/components/chip.cpp
+        src/components/codeeditor.cpp
+        src/components/colorpicker.cpp
+        src/components/combobox.cpp
+        src/components/contextmenu.cpp
+        src/components/datepicker.cpp
+        src/components/dialog.cpp
+        src/components/divider.cpp
+        src/components/filedialog.cpp
+        src/components/groupbox.cpp
         src/components/hstack.cpp
+        src/components/icon.cpp
+        src/components/image.cpp
+        src/components/label.cpp
+        src/components/link.cpp
+        src/components/listview.cpp
+        src/components/menu.cpp
+        src/components/menubar.cpp
+        src/components/popover.cpp
+        src/components/progressbar.cpp
+        src/components/radiobutton.cpp
+        src/components/rating.cpp
+        src/components/richtext.cpp
         src/components/scrollview.cpp
+        src/components/separator.cpp
+        src/components/slider.cpp
+        src/components/spinner.cpp
+        src/components/spinner_loading.cpp
+        src/components/splitter.cpp
+        src/components/statusbar.cpp
+        src/components/switch.cpp
+        src/components/tabview.cpp
+        src/components/textarea.cpp
+        src/components/textfield.cpp
+        src/components/timepicker.cpp
+        src/components/toolbar.cpp
+        src/components/tooltip.cpp
+        src/components/treeview.cpp
+        src/components/vstack.cpp
+        src/components/webview.cpp
+        src/components/window.cpp
     )
     target_link_libraries(webview_core_static PUBLIC webview_core_headers)
     set_target_properties(webview_core_static PROPERTIES
