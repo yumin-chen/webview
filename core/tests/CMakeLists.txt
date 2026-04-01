@@ -12,7 +12,7 @@ webview_discover_tests(webview_core_functional_tests
     TIMEOUT_AFTER_MATCH 300 "[[slow]]")
 
 add_executable(webview_core_unit_tests)
-target_sources(webview_core_unit_tests PRIVATE src/unit_tests.cc)
-target_link_libraries(webview_core_unit_tests PRIVATE webview::core webview_test_driver)
+target_sources(webview_core_unit_tests PRIVATE src/unit_tests.cc src/meta_tests.cc)
+target_link_libraries(webview_core_unit_tests PRIVATE webview::core webview_test_driver util)
 webview_discover_tests(webview_core_unit_tests
     TIMEOUT 10)
