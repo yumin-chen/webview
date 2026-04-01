@@ -445,7 +445,10 @@ public:
                                           const std::map<std::string, std::string> &env = {},
                                           bool use_ipc = false,
                                           int timeout_ms = 0,
-                                          int kill_signal = 15) {
+                                          int kill_signal = 15,
+                                          const std::string &stdin_redir = "",
+                                          const std::string &stdout_redir = "",
+                                          const std::string &stderr_redir = "") {
     auto state = std::make_shared<shared_state>();
 #ifdef _WIN32
     (void)use_ipc; (void)kill_signal; (void)timeout_ms;
@@ -483,13 +486,32 @@ public:
 #else
     (void)env;
     int stdin_pipe[2], stdout_pipe[2], stderr_pipe[2], ipc_socket[2];
-    if (pipe(stdin_pipe) == -1 || pipe(stdout_pipe) == -1 || pipe(stderr_pipe) == -1) return nullptr;
+
+    auto open_redir = [](const std::string &redir, int flags, int mode) -> int {
+        if (redir.substr(0, 5) == "file:") {
+            return open(redir.substr(5).c_str(), flags, mode);
+        }
+        return -1;
+    };
+
+    int redir_in = open_redir(stdin_redir, O_RDONLY, 0);
+    int redir_out = open_redir(stdout_redir, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int redir_err = open_redir(stderr_redir, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    if (redir_in == -1 && pipe(stdin_pipe) == -1) return nullptr;
+    if (redir_out == -1 && pipe(stdout_pipe) == -1) return nullptr;
+    if (redir_err == -1 && pipe(stderr_pipe) == -1) return nullptr;
     if (use_ipc && socketpair(AF_UNIX, SOCK_STREAM, 0, ipc_socket) == -1) return nullptr;
     pid_t pid = fork();
     if (pid == -1) return nullptr;
     if (pid == 0) {
-      dup2(stdin_pipe[0], STDIN_FILENO); dup2(stdout_pipe[1], STDOUT_FILENO); dup2(stderr_pipe[1], STDERR_FILENO);
-      close(stdin_pipe[0]); close(stdin_pipe[1]); close(stdout_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[0]); close(stderr_pipe[1]);
+      if (redir_in != -1) dup2(redir_in, STDIN_FILENO); else dup2(stdin_pipe[0], STDIN_FILENO);
+      if (redir_out != -1) dup2(redir_out, STDOUT_FILENO); else dup2(stdout_pipe[1], STDOUT_FILENO);
+      if (redir_err != -1) dup2(redir_err, STDERR_FILENO); else dup2(stderr_pipe[1], STDERR_FILENO);
+
+      if (redir_in == -1) { close(stdin_pipe[0]); close(stdin_pipe[1]); } else close(redir_in);
+      if (redir_out == -1) { close(stdout_pipe[0]); close(stdout_pipe[1]); } else close(redir_out);
+      if (redir_err == -1) { close(stderr_pipe[0]); close(stderr_pipe[1]); } else close(redir_err);
       if (use_ipc) { dup2(ipc_socket[1], 3); close(ipc_socket[0]); close(ipc_socket[1]); }
       if (!cwd.empty()) (void)chdir(cwd.c_str());
       for (auto const& [key, val] : env) setenv(key.c_str(), val.c_str(), 1);
@@ -502,9 +524,16 @@ public:
       }
       _exit(127);
     }
-    close(stdin_pipe[0]); close(stdout_pipe[1]); close(stderr_pipe[1]);
+    if (redir_in == -1) close(stdin_pipe[0]); else close(redir_in);
+    if (redir_out == -1) close(stdout_pipe[1]); else close(redir_out);
+    if (redir_err == -1) close(stderr_pipe[1]); else close(redir_err);
+
     if (use_ipc) close(ipc_socket[1]);
-    state->pid = pid; state->stdin_fd = stdin_pipe[1]; state->stdout_fd = stdout_pipe[0]; state->stderr_fd = stderr_pipe[0]; if (use_ipc) state->ipc_fd = ipc_socket[0];
+    state->pid = pid;
+    state->stdin_fd = (redir_in == -1) ? stdin_pipe[1] : -1;
+    state->stdout_fd = (redir_out == -1) ? stdout_pipe[0] : -1;
+    state->stderr_fd = (redir_err == -1) ? stderr_pipe[0] : -1;
+    if (use_ipc) state->ipc_fd = ipc_socket[0];
 #endif
     return state;
   }
@@ -563,10 +592,13 @@ public:
         if (state->on_exit) state->on_exit(state->exit_code, 0);
 #else
         struct pollfd fds[3];
-        fds[0].fd = state->stdout_fd; fds[0].events = POLLIN;
-        fds[1].fd = state->stderr_fd; fds[1].events = POLLIN;
+        fds[0].fd = state->stdout_fd; fds[0].events = (state->stdout_fd != -1) ? POLLIN : 0;
+        fds[1].fd = state->stderr_fd; fds[1].events = (state->stderr_fd != -1) ? POLLIN : 0;
         fds[2].fd = state->ipc_fd; fds[2].events = (state->ipc_fd != -1) ? POLLIN : 0;
-        char buffer[4096]; bool out_eof = false, err_eof = false, ipc_eof = (state->ipc_fd == -1);
+        char buffer[4096];
+        bool out_eof = (state->stdout_fd == -1);
+        bool err_eof = (state->stderr_fd == -1);
+        bool ipc_eof = (state->ipc_fd == -1);
         auto startTime = std::chrono::steady_clock::now();
         while (state->monitoring && (!out_eof || !err_eof || !ipc_eof)) {
             if (timeout_ms > 0) {
@@ -601,6 +633,7 @@ public:
                 }
             }
             if (state->exited && out_eof && err_eof && ipc_eof) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         if (!state->exited) {
             int status; if (waitpid(state->pid, &status, 0) == state->pid) {

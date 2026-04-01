@@ -1,0 +1,235 @@
+[0/2] Re-checking globbed directories...
+[1/19] Building CXX object core/CMakeFiles/webview_core_static.dir/src/webview.cc.o
+FAILED: core/CMakeFiles/webview_core_static.dir/src/webview.cc.o
+/usr/bin/c++ -DWEBVIEW_STATIC -I/app/core/include -I/app/deps/sqlite -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT core/CMakeFiles/webview_core_static.dir/src/webview.cc.o -MF core/CMakeFiles/webview_core_static.dir/src/webview.cc.o.d -o core/CMakeFiles/webview_core_static.dir/src/webview.cc.o -c /app/core/src/webview.cc
+In file included from /app/core/include/webview/detail/backends/../engine_base.hh:35,
+                 from /app/core/include/webview/detail/backends/gtk_webkitgtk.hh:50,
+                 from /app/core/include/webview/backends.hh:32,
+                 from /app/core/include/webview/c_api_impl.hh:31,
+                 from /app/core/include/webview/webview.h:30,
+                 from /app/core/src/webview.cc:1:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:447:47: warning: unused parameter ‘timeout_ms’ [-Wunused-parameter]
+  447 |                                           int timeout_ms = 0,
+      |                                           ~~~~^~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:448:47: warning: unused parameter ‘kill_signal’ [-Wunused-parameter]
+  448 |                                           int kill_signal = 15,
+      |                                           ~~~~^~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh: In lambda function:
+/app/core/include/webview/detail/backends/../engine_base.hh:231:17: error: conflicting declaration ‘auto stdio_json’
+  231 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh:229:17: note: previous declaration as ‘std::__cxx11::basic_string<char> stdio_json’
+  229 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:516:36: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  516 |       if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                               ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In lambda function:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:554:26: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  554 |               (void)write(state->stdin_fd, data.c_str(), data.size());
+      |                     ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘webview::detail::alloyscript_runtime::shell_result webview::detail::alloyscript_runtime::shell(const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:712:24: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  712 |             (void)chdir(cwd.c_str());
+      |                   ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:756:42: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  756 |             if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                                     ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘void webview::detail::alloyscript_runtime::terminal_state::write(const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:165:43: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  165 |         if (master_fd != -1) (void)::write(master_fd, data.c_str(), data.size());
+      |                                    ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2/19] Building CXX object core/tests/CMakeFiles/webview_core_unit_tests.dir/src/unit_tests.cc.o
+FAILED: core/tests/CMakeFiles/webview_core_unit_tests.dir/src/unit_tests.cc.o
+/usr/bin/c++  -I/app/core/include -I/app/deps/sqlite -I/app/test_driver/include -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++17 -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT core/tests/CMakeFiles/webview_core_unit_tests.dir/src/unit_tests.cc.o -MF core/tests/CMakeFiles/webview_core_unit_tests.dir/src/unit_tests.cc.o.d -o core/tests/CMakeFiles/webview_core_unit_tests.dir/src/unit_tests.cc.o -c /app/core/tests/src/unit_tests.cc
+In file included from /app/core/include/webview/detail/backends/../engine_base.hh:35,
+                 from /app/core/include/webview/detail/backends/gtk_webkitgtk.hh:50,
+                 from /app/core/include/webview/backends.hh:32,
+                 from /app/core/include/webview/c_api_impl.hh:31,
+                 from /app/core/include/webview/webview.h:30,
+                 from /app/core/tests/src/unit_tests.cc:2:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:447:47: warning: unused parameter ‘timeout_ms’ [-Wunused-parameter]
+  447 |                                           int timeout_ms = 0,
+      |                                           ~~~~^~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:448:47: warning: unused parameter ‘kill_signal’ [-Wunused-parameter]
+  448 |                                           int kill_signal = 15,
+      |                                           ~~~~^~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh: In lambda function:
+/app/core/include/webview/detail/backends/../engine_base.hh:231:17: error: conflicting declaration ‘auto stdio_json’
+  231 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh:229:17: note: previous declaration as ‘std::__cxx11::basic_string<char> stdio_json’
+  229 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+[3/19] Building CXX object core/CMakeFiles/webview_core_shared.dir/src/webview.cc.o
+FAILED: core/CMakeFiles/webview_core_shared.dir/src/webview.cc.o
+/usr/bin/c++ -DWEBVIEW_BUILD_SHARED -Dwebview_core_shared_EXPORTS -I/app/core/include -I/app/deps/sqlite -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT core/CMakeFiles/webview_core_shared.dir/src/webview.cc.o -MF core/CMakeFiles/webview_core_shared.dir/src/webview.cc.o.d -o core/CMakeFiles/webview_core_shared.dir/src/webview.cc.o -c /app/core/src/webview.cc
+In file included from /app/core/include/webview/detail/backends/../engine_base.hh:35,
+                 from /app/core/include/webview/detail/backends/gtk_webkitgtk.hh:50,
+                 from /app/core/include/webview/backends.hh:32,
+                 from /app/core/include/webview/c_api_impl.hh:31,
+                 from /app/core/include/webview/webview.h:30,
+                 from /app/core/src/webview.cc:1:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:447:47: warning: unused parameter ‘timeout_ms’ [-Wunused-parameter]
+  447 |                                           int timeout_ms = 0,
+      |                                           ~~~~^~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:448:47: warning: unused parameter ‘kill_signal’ [-Wunused-parameter]
+  448 |                                           int kill_signal = 15,
+      |                                           ~~~~^~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh: In lambda function:
+/app/core/include/webview/detail/backends/../engine_base.hh:231:17: error: conflicting declaration ‘auto stdio_json’
+  231 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh:229:17: note: previous declaration as ‘std::__cxx11::basic_string<char> stdio_json’
+  229 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:516:36: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  516 |       if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                               ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In lambda function:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:554:26: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  554 |               (void)write(state->stdin_fd, data.c_str(), data.size());
+      |                     ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘webview::detail::alloyscript_runtime::shell_result webview::detail::alloyscript_runtime::shell(const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:712:24: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  712 |             (void)chdir(cwd.c_str());
+      |                   ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:756:42: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  756 |             if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                                     ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘void webview::detail::alloyscript_runtime::terminal_state::write(const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:165:43: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  165 |         if (master_fd != -1) (void)::write(master_fd, data.c_str(), data.size());
+      |                                    ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[4/19] Building CXX object core/tests/CMakeFiles/webview_core_functional_tests.dir/src/functional_tests.cc.o
+FAILED: core/tests/CMakeFiles/webview_core_functional_tests.dir/src/functional_tests.cc.o
+/usr/bin/c++  -I/app/core/include -I/app/deps/sqlite -I/app/test_driver/include -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++17 -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT core/tests/CMakeFiles/webview_core_functional_tests.dir/src/functional_tests.cc.o -MF core/tests/CMakeFiles/webview_core_functional_tests.dir/src/functional_tests.cc.o.d -o core/tests/CMakeFiles/webview_core_functional_tests.dir/src/functional_tests.cc.o -c /app/core/tests/src/functional_tests.cc
+In file included from /app/core/include/webview/detail/backends/../engine_base.hh:35,
+                 from /app/core/include/webview/detail/backends/gtk_webkitgtk.hh:50,
+                 from /app/core/include/webview/backends.hh:32,
+                 from /app/core/include/webview/c_api_impl.hh:31,
+                 from /app/core/include/webview/webview.h:30,
+                 from /app/core/tests/src/functional_tests.cc:9:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:447:47: warning: unused parameter ‘timeout_ms’ [-Wunused-parameter]
+  447 |                                           int timeout_ms = 0,
+      |                                           ~~~~^~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:448:47: warning: unused parameter ‘kill_signal’ [-Wunused-parameter]
+  448 |                                           int kill_signal = 15,
+      |                                           ~~~~^~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh: In lambda function:
+/app/core/include/webview/detail/backends/../engine_base.hh:231:17: error: conflicting declaration ‘auto stdio_json’
+  231 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh:229:17: note: previous declaration as ‘std::__cxx11::basic_string<char> stdio_json’
+  229 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:516:36: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  516 |       if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                               ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In lambda function:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:554:26: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  554 |               (void)write(state->stdin_fd, data.c_str(), data.size());
+      |                     ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘webview::detail::alloyscript_runtime::shell_result webview::detail::alloyscript_runtime::shell(const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:712:24: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  712 |             (void)chdir(cwd.c_str());
+      |                   ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:756:42: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  756 |             if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                                     ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘void webview::detail::alloyscript_runtime::terminal_state::write(const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:165:43: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  165 |         if (master_fd != -1) (void)::write(master_fd, data.c_str(), data.size());
+      |                                    ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[5/19] Building CXX object examples/CMakeFiles/webview_example_basic_cc.dir/basic.cc.o
+FAILED: examples/CMakeFiles/webview_example_basic_cc.dir/basic.cc.o
+/usr/bin/c++  -I/app/core/include -I/app/deps/sqlite -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++17 -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT examples/CMakeFiles/webview_example_basic_cc.dir/basic.cc.o -MF examples/CMakeFiles/webview_example_basic_cc.dir/basic.cc.o.d -o examples/CMakeFiles/webview_example_basic_cc.dir/basic.cc.o -c /app/examples/basic.cc
+In file included from /app/core/include/webview/detail/backends/../engine_base.hh:35,
+                 from /app/core/include/webview/detail/backends/gtk_webkitgtk.hh:50,
+                 from /app/core/include/webview/backends.hh:32,
+                 from /app/core/include/webview/c_api_impl.hh:31,
+                 from /app/core/include/webview/webview.h:30,
+                 from /app/examples/basic.cc:1:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:447:47: warning: unused parameter ‘timeout_ms’ [-Wunused-parameter]
+  447 |                                           int timeout_ms = 0,
+      |                                           ~~~~^~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:448:47: warning: unused parameter ‘kill_signal’ [-Wunused-parameter]
+  448 |                                           int kill_signal = 15,
+      |                                           ~~~~^~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh: In lambda function:
+/app/core/include/webview/detail/backends/../engine_base.hh:231:17: error: conflicting declaration ‘auto stdio_json’
+  231 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh:229:17: note: previous declaration as ‘std::__cxx11::basic_string<char> stdio_json’
+  229 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:516:36: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  516 |       if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                               ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In lambda function:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:554:26: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  554 |               (void)write(state->stdin_fd, data.c_str(), data.size());
+      |                     ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘webview::detail::alloyscript_runtime::shell_result webview::detail::alloyscript_runtime::shell(const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:712:24: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  712 |             (void)chdir(cwd.c_str());
+      |                   ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:756:42: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  756 |             if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                                     ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘void webview::detail::alloyscript_runtime::terminal_state::write(const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:165:43: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  165 |         if (master_fd != -1) (void)::write(master_fd, data.c_str(), data.size());
+      |                                    ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[6/19] Building CXX object examples/CMakeFiles/webview_example_bind_cc.dir/bind.cc.o
+FAILED: examples/CMakeFiles/webview_example_bind_cc.dir/bind.cc.o
+/usr/bin/c++  -I/app/core/include -I/app/deps/sqlite -isystem /usr/include/webkitgtk-4.1 -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/gtk-3.0 -isystem /usr/include/pango-1.0 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -isystem /usr/include/libpng16 -isystem /usr/include/libmount -isystem /usr/include/blkid -isystem /usr/include/fribidi -isystem /usr/include/cairo -isystem /usr/include/pixman-1 -isystem /usr/include/gdk-pixbuf-2.0 -isystem /usr/include/webp -isystem /usr/include/gio-unix-2.0 -isystem /usr/include/atk-1.0 -isystem /usr/include/at-spi2-atk/2.0 -isystem /usr/include/at-spi-2.0 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libsoup-3.0 -isystem /usr/include/sysprof-6 -O3 -DNDEBUG -std=c++17 -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -pthread -MD -MT examples/CMakeFiles/webview_example_bind_cc.dir/bind.cc.o -MF examples/CMakeFiles/webview_example_bind_cc.dir/bind.cc.o.d -o examples/CMakeFiles/webview_example_bind_cc.dir/bind.cc.o -c /app/examples/bind.cc
+In file included from /app/core/include/webview/detail/backends/../engine_base.hh:35,
+                 from /app/core/include/webview/detail/backends/gtk_webkitgtk.hh:50,
+                 from /app/core/include/webview/backends.hh:32,
+                 from /app/core/include/webview/c_api_impl.hh:31,
+                 from /app/core/include/webview/webview.h:30,
+                 from /app/examples/bind.cc:1:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:447:47: warning: unused parameter ‘timeout_ms’ [-Wunused-parameter]
+  447 |                                           int timeout_ms = 0,
+      |                                           ~~~~^~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:448:47: warning: unused parameter ‘kill_signal’ [-Wunused-parameter]
+  448 |                                           int kill_signal = 15,
+      |                                           ~~~~^~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh: In lambda function:
+/app/core/include/webview/detail/backends/../engine_base.hh:231:17: error: conflicting declaration ‘auto stdio_json’
+  231 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../engine_base.hh:229:17: note: previous declaration as ‘std::__cxx11::basic_string<char> stdio_json’
+  229 |            auto stdio_json = json_parse(options_json, "stdio", 0);
+      |                 ^~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘std::shared_ptr<webview::detail::alloyscript_runtime::shared_state> webview::detail::alloyscript_runtime::spawn(const std::vector<std::__cxx11::basic_string<char> >&, const std::string&, const std::map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >&, bool, int, int, const std::string&, const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:516:36: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  516 |       if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                               ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In lambda function:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:554:26: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  554 |               (void)write(state->stdin_fd, data.c_str(), data.size());
+      |                     ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘webview::detail::alloyscript_runtime::shell_result webview::detail::alloyscript_runtime::shell(const std::string&, const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:712:24: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  712 |             (void)chdir(cwd.c_str());
+      |                   ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:756:42: warning: ignoring return value of ‘int chdir(const char*)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  756 |             if (!cwd.empty()) (void)chdir(cwd.c_str());
+      |                                     ~~~~~^~~~~~~~~~~~~
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh: In member function ‘void webview::detail::alloyscript_runtime::terminal_state::write(const std::string&)’:
+/app/core/include/webview/detail/backends/../alloyscript_runtime.hh:165:43: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  165 |         if (master_fd != -1) (void)::write(master_fd, data.c_str(), data.size());
+      |                                    ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ninja: build stopped: subcommand failed.

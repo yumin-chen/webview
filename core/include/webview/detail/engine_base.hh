@@ -225,6 +225,19 @@ protected:
            }
 
            std::string cwd = json_parse(options_json, "cwd", 0);
+
+           std::string stdin_redir, stdout_redir, stderr_redir;
+           auto stdio_json = json_parse(options_json, "stdio", 0);
+           if (!stdio_json.empty()) {
+               stdin_redir = json_parse(stdio_json, "", 0);
+               stdout_redir = json_parse(stdio_json, "", 1);
+               stderr_redir = json_parse(stdio_json, "", 2);
+           } else {
+               stdin_redir = json_parse(options_json, "stdin", 0);
+               stdout_redir = json_parse(options_json, "stdout", 0);
+               stderr_redir = json_parse(options_json, "stderr", 0);
+           }
+
            int timeout = 0;
            std::string timeout_str = json_parse(options_json, "timeout", 0);
            if (!timeout_str.empty()) timeout = std::stoi(timeout_str);
@@ -255,7 +268,7 @@ protected:
            }
            bool use_ipc = !json_parse(options_json, "ipc", 0).empty();
 
-           auto state = m_alloy.spawn(args, cwd, env, use_ipc, timeout, kill_sig);
+           auto state = m_alloy.spawn(args, cwd, env, use_ipc, timeout, kill_sig, stdin_redir, stdout_redir, stderr_redir);
            if (!state) {
              resolve(seq, 1, "null");
              return;
@@ -976,8 +989,31 @@ protected:
       }
   };
 
+  const ArrayBufferSink = function() {
+      this._chunks = [];
+      this._options = {};
+      this.start = (options) => { this._options = options || {}; };
+      this.write = (chunk) => {
+          if (typeof chunk === 'string') chunk = new TextEncoder().encode(chunk);
+          else if (chunk instanceof ArrayBuffer || chunk instanceof SharedArrayBuffer) chunk = new Uint8Array(chunk);
+          this._chunks.push(chunk);
+          return chunk.byteLength;
+      };
+      this.flush = () => {
+          const totalLen = this._chunks.reduce((acc, c) => acc + c.byteLength, 0);
+          const buf = new Uint8Array(totalLen);
+          let offset = 0;
+          for (const c of this._chunks) { buf.set(c, offset); offset += c.byteLength; }
+          this._chunks = [];
+          return this._options.asUint8Array ? buf : buf.buffer;
+      };
+      this.end = () => this.flush();
+  };
+
   const Alloy = {
     $: $,
+    ArrayBufferSink: ArrayBufferSink,
+    file: (path) => ({ type: "file", path: path }),
     sqlite: { Database: Database },
     gui: Object.assign(gui, {
         fileOpen: (parent, title) => window.Alloy_guiDialogFileOpen(parent.id, title),
@@ -989,7 +1025,15 @@ protected:
           options = cmd;
           cmd = options.cmd;
       }
-      const id = await window.Alloy_spawn(cmd, options || {});
+      const opts = Object.assign({}, options);
+      if (opts.stdin instanceof ReadableStream) {
+          opts._stdinStream = opts.stdin;
+          opts.stdin = "pipe";
+      } else if (opts.stdin && opts.stdin.type === "file") {
+          opts.stdin = "file:" + opts.stdin.path;
+      }
+
+      const id = await window.Alloy_spawn(cmd, opts);
       if (id === "null") return null;
       const proc = {
         pid: id,
@@ -1029,6 +1073,17 @@ protected:
       if (options && options.onExit) proc._onExitCb = options.onExit;
       if (options && options.signal) {
           options.signal.addEventListener("abort", () => proc.kill(options.killSignal || 15));
+      }
+      if (opts._stdinStream) {
+          const reader = opts._stdinStream.getReader();
+          (async () => {
+              while (true) {
+                  const {done, value} = await reader.read();
+                  if (done) break;
+                  proc.stdin.write(value);
+              }
+              proc.stdin.end();
+          })();
       }
       this._subprocesses[id] = proc;
       return proc;
@@ -1084,6 +1139,34 @@ protected:
         }
     }
   };
+  const originalReadableStream = window.ReadableStream;
+  window.ReadableStream = function(underlyingSource, strategy) {
+      if (underlyingSource && underlyingSource.type === "direct") {
+          const controller = {
+              write: (chunk) => underlyingSource.pull(controller)
+          };
+          // Simplified direct stream for this environment
+          return new originalReadableStream({
+              start(c) { underlyingSource.pull({ write: (v) => c.enqueue(v) }); c.close(); }
+          });
+      }
+      return new originalReadableStream(underlyingSource, strategy);
+  };
+
+  const originalResponse = window.Response;
+  window.Response = function(body, init) {
+      if (body && body[Symbol.asyncIterator]) {
+          const stream = new originalReadableStream({
+              async start(controller) {
+                  for await (const chunk of body) controller.enqueue(chunk);
+                  controller.close();
+              }
+          });
+          return new originalResponse(stream, init);
+      }
+      return new originalResponse(body, init);
+  };
+
   window.Alloy = Alloy;
 
   // Simple module loader polyfill

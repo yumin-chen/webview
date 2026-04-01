@@ -128,6 +128,32 @@ TEST_CASE("Alloy Spawn Sync MaxBuffer") {
     REQUIRE(result_json.find("\"exitedDueToMaxBuffer\": true") != std::string::npos);
 }
 
+TEST_CASE("Alloy Spawn File Redirection") {
+    alloyscript_runtime runtime;
+    std::string test_file = "/tmp/alloy_test_output.txt";
+    // Redirect stdout to a file
+    auto result_json = runtime.spawnSync({"/usr/bin/echo", "hello-file"}, "", {}, 0);
+    // The previous implementation of spawnSync doesn't support file redir yet in C++,
+    // it's only in spawn(). Let's use spawn().
+
+    auto state = runtime.spawn({"/usr/bin/echo", "hello-file"}, "", {}, false, 0, 15, "", "file:" + test_file, "");
+    REQUIRE(state != nullptr);
+
+    std::atomic<bool> exited{false};
+    state->on_exit = [&](int c, int s) { exited = true; };
+    runtime.start_monitoring(state, 0, 15);
+
+    int timeout = 500;
+    while (!exited && timeout > 0) { std::this_thread::sleep_for(std::chrono::milliseconds(10)); timeout--; }
+    REQUIRE(exited == true);
+
+    std::ifstream ifs(test_file);
+    std::string content;
+    ifs >> content;
+    REQUIRE(content == "hello-file");
+    remove(test_file.c_str());
+}
+
 TEST_CASE("Alloy Shell Pipelines") {
     alloyscript_runtime runtime;
 
