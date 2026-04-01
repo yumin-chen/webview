@@ -118,6 +118,21 @@ void alloy_transpiler_transform_handler(const char *id, const char *req, void *a
     }
 }
 
+void alloy_transpiler_scan_handler(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    std::string request(req);
+    int tid = std::stoi(webview::detail::json_parse(request, "", 0));
+    std::string code = webview::detail::json_parse(request, "", 1);
+
+    char *result = NULL;
+    if (alloy_transpiler_scan(g_transpilers[tid], code.c_str(), &result) == ALLOY_OK) {
+        webview_return(w, id, 0, result);
+        free(result);
+    } else {
+        webview_return(w, id, 1, "Scan failed");
+    }
+}
+
 // --- SQLite Backend ---
 
 extern "C" void alloy_sqlite_open(const char *id, const char *req, void *arg) {
@@ -401,6 +416,7 @@ int main(void) {
   webview_bind(w, "alloy_build", alloy_build, w);
   webview_bind(w, "alloy_transpiler_create", alloy_transpiler_create_handler, w);
   webview_bind(w, "alloy_transpiler_transform", alloy_transpiler_transform_handler, w);
+  webview_bind(w, "alloy_transpiler_scan", alloy_transpiler_scan_handler, w);
 
   // GUI bindings
   webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
@@ -447,6 +463,8 @@ int main(void) {
       "    constructor(options) { this.id = window.alloy_transpiler_create(JSON.stringify(options)); }"
       "    transformSync(code, loader) { return window.alloy_transpiler_transform(this.id, code, loader); }"
       "    async transform(code, loader) { return Promise.resolve(this.transformSync(code, loader)); }"
+      "    scan(code) { return JSON.parse(window.alloy_transpiler_scan(this.id, code)); }"
+      "    scanImports(code) { return this.scan(code).imports; }"
       "  }"
       "};"
       "window._forbidden_eval = window.eval;"

@@ -1,28 +1,11 @@
 #include "alloy/api.h"
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
 // MicroQuickJS (mquickjs) mock implementation for bytecode compilation.
-// In the final build, this would link against the actual mquickjs core.
+// In the final build, this would link against the actual mquickjs core JS_Compile.
 extern "C" {
-
-alloy_error_t alloy_build_bytecode(const char *source,
-                                    unsigned char **out_bytecode,
-                                    size_t *out_len) {
-    if (!source || !out_bytecode || !out_len) return ALLOY_ERROR_INVALID_ARGUMENT;
-
-    // Simulation of bytecode generation: "compiled:" + original source
-    const char *prefix = "compiled:";
-    size_t source_len = strlen(source);
-    size_t prefix_len = strlen(prefix);
-    *out_len = prefix_len + source_len;
-    *out_bytecode = (unsigned char*)malloc(*out_len);
-
-    memcpy(*out_bytecode, prefix, prefix_len);
-    memcpy(*out_bytecode + prefix_len, source, source_len);
-
-    return ALLOY_OK;
-}
 
 struct transpiler_impl {
     char *options;
@@ -51,6 +34,25 @@ alloy_error_t alloy_transpiler_scan(alloy_transpiler_t t,
     if (!t || !code || !out_json_result) return ALLOY_ERROR_INVALID_ARGUMENT;
     // Mock scan result
     *out_json_result = strdup("{\"exports\":[], \"imports\":[]}");
+    return ALLOY_OK;
+}
+
+// MicroQuickJS bytecode compiler implementation
+alloy_error_t alloy_build_bytecode(const char *source,
+                                    unsigned char **out_bytecode,
+                                    size_t *out_len) {
+    if (!source || !out_bytecode || !out_len) return ALLOY_ERROR_INVALID_ARGUMENT;
+
+    // In production, this calls the MicroQuickJS core API:
+    // JSContext *ctx = ...;
+    // JSValue obj = JS_Compile(ctx, source, strlen(source), "<input>", JS_PARSE_MODE_MODULE);
+    // *out_bytecode = JS_WriteObject(ctx, out_len, obj, JS_WRITE_OBJ_BYTECODE);
+
+    std::string mock_bc = "mquickjs_bytecode:" + std::string(source);
+    *out_len = mock_bc.length();
+    *out_bytecode = (unsigned char*)malloc(*out_len);
+    memcpy(*out_bytecode, mock_bc.data(), *out_len);
+
     return ALLOY_OK;
 }
 
