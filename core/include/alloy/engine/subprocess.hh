@@ -1,5 +1,27 @@
-#ifndef WEBVIEW_DETAIL_SUBPROCESS_HH
-#define WEBVIEW_DETAIL_SUBPROCESS_HH
+/*
+ * AlloyScript Runtime - CC0 Unlicense Public Domain
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef ALLOY_ENGINE_SUBPROCESS_HH
+#define ALLOY_ENGINE_SUBPROCESS_HH
 
 #include <string>
 #include <vector>
@@ -17,9 +39,11 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <psapi.h>
 #else
 #include <spawn.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -33,8 +57,31 @@
 extern char **environ;
 #endif
 
-namespace webview {
-namespace detail {
+namespace alloy::engine {
+
+struct resource_usage {
+    struct {
+        long voluntary;
+        long involuntary;
+    } context_switches;
+    struct {
+        long user;   // microseconds
+        long system; // microseconds
+        long total;  // microseconds
+    } cpu_time;
+    long max_rss; // bytes
+    struct {
+        long sent;
+        long received;
+    } messages;
+    struct {
+        long in;
+        long out;
+    } ops;
+    long shm_size;
+    long signal_count;
+    long swap_count;
+};
 
 class subprocess {
 public:
@@ -148,6 +195,11 @@ public:
 #endif
     }
 
+    resource_usage get_resource_usage() {
+        std::lock_guard<std::mutex> lock(m_state->mutex);
+        return m_state->usage;
+    }
+
 private:
     struct shared_state {
         std::mutex mutex;
@@ -156,6 +208,7 @@ private:
         bool finished = false;
         int exit_code = -1;
         std::string signal_name = "";
+        resource_usage usage{};
     };
 
 #ifndef _WIN32
@@ -281,34 +334,92 @@ private:
         std::thread wait_thread([this, state, timeout, pid]() {
             int exit_status = -1;
             std::string signal_name = "";
+            resource_usage usage{};
+
 #ifdef _WIN32
             DWORD res = WaitForSingleObject(m_pi.hProcess, timeout > 0 ? timeout : INFINITE);
-            if (res == WAIT_TIMEOUT) { TerminateProcess(m_pi.hProcess, 15); exit_status = 15; signal_name = "SIGTERM"; }
-            else { DWORD dwExitCode; if (GetExitCodeProcess(m_pi.hProcess, &dwExitCode)) exit_status = static_cast<int>(dwExitCode); }
+            if (res == WAIT_TIMEOUT) {
+                TerminateProcess(m_pi.hProcess, 15);
+                exit_status = 15;
+                signal_name = "SIGTERM";
+            } else {
+                DWORD dwExitCode;
+                if (GetExitCodeProcess(m_pi.hProcess, &dwExitCode))
+                    exit_status = static_cast<int>(dwExitCode);
+            }
+            // Basic Windows resource usage
+            PROCESS_MEMORY_COUNTERS pmc;
+            if (GetProcessMemoryInfo(m_pi.hProcess, &pmc, sizeof(pmc))) {
+                usage.max_rss = (long)pmc.PeakWorkingSetSize;
+            }
+            FILETIME createTime, exitTime, kernelTime, userTime;
+            if (GetProcessTimes(m_pi.hProcess, &createTime, &exitTime, &kernelTime, &userTime)) {
+                auto to_us = [](FILETIME ft) {
+                    ULARGE_INTEGER ui;
+                    ui.LowPart = ft.dwLowDateTime;
+                    ui.HighPart = ft.dwHighDateTime;
+                    return (long)(ui.QuadPart / 10);
+                };
+                usage.cpu_time.user = to_us(userTime);
+                usage.cpu_time.system = to_us(kernelTime);
+                usage.cpu_time.total = usage.cpu_time.user + usage.cpu_time.system;
+            }
 #else
+            struct rusage ru;
             if (timeout > 0) {
                 auto start = std::chrono::steady_clock::now();
                 while (true) {
-                    int status; int res = waitpid(m_pid, &status, WNOHANG);
+                    int status;
+                    int res = wait4(m_pid, &status, WNOHANG, &ru);
                     if (res > 0) {
-                        if (WIFEXITED(status)) exit_status = WEXITSTATUS(status);
-                        else if (WIFSIGNALED(status)) { exit_status = WTERMSIG(status); signal_name = "SIG" + std::to_string(exit_status); }
+                        if (WIFEXITED(status))
+                            exit_status = WEXITSTATUS(status);
+                        else if (WIFSIGNALED(status)) {
+                            exit_status = WTERMSIG(status);
+                            signal_name = "SIG" + std::to_string(exit_status);
+                        }
                         break;
                     }
                     if (std::chrono::steady_clock::now() - start > std::chrono::milliseconds(timeout)) {
-                        ::kill(m_pid, m_opts.kill_signal); signal_name = "SIGTERM"; break;
+                        ::kill(m_pid, m_opts.kill_signal);
+                        signal_name = "SIGTERM";
+                        // We still need to reap it to get rusage
+                        wait4(m_pid, &status, 0, &ru);
+                        exit_status = m_opts.kill_signal;
+                        break;
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 }
             } else {
-                int status; waitpid(m_pid, &status, 0);
-                if (WIFEXITED(status)) exit_status = WEXITSTATUS(status);
-                else if (WIFSIGNALED(status)) { exit_status = WTERMSIG(status); signal_name = "SIG" + std::to_string(exit_status); }
+                int status;
+                wait4(m_pid, &status, 0, &ru);
+                if (WIFEXITED(status))
+                    exit_status = WEXITSTATUS(status);
+                else if (WIFSIGNALED(status)) {
+                    exit_status = WTERMSIG(status);
+                    signal_name = "SIG" + std::to_string(exit_status);
+                }
             }
+            usage.cpu_time.user = ru.ru_utime.tv_sec * 1000000L + ru.ru_utime.tv_usec;
+            usage.cpu_time.system = ru.ru_stime.tv_sec * 1000000L + ru.ru_stime.tv_usec;
+            usage.cpu_time.total = usage.cpu_time.user + usage.cpu_time.system;
+            usage.max_rss = ru.ru_maxrss * 1024L; // ru_maxrss is in KB on Linux
+            usage.context_switches.voluntary = ru.ru_nvcsw;
+            usage.context_switches.involuntary = ru.ru_nivcsw;
+            usage.messages.sent = ru.ru_msgsnd;
+            usage.messages.received = ru.ru_msgrcv;
+            usage.ops.in = ru.ru_inblock;
+            usage.ops.out = ru.ru_oublock;
+            usage.signal_count = ru.ru_nsignals;
+            usage.swap_count = ru.ru_nswap;
 #endif
             std::lock_guard<std::mutex> lock(state->mutex);
-            state->exit_code = exit_status; state->signal_name = signal_name; state->finished = true;
-            if (state->on_exit) state->on_exit(exit_status, signal_name);
+            state->exit_code = exit_status;
+            state->signal_name = signal_name;
+            state->usage = usage;
+            state->finished = true;
+            if (state->on_exit)
+                state->on_exit(exit_status, signal_name);
         });
         wait_thread.detach();
     }
@@ -323,7 +434,6 @@ private:
     std::thread m_read_thread_stdout; std::thread m_read_thread_stderr;
 };
 
-} // namespace detail
-} // namespace webview
+} // namespace alloy::engine
 
-#endif // WEBVIEW_DETAIL_SUBPROCESS_HH
+#endif // ALLOY_ENGINE_SUBPROCESS_HH

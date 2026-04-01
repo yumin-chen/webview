@@ -1,5 +1,27 @@
-#ifndef WEBVIEW_DETAIL_SQLITE_HH
-#define WEBVIEW_DETAIL_SQLITE_HH
+/*
+ * AlloyScript Runtime - CC0 Unlicense Public Domain
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef ALLOY_ENGINE_SQLITE_HH
+#define ALLOY_ENGINE_SQLITE_HH
 
 #include <string>
 #include <vector>
@@ -7,10 +29,9 @@
 #include <memory>
 #include <sqlite3.h>
 #include <stdexcept>
-#include "json.hh"
+#include "webview/detail/json.hh"
 
-namespace webview {
-namespace detail {
+namespace alloy::engine {
 
 class sqlite_stmt {
 public:
@@ -33,7 +54,7 @@ public:
                 result += "\"" + std::string(sqlite3_column_name(m_stmt, i)) + "\":";
                 int type = sqlite3_column_type(m_stmt, i);
                 if (type == SQLITE_TEXT) {
-                    result += json_escape((const char*)sqlite3_column_text(m_stmt, i));
+                    result += webview::detail::json_escape((const char*)sqlite3_column_text(m_stmt, i));
                 } else if (type == SQLITE_INTEGER) {
                     long long val = sqlite3_column_int64(m_stmt, i);
                     if (safe_integers) result += "\"" + std::to_string(val) + "n\"";
@@ -138,7 +159,6 @@ private:
     sqlite3* m_db = nullptr;
 };
 
-} // namespace detail
-} // namespace webview
+} // namespace alloy::engine
 
-#endif // WEBVIEW_DETAIL_SQLITE_HH
+#endif // ALLOY_ENGINE_SQLITE_HH
