@@ -10,7 +10,7 @@ async function main() {
   try { mkdirSync(outDir, { recursive: true }); } catch (e) {}
 
   const result = await build({
-    entrypoints: [entrypoint], outdir: outDir, target: "browser", minify: false,
+    entrypoints: [entrypoint, "browser.ts"], outdir: outDir, target: "browser", minify: false,
     format: "esm",
     target: "quickjs",
     plugins: [

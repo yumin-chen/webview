@@ -63,14 +63,24 @@ public:
       JS_SetPropertyStr(m_qjs_ctx, *alloy_obj, "log",
           JS_NewCFunction(m_qjs_ctx, js_alloy_log, "log", 1));
 
-      // Bind a special function to call into WebView from QJS
-      JS_SetPropertyStr(m_qjs_ctx, *alloy_obj, "webviewEval",
+      // Structured Native Call bridge in MQuickJS
+      JS_SetPropertyStr(m_qjs_ctx, *alloy_obj, "nativeCall",
           JS_NewCFunction(m_qjs_ctx, [](JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) -> JSValue {
               auto engine = (engine_base*)JS_GetContextOpaque(ctx);
-              const char *js = JS_ToCString(ctx, argv[0]);
-              engine->eval(js); // Async eval in webview
+              const char *method = JS_ToCString(ctx, argv[0]);
+              const char *params = JS_ToCString(ctx, argv[1]);
+
+              // Internal routing: if method is for browser capabilities, forward to webview
+              if (std::string(method).find("browser.") == 0) {
+                  std::string js = std::string(method).substr(8) + "(" + params + ")";
+                  engine->eval(js);
+              } else if (std::string(method) == "core.getSecret") {
+                  return JS_NewString(ctx, engine->m_ipc_secret.c_str());
+              } else {
+                  // Handle other native calls (SQLite, Spawn, etc.)
+              }
               return JS_UNDEFINED;
-          }, "webviewEval", 1));
+          }, "nativeCall", 2));
 
       // Global Alloy binding in MQuickJS
       JS_DefinePropertyStr(m_qjs_ctx, *global_obj, "Alloy", *alloy_obj,
@@ -1522,17 +1532,23 @@ protected:
       }
       transformSync(code, loader) {
         let result = window.__alloy_transpiler_transform_sync(this.id, code, loader || this.options.loader);
-        if (this.options.target === 'AlloyScript') {
-            // Automatically wrap browser APIs to forward them to webview
-            const browserAPIs = ['fetch', 'localStorage', 'sessionStorage', 'indexedDB', 'cookieStore'];
+        const target = this.options.target;
+        if (target === 'AlloyScript' || target === 'browser') {
+            // Automatically wrap browser APIs to forward them to the host (WebView or Browser JS)
+            const browserAPIs = ['fetch', 'localStorage', 'sessionStorage', 'indexedDB', 'cookieStore', 'alert', 'confirm', 'prompt'];
             browserAPIs.forEach(api => {
                 const regex = new RegExp(`\\b${api}\\b`, 'g');
                 if (regex.test(result)) {
-                    result = `(function(){ const ${api} = function(...args){ return Alloy.webviewEval("${api}(" + args.map(a => JSON.stringify(a)).join(',') + ")"); }; ${result} })()`;
+                    const bridgeCall = target === 'AlloyScript'
+                        ? `Alloy.nativeCall("browser.${api}", JSON.stringify(args))`
+                        : `globalThis.${api}(...args)`; // Simplified for browser target
+                    result = `(function(){ const ${api} = function(...args){ return ${bridgeCall}; }; ${result} })()`;
                 }
             });
-            // Polyfill async/await if needed (simplified wrapper)
-            result = result.replace(/\bawait\b/g, '');
+            // Polyfill async/await if needed (simplified wrapper for MQuickJS)
+            if (target === 'AlloyScript') {
+                result = result.replace(/\bawait\b/g, '');
+            }
         }
         return result;
       }

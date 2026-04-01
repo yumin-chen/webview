@@ -7,6 +7,7 @@
   "devDependencies": {
     "@types/bun": "latest"
   },
+  "browser": "dist/browser.js",
   "peerDependencies": {
     "typescript": "^5"
   },
