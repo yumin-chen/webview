@@ -69,7 +69,13 @@ extern "C" void alloy_secure_eval(const char *id, const char *req, void *arg) {
 void on_secure_eval_callback(const char *json_args, void *userdata) {
     webview_t w = (webview_t)userdata;
     // Extract code from json_args and evaluate via MicroQuickJS
-    // Example: alloy_secure_eval("0", code, w);
+}
+
+void alloy_browser_api_proxy(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // Forward the Web API request to the Service WebView
+    // Format: { api: "fetch", args: [...] }
+    webview_eval(w, ("window.__alloy_service_webview_dispatch('" + std::string(req) + "')").c_str());
 }
 
 // --- SQLite Backend ---
@@ -351,6 +357,7 @@ int main(void) {
   webview_bind(w, "alloy_sqlite_run", alloy_sqlite_run, w);
   webview_bind(w, "alloy_sqlite_stmt_all", alloy_sqlite_stmt_all, w);
   webview_bind(w, "alloy_sqlite_close", alloy_sqlite_close, w);
+  webview_bind(w, "alloy_browser_api_proxy", alloy_browser_api_proxy, w);
 
   // GUI bindings
   webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
