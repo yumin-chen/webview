@@ -866,12 +866,20 @@ protected:
         auto code = json_parse(req, "", 0);
 #ifdef WEBVIEW_USE_MJS
         if (!m_mjs_ctx) {
-            m_mjs_ctx = JS_NewContext(JS_NewRuntime());
+            m_mjs_ctx = JS_NewContext(nullptr, 0, nullptr);
         }
         JSValue val = JS_Eval((JSContext*)m_mjs_ctx, code.c_str(), code.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
-        const char* str = JS_ToCString((JSContext*)m_mjs_ctx, val);
-        resolve(seq, 0, json_escape(str));
-        JS_FreeCString((JSContext*)m_mjs_ctx, str);
+        if (JS_IsException(val)) {
+            JSValue exc = JS_GetException((JSContext*)m_mjs_ctx);
+            const char* str = JS_ToCString((JSContext*)m_mjs_ctx, exc, nullptr);
+            resolve(seq, 1, json_escape(std::string("Secure Host Error: ") + str));
+            JS_FreeCString((JSContext*)m_mjs_ctx, str, nullptr);
+            JS_FreeValue((JSContext*)m_mjs_ctx, exc);
+        } else {
+            const char* str = JS_ToCString((JSContext*)m_mjs_ctx, val, nullptr);
+            resolve(seq, 0, json_escape(str));
+            JS_FreeCString((JSContext*)m_mjs_ctx, str, nullptr);
+        }
         JS_FreeValue((JSContext*)m_mjs_ctx, val);
 #else
         resolve(seq, 0, json_escape("Evaluated in secure host (mock): " + code));
@@ -989,7 +997,8 @@ protected:
   var methods = " +
               js_names + ";\n\
   methods.forEach(function(name) {\n\
-    window.__webview__.onBind(name);\n\
+    if (name.indexOf('.') !== -1) window.__webview__.onBindGlobal(name);\n\
+    else window.__webview__.onBind(name);\n\
   });\n\
 })()";
     return js;
