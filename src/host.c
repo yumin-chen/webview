@@ -148,9 +148,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
 #else
 int main(void) {
 #endif
-  webview_t w = webview_create(0, NULL);
-  webview_set_title(w, "AlloyScript Production Runtime");
-  webview_set_size(w, 800, 600, WEBVIEW_HINT_NONE);
+  webview_t w = webview_create(1, NULL); // Hidden by default
+  webview_set_title(w, "AlloyScript Secure Runtime");
+  webview_set_size(w, 1, 1, WEBVIEW_HINT_NONE); // Minimal size for hidden window
 
   webview_bind(w, "alloy_spawn", alloy_spawn, w);
   webview_bind(w, "alloy_spawn_sync", alloy_spawn_sync, w);

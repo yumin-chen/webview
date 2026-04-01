@@ -1,0 +1,15 @@
+# ninja log v5
+2526	2626	1775070728583622918	liballoy.a	93f0efc88ebd6bb7
+6	2526	1775070728487622919	CMakeFiles/alloy.dir/src/alloy/ipc.cpp.o	eecc3d789c266de2
+228	422	1775070726387622943	CMakeFiles/alloy_host.dir/src/host.c.o	a4c12e97d59435c8
+84	228	1775070726187622945	libmquickjs.a	eb4ce7e963602997
+2400	2487	1775070728447622920	libwebview_static.a	71609f4ede3dd459
+3	2398	1775070728359622921	CMakeFiles/webview_static.dir/core/src/webview.cc.o	abca48f63e166ca
+2	26	1775070567771624729	CMakeFiles/mquickjs.dir/core/mquickjs/mqjs_stdlib.c.o	8a10f174ff1ec5cd
+4	2402	1775070728359622921	CMakeFiles/alloy.dir/src/alloy/bindings.cpp.o	ef9a36368100a234
+1	112	1775070567859624728	CMakeFiles/mquickjs.dir/core/mquickjs/mquickjs.c.o	341216e588f285ed
+7	398	1775070726359622943	CMakeFiles/alloy.dir/src/alloy/eval.cpp.o	cca9c918317d67db
+3	83	1775070726051622947	CMakeFiles/mquickjs.dir/core/mquickjs/dtoa.c.o	22d5382433c85b87
+4	544	1775070726511622942	CMakeFiles/alloy.dir/src/alloy/crypto.cpp.o	8384e3440456d94a
+8	29	1775070787575622254	CMakeFiles/alloy_host.dir/src/bundle.c.o	b7e094fa6afe0a9c
+29	519	1775070788059622249	alloy_host	d8cd949c5139b11a
