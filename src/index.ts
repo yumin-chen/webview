@@ -22,13 +22,15 @@ export const secureEval = (code: string): string => {
 
 import { ArrayBufferSink } from "./streams";
 import { file, write, AlloyFile, FileSink } from "./file";
+import { Transpiler } from "./transpiler";
 
 export * from "./sqlite";
 export * from "./gui";
-export { ArrayBufferSink, AlloyFile, FileSink };
+export { ArrayBufferSink, AlloyFile, FileSink, Transpiler };
 
 export const Alloy = {
   ArrayBufferSink,
+  Transpiler,
   file,
   write,
   stdin: new AlloyFile(0),

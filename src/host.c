@@ -228,6 +228,20 @@ void alloy_file_delete(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, "0");
 }
 
+// --- Transpiler Bindings ---
+void alloy_transpiler_transform(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // req format: code;loader;options
+    // Implementation would call a C-based JS/TS transpiler
+    webview_return(w, id, 0, req); // Echo for now
+}
+
+void alloy_transpiler_scan(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // Returns dummy scan results
+    webview_return(w, id, 0, "{\"exports\":[], \"imports\":[]}");
+}
+
 // --- IPC Encryption (Draft) ---
 const char* IPC_SECRET = "alloy-secure-secret-123";
 
@@ -299,6 +313,8 @@ int main(void) {
   webview_bind(w, "alloy_file_write", alloy_file_write, w);
   webview_bind(w, "alloy_file_exists", alloy_file_exists, w);
   webview_bind(w, "alloy_file_delete", alloy_file_delete, w);
+  webview_bind(w, "alloy_transpiler_transform", alloy_transpiler_transform, w);
+  webview_bind(w, "alloy_transpiler_scan", alloy_transpiler_scan, w);
 
   const char* bridge_js =
       "window.Alloy = {"
@@ -327,7 +343,10 @@ int main(void) {
       "  file_read: (path, format) => window.alloy_file_read(path, format),"
       "  file_write: (path, data) => window.alloy_file_write(path, data),"
       "  file_exists: (path) => window.alloy_file_exists(path),"
-      "  file_delete: (path) => window.alloy_file_delete(path)"
+      "  file_delete: (path) => window.alloy_file_delete(path),"
+      "  transpiler_transform: async (code, loader, opt) => await window.alloy_transpiler_transform(code, loader, opt),"
+      "  transpiler_transform_sync: (code, loader, opt) => window.alloy_transpiler_transform(code, loader, opt),"
+      "  transpiler_scan: (code) => window.alloy_transpiler_scan(code)"
       "};"
       "globalThis._forbidden_eval = globalThis.eval;"
       "globalThis.eval = (code) => globalThis.Alloy.secureEval(code);"
