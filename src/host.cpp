@@ -333,7 +333,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
 #else
 int main(void) {
 #endif
+  // The Service WebView is hidden by default for security (defense in depth)
   webview_t w = webview_create(0, NULL);
+  void* native_window = webview_get_window(w);
+#if defined(_WIN32)
+  ShowWindow((HWND)native_window, SW_HIDE);
+#endif
+
   webview_set_title(w, "AlloyScript Production Runtime");
   webview_set_size(w, 800, 600, WEBVIEW_HINT_NONE);
 

@@ -35,6 +35,10 @@ public:
     return ALLOY_ERROR_NOT_SUPPORTED;
   }
 
+  virtual alloy_error_t secure_post(const char *encrypted_msg) {
+    return ALLOY_ERROR_NOT_SUPPORTED;
+  }
+
   virtual void *native_handle() = 0;
 
   void fire_event(alloy_event_type_t ev) {

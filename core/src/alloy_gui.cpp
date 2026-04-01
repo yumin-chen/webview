@@ -153,6 +153,12 @@ alloy_error_t alloy_webview_bind_global(alloy_component_t webview,
     return static_cast<alloy::detail::component_base*>(webview)->bind_global(name, callback, userdata);
 }
 
+alloy_error_t alloy_webview_secure_post(alloy_component_t webview,
+                                                   const char *encrypted_msg) {
+    if (!webview || !encrypted_msg) return ALLOY_ERROR_INVALID_ARGUMENT;
+    return static_cast<alloy::detail::component_base*>(webview)->secure_post(encrypted_msg);
+}
+
 alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
     if (!container || !child) return ALLOY_ERROR_INVALID_ARGUMENT;
     auto c = static_cast<alloy::detail::component_base*>(container);

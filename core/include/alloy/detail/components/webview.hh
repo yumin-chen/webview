@@ -18,6 +18,11 @@ public:
         // For now, this serves as the binding point.
         return ALLOY_OK;
     }
+
+    alloy_error_t secure_post(const char *encrypted_msg) override {
+        // Implementation for secure post to WebView2
+        return ALLOY_OK;
+    }
 };
 #elif defined(ALLOY_PLATFORM_DARWIN)
 class cocoa_webview_comp : public cocoa_component {
