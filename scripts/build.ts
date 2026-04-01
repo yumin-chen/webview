@@ -58,7 +58,7 @@ int main() {
   console.log("Success! host.cc generated.");
 
   console.log("Compiling host binary...");
-  const compileCmd = `g++ host.cc core/src/webview.cc core/src/alloy_gui.cc -o alloy-runtime -Icore/include -Icore/include/webview -Icore/include/alloy -lpthread -lsqlite3 $(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1) -std=c++11`;
+  const compileCmd = `g++ host.cc core/src/webview.cc core/src/alloy_gui.cc -o alloy-runtime -Icore/include -Icore/include/webview -Icore/include/alloy -Ibuild/_deps/yoga-src/yoga -lpthread -lsqlite3 build/_deps/yoga-build/libyoga.a $(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1) -std=c++11 -DWEBVIEW_PLATFORM_LINUX`;
   console.log(`Running: ${compileCmd}`);
   // In a real environment, we would execute this command.
   // For now, we simulate the output.

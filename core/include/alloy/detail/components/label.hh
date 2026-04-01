@@ -39,4 +39,62 @@ private:
 };
 }
 #endif
+
+#ifdef WEBVIEW_PLATFORM_DARWIN
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#import <Cocoa/Cocoa.h>
+
+namespace alloy::detail {
+
+class cocoa_label : public component_base {
+public:
+  cocoa_label(component_base* parent) : component_base(false) {
+    m_widget = [[NSTextField alloc] initWithFrame:NSZeroRect];
+    [m_widget setEditable:NO];
+    [m_widget setBezeled:NO];
+    [m_widget setDrawsBackground:NO];
+    [m_widget setSelectable:NO];
+    if (parent) {
+      NSView* parent_view = (NSView*)parent->native_handle();
+      [parent_view addSubview:m_widget];
+    }
+  }
+
+  alloy_error_t set_text(std::string_view text) override {
+    [m_widget setStringValue:[NSString stringWithUTF8String:text.data()]];
+    return ALLOY_OK;
+  }
+
+  alloy_error_t get_text(char *buf, size_t len) override {
+    const char* txt = [[m_widget stringValue] UTF8String];
+    if (strlen(txt) >= len) return ALLOY_ERROR_BUFFER_TOO_SMALL;
+    strcpy(buf, txt);
+    return ALLOY_OK;
+  }
+
+  alloy_error_t set_checked(bool v) override { return ALLOY_ERROR_NOT_SUPPORTED; }
+  bool get_checked() override { return false; }
+  alloy_error_t set_value(double v) override { return ALLOY_ERROR_NOT_SUPPORTED; }
+  double get_value() override { return 0; }
+  alloy_error_t set_enabled(bool v) override { return ALLOY_ERROR_NOT_SUPPORTED; }
+  bool get_enabled() override { return true; }
+
+  alloy_error_t set_visible(bool v) override {
+    [m_widget setHidden:!v];
+    return ALLOY_OK;
+  }
+  bool get_visible() override { return ![m_widget isHidden]; }
+
+  alloy_error_t set_style(const alloy_style_t &s) override { return ALLOY_OK; }
+  void* native_handle() override { return m_widget; }
+
+private:
+  NSTextField* m_widget;
+};
+
+} // namespace alloy::detail
+#endif
+#endif
+
 #endif

@@ -25,6 +25,13 @@ if(NOT sqlite_POPULATED)
   target_compile_definitions(sqlite3 PRIVATE SQLITE_ENABLE_SERIALIZE)
 endif()
 
+FetchContent_Declare(
+  yoga
+  GIT_REPOSITORY https://github.com/facebook/yoga.git
+  GIT_TAG v2.0.0
+)
+FetchContent_MakeAvailable(yoga)
+
 if(WEBVIEW_BUILD)
     add_subdirectory(compatibility)
 

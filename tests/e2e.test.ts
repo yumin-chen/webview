@@ -26,6 +26,14 @@ const mockAlloy = {
         createWindow: () => "1001",
         createButton: () => "1002",
         createLabel: () => "1003",
+        createTextField: () => "1004",
+        createTextArea: () => "1005",
+        createCheckBox: () => "1006",
+        createRadioButton: () => "1007",
+        createComboBox: () => "1008",
+        createSlider: () => "1009",
+        createVStack: () => "1010",
+        createHStack: () => "1011",
         setText: () => true,
         destroy: () => true
     }

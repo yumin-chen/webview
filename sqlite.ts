@@ -32,7 +32,19 @@ class Statement {
   _bind(params) {
     window.__alloy_sqlite_reset(this.id);
     params.forEach((p, i) => {
-      window.__alloy_sqlite_bind(this.id, i + 1, p === null ? "null" : p.toString());
+      let type = "text";
+      let val = p;
+      if (p === null || p === undefined) { type = "null"; val = ""; }
+      else if (typeof p === "number") { type = "number"; val = p.toString(); }
+      else if (typeof p === "bigint") { type = "bigint"; val = p.toString(); }
+      else if (p instanceof Uint8Array || p instanceof ArrayBuffer) {
+        type = "blob";
+        const bytes = p instanceof Uint8Array ? p : new Uint8Array(p);
+        val = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      } else {
+        val = p.toString();
+      }
+      window.__alloy_sqlite_bind(this.id, i + 1, type, val);
     });
   }
 

@@ -62,6 +62,7 @@ public:
     void bind_text(int index, const std::string& val) { sqlite3_bind_text(m_stmt, index, val.c_str(), -1, SQLITE_TRANSIENT); }
     void bind_int64(int index, int64_t val) { sqlite3_bind_int64(m_stmt, index, val); }
     void bind_double(int index, double val) { sqlite3_bind_double(m_stmt, index, val); }
+    void bind_blob(int index, const void* data, int n) { sqlite3_bind_blob(m_stmt, index, data, n, SQLITE_TRANSIENT); }
     void bind_null(int index) { sqlite3_bind_null(m_stmt, index); }
 
     std::string to_string() {

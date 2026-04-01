@@ -62,4 +62,61 @@ private:
 } // namespace alloy::detail
 #endif
 
+#ifdef WEBVIEW_PLATFORM_DARWIN
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#import <Cocoa/Cocoa.h>
+
+namespace alloy::detail {
+
+class cocoa_window : public component_base {
+public:
+  cocoa_window(const char* title, int width, int height) : component_base(true) {
+    m_window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, width, height)
+                                           styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
+                                             backing:NSBackingStoreBuffered
+                                               defer:NO];
+    [m_window setTitle:[NSString stringWithUTF8String:title]];
+    [m_window makeKeyAndOrderFront:nil];
+    m_content_view = [m_window contentView];
+  }
+
+  alloy_error_t set_text(std::string_view text) override {
+    [m_window setTitle:[NSString stringWithUTF8String:text.data()]];
+    return ALLOY_OK;
+  }
+
+  alloy_error_t get_text(char *buf, size_t len) override {
+    const char* title = [[m_window title] UTF8String];
+    if (strlen(title) >= len) return ALLOY_ERROR_BUFFER_TOO_SMALL;
+    strcpy(buf, title);
+    return ALLOY_OK;
+  }
+
+  alloy_error_t set_checked(bool v) override { return ALLOY_ERROR_NOT_SUPPORTED; }
+  bool get_checked() override { return false; }
+  alloy_error_t set_value(double v) override { return ALLOY_ERROR_NOT_SUPPORTED; }
+  double get_value() override { return 0; }
+  alloy_error_t set_enabled(bool v) override { return ALLOY_ERROR_NOT_SUPPORTED; }
+  bool get_enabled() override { return true; }
+
+  alloy_error_t set_visible(bool v) override {
+    if (v) [m_window orderFront:nil];
+    else [m_window orderOut:nil];
+    return ALLOY_OK;
+  }
+  bool get_visible() override { return [m_window isVisible]; }
+
+  alloy_error_t set_style(const alloy_style_t &s) override { return ALLOY_OK; }
+  void* native_handle() override { return m_content_view; }
+
+private:
+  NSWindow* m_window;
+  NSView* m_content_view;
+};
+
+} // namespace alloy::detail
+#endif
+#endif
+
 #endif // ALLOY_COMPONENTS_WINDOW_HH

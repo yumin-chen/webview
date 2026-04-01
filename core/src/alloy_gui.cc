@@ -24,6 +24,8 @@ const char* alloy_error_message(alloy_error_t err) {
 alloy_component_t alloy_create_window(const char *title, int width, int height) {
 #ifdef WEBVIEW_PLATFORM_LINUX
     return static_cast<alloy_component_t>(new gtk_window(title, width, height));
+#elif defined(WEBVIEW_PLATFORM_DARWIN)
+    return static_cast<alloy_component_t>(new cocoa_window(title, width, height));
 #else
     return nullptr;
 #endif
@@ -40,6 +42,8 @@ alloy_component_t alloy_create_textfield(alloy_component_t parent) {
 alloy_component_t alloy_create_button(alloy_component_t parent) {
 #ifdef WEBVIEW_PLATFORM_LINUX
     return static_cast<alloy_component_t>(new gtk_button(static_cast<component_base*>(parent)));
+#elif defined(WEBVIEW_PLATFORM_DARWIN)
+    return static_cast<alloy_component_t>(new cocoa_button(static_cast<component_base*>(parent)));
 #else
     return nullptr;
 #endif
@@ -48,6 +52,8 @@ alloy_component_t alloy_create_button(alloy_component_t parent) {
 alloy_component_t alloy_create_label(alloy_component_t parent) {
 #ifdef WEBVIEW_PLATFORM_LINUX
     return static_cast<alloy_component_t>(new gtk_label(static_cast<component_base*>(parent)));
+#elif defined(WEBVIEW_PLATFORM_DARWIN)
+    return static_cast<alloy_component_t>(new cocoa_label(static_cast<component_base*>(parent)));
 #else
     return nullptr;
 #endif
