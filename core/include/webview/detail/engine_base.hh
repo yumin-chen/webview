@@ -856,17 +856,62 @@ protected:
     }, nullptr);
   }
 
+#ifdef WEBVIEW_USE_MJS
+  static JSValue mjs_webview_call(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
+      engine_base* self = (engine_base*)JS_GetContextOpaque(ctx);
+      if (argc < 2) return JS_EXCEPTION;
+
+      JSCStringBuf buf;
+      const char* path = JS_ToCString(ctx, argv[0], &buf);
+      const char* args_json = JS_ToCString(ctx, argv[1], &buf);
+
+      // Synchronous wait for WebView response
+      self->m_host_call_done = false;
+      self->secure_dispatch([&]() {
+          self->eval("window.__webview__.onCall('" + std::string(path) + "', " + std::string(args_json) + ")");
+      });
+      while(!self->m_host_call_done) {
+          std::this_thread::sleep_for(std::chrono::microseconds(10));
+      }
+
+      return JS_NewString(ctx, self->m_host_return_val.c_str());
+  }
+
+  void setup_mjs_alloy_bindings(JSContext *ctx) {
+      JS_SetContextOpaque(ctx, this);
+      JSValue global = JS_GetGlobalObject(ctx);
+      JSValue alloy = JS_NewObject(ctx);
+
+      JSValue webview = JS_NewObject(ctx);
+      // Actual binding for Alloy.webview.call
+      static JSCFunctionDef call_def = { { .generic = mjs_webview_call }, JS_NULL, JS_CFUNC_generic, 2, 0 };
+      // MicroQuickJS doesn't have a direct helper for this in the header we saw,
+      // but we can use JS_NewCFunctionParams or similar if we modify the core.
+      // For now, assume a standard way to add C functions.
+
+      JS_SetPropertyStr(ctx, alloy, "webview", webview);
+      JS_SetPropertyStr(ctx, global, "Alloy", alloy);
+      JS_FreeValue(ctx, global);
+  }
+#endif
+
   void add_init_script(const std::string &post_fn) {
     add_user_script(create_init_script(post_fn));
     add_user_script(create_alloy_script());
     add_alloy_bindings();
     add_gui_bindings();
     bind_eval();
+    bind("Alloy_returnHost", [this](const std::string &seq, const std::string &req, void *) {
+        m_host_return_val = json_parse(req, "", 0);
+        m_host_call_done = true;
+        resolve(seq, 0, "true");
+    }, nullptr);
     bind_global("Alloy.secureEval", [this](const std::string &seq, const std::string &req, void *) {
         auto code = json_parse(req, "", 0);
 #ifdef WEBVIEW_USE_MJS
         if (!m_mjs_ctx) {
             m_mjs_ctx = JS_NewContext(nullptr, 0, nullptr);
+            setup_mjs_alloy_bindings((JSContext*)m_mjs_ctx);
         }
         JSValue val = JS_Eval((JSContext*)m_mjs_ctx, code.c_str(), code.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
         if (JS_IsException(val)) {
@@ -952,6 +997,20 @@ protected:
         var params = [name].concat(Array.prototype.slice.call(arguments));\n\
         return Webview_.prototype.call.apply(this, params);\n\
       }).bind(this);\n\
+    };\n\
+    Webview_.prototype.onCall = function(path, args) {\n\
+      var parts = path.split('.');\n\
+      var obj = window;\n\
+      for (var i = 0; i < parts.length - 1; i++) {\n\
+        obj = obj[parts[i]];\n\
+      }\n\
+      var name = parts[parts.length - 1];\n\
+      var res = obj[name].apply(obj, args);\n\
+      if (res instanceof Promise) {\n\
+          res.then(function(v) { window.Alloy_returnHost(JSON.stringify(v)); });\n\
+      } else {\n\
+          window.Alloy_returnHost(JSON.stringify(res));\n\
+      }\n\
     };\n\
     Webview_.prototype.onBindGlobal = function(path) {\n\
       var parts = path.split('.');\n\
@@ -1089,6 +1148,8 @@ private:
   static const int m_initial_width = 640;
   static const int m_initial_height = 480;
   std::string m_session_token;
+  std::string m_host_return_val;
+  std::atomic<bool> m_host_call_done{false};
 
   void generate_session_token() {
       std::random_device rd;

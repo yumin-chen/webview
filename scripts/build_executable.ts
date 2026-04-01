@@ -26,30 +26,53 @@ int main() {
 `;
 
 async function transpileAlloyScript(js: string): Promise<string> {
-    // Alloy.Transpiler: polyfill async/await and forward Browser APIs to WebView
+    // Alloy.Transpiler: Advanced Browser API forwarding and MicroQuickJS polyfills
     let transpiled = js;
 
-    // Polyfill for Browser APIs that should be forwarded to the WebView
-    const browserAPIs = ["document", "window", "navigator", "localStorage", "fetch", "XMLHttpRequest"];
-    const polyfill = browserAPIs.map(api =>
-        `if (typeof ${api} === 'undefined') { var ${api} = new Proxy({}, {
-            get: (t, p) => (...args) => Alloy.secureEval('${api}.' + p + '(' + JSON.stringify(args) + ')')
-        }); }`
-    ).join("\n");
-
-    // Polyfill for Promise/async/await support in MicroQuickJS via host-side sync-bridge
-    const promisePolyfill = `
-        if (typeof Promise === 'undefined') {
-            globalThis.Promise = function(exec) {
-                var res, rej;
-                exec(v => res = v, e => rej = e);
-                return { then: cb => cb(res) };
+    // 1. Browser API Proxying (Forward to WebView)
+    const browserAPIs = ["document", "window", "navigator", "localStorage", "fetch", "XMLHttpRequest", "location", "history", "screen"];
+    const apiProxy = `
+        (function() {
+            const forwardToWebView = (path, args) => {
+                const res_json = Alloy.webview.call(path, args); // Sync call from MicroQuickJS to WebView
+                try { return JSON.parse(res_json); } catch(e) { return res_json; }
             };
-            globalThis.Promise.resolve = v => ({ then: cb => cb(v) });
+            ${browserAPIs.map(api => `
+                if (typeof ${api} === 'undefined') {
+                    globalThis.${api} = new Proxy({}, {
+                        get: (target, prop) => {
+                            if (prop === 'then') return undefined;
+                            return (...args) => forwardToWebView('${api}.' + String(prop), args);
+                        }
+                    });
+                }
+            `).join("\n")}
+        })();
+    `;
+
+    // 2. MicroQuickJS Polyfills (Async/Await & Promises)
+    const enginePolyfills = `
+        if (typeof Promise === 'undefined') {
+            globalThis.Promise = function(executor) {
+                let resolveValue, rejectValue, isResolved = false, isRejected = false;
+                executor(v => { resolveValue = v; isResolved = true; }, e => { rejectValue = e; isRejected = true; });
+                const p = {
+                    then: function(onFulfilled) { if (isResolved) return Promise.resolve(onFulfilled(resolveValue)); return p; },
+                    catch: function(onRejected) { if (isRejected) return Promise.resolve(onRejected(rejectValue)); return p; }
+                };
+                return p;
+            };
+            globalThis.Promise.resolve = v => {
+                if (v && v.then) return v;
+                return { then: cb => Promise.resolve(cb(v)), catch: cb => this };
+            };
+            globalThis.Promise.all = (promises) => {
+                return { then: cb => cb(promises.map(p => { let r; p.then(v => r = v); return r; })) };
+            };
         }
     `;
 
-    transpiled = polyfill + "\n" + promisePolyfill + "\n" + transpiled;
+    transpiled = apiProxy + "\n" + enginePolyfills + "\n" + transpiled;
 
     return transpiled;
 }
