@@ -36,6 +36,7 @@
 #include "sqlite.hh"
 #include "subprocess.hh"
 #include "user_script.hh"
+#include "quickjs.h"
 
 #include <atomic>
 #include <functional>
@@ -1690,13 +1691,54 @@ protected:
 
   bool owns_window() const { return m_owns_window; }
 
+  static JSValue js_alloy_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+      for (int i = 0; i < argc; i++) {
+          const char *str = JS_ToCString(ctx, argv[i]);
+          if (str) {
+              printf("%s%s", str, i == argc - 1 ? "" : " ");
+              JS_FreeCString(ctx, str);
+          }
+      }
+      printf("\n");
+      return JS_UNDEFINED;
+  }
+
   std::string secure_eval_internal(const std::string& js) {
       if (js.empty()) return "null";
-      // Logic to spawn MicroQuickJS in a chainguarded OCI container
-      // subprocess::options opts;
-      // opts.cmd = {"docker", "run", "--rm", "alloy-secure-eval", "mjs", "-e", js};
-      // ... execute and return result ...
-      return "{\"result\": \"Secure evaluation successful via MicroQuickJS (Mock Container Boundary)\"}";
+
+      JSRuntime *rt = JS_NewRuntime();
+      JSContext *ctx = JS_NewContext(rt);
+
+      // Bind Alloy global to microquickjs
+      JSValue global_obj = JS_GetGlobalObject(ctx);
+      JSValue alloy_obj = JS_NewObject(ctx);
+
+      // Add 'log' to Alloy object
+      JS_SetPropertyStr(ctx, alloy_obj, "log",
+          JS_NewCFunction(ctx, js_alloy_log, "log", 1));
+
+      JS_SetPropertyStr(ctx, global_obj, "Alloy", alloy_obj);
+      JS_FreeValue(ctx, global_obj);
+
+      JSValue val = JS_Eval(ctx, js.c_str(), js.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
+      std::string result;
+      if (JS_IsException(val)) {
+          JSValue exception = JS_GetException(ctx);
+          const char *str = JS_ToCString(ctx, exception);
+          result = "{\"error\":" + json_escape(str) + "}";
+          JS_FreeCString(ctx, str);
+          JS_FreeValue(ctx, exception);
+      } else {
+          const char *str = JS_ToCString(ctx, val);
+          result = "{\"result\":" + json_escape(str ? str : "undefined") + "}";
+          JS_FreeCString(ctx, str);
+      }
+
+      JS_FreeValue(ctx, val);
+      JS_FreeContext(ctx);
+      JS_FreeRuntime(rt);
+
+      return result;
   }
 
 private:

@@ -32,6 +32,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(yoga)
 
+FetchContent_Declare(
+  mquickjs
+  GIT_REPOSITORY https://github.com/bellard/quickjs.git
+)
+FetchContent_GetProperties(mquickjs)
+if(NOT mquickjs_POPULATED)
+  FetchContent_Populate(mquickjs)
+  # Basic build of quickjs core
+  add_library(mquickjs STATIC
+    "${mquickjs_SOURCE_DIR}/quickjs.c"
+    "${mquickjs_SOURCE_DIR}/libregexp.c"
+    "${mquickjs_SOURCE_DIR}/libunicode.c"
+    "${mquickjs_SOURCE_DIR}/libbf.c"
+  )
+  target_include_directories(mquickjs PUBLIC "${mquickjs_SOURCE_DIR}")
+  target_compile_definitions(mquickjs PRIVATE CONFIG_VERSION=\"2024-01-13\")
+endif()
+
 if(WEBVIEW_BUILD)
     add_subdirectory(compatibility)
 

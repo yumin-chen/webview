@@ -6,7 +6,7 @@ target_include_directories(
     INTERFACE
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES} sqlite3 yoga)
+target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES} sqlite3 yoga mquickjs)
 # Note that we also use CMAKE_CXX_STANDARD which can override this
 target_compile_features(webview_core_headers INTERFACE cxx_std_11)
 set_target_properties(webview_core_headers PROPERTIES
