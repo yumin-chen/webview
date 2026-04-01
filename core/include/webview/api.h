@@ -206,10 +206,10 @@ WEBVIEW_API webview_error_t webview_eval(webview_t w, const char *js);
  * @retval WEBVIEW_ERROR_DUPLICATE
  *         A binding already exists with the specified name.
  */
-WEBVIEW_API webview_error_t webview_bind_window(webview_t w, const char *name,
-                                                void (*fn)(const char *id,
-                                                           const char *req, void *arg),
-                                                void *arg);
+WEBVIEW_API webview_error_t webview_bind(webview_t w, const char *name,
+                                         void (*fn)(const char *id,
+                                                    const char *req, void *arg),
+                                         void *arg);
 
 /**
  * Binds a function pointer to a new global JavaScript function.
