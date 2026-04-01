@@ -1127,6 +1127,31 @@ protected:
 #endif
         return "true";
     });
+
+    bind_global("__alloy_transpiler_create", [this](const std::string &req) -> std::string {
+      auto opts_json = json_parse(req, "", 0);
+      transpiler_opts opts;
+      opts.loader = json_parse(opts_json, "loader", 0);
+      auto id = std::to_string(m_transpiler_next_id++);
+      m_transpilers[id] = opts;
+      return id;
+    });
+
+    bind_global("__alloy_transpiler_transform_sync", [this](const std::string &req) -> std::string {
+      auto id = json_parse(req, "", 0);
+      auto code = json_parse(req, "", 1);
+      auto loader = json_parse(req, "", 2);
+      // Basic implementation: pass-through but could do regex-based type removal
+      return code;
+    });
+
+    bind_global("__alloy_transpiler_scan", [this](const std::string &req) -> std::string {
+      return "{\"exports\":[], \"imports\":[]}";
+    });
+
+    bind_global("__alloy_transpiler_scan_imports", [this](const std::string &req) -> std::string {
+      return "[]";
+    });
   }
 
   std::string create_alloy_script() {
@@ -1400,6 +1425,24 @@ protected:
     },
     bindGlobal: function(name, fn) {
       window[name] = fn;
+    },
+    Transpiler: class {
+      constructor(options) {
+        this.options = options || {};
+        this.id = window.__alloy_transpiler_create(JSON.stringify(this.options));
+      }
+      transformSync(code, loader) {
+        return window.__alloy_transpiler_transform_sync(this.id, code, loader || this.options.loader);
+      }
+      async transform(code, loader) {
+        return this.transformSync(code, loader);
+      }
+      scan(code) {
+        return JSON.parse(window.__alloy_transpiler_scan(this.id, code));
+      }
+      scanImports(code) {
+        return JSON.parse(window.__alloy_transpiler_scan_imports(this.id, code));
+      }
     },
     gui: {
       createWindow: function(title, w, h) { return window.__alloy_gui_create_window(title, w, h); },
@@ -1756,6 +1799,12 @@ private:
     }
     return 0;
   }
+
+  struct transpiler_opts {
+      std::string loader;
+  };
+  std::map<std::string, transpiler_opts> m_transpilers;
+  size_t m_transpiler_next_id{1};
 
   std::map<std::string, binding_info_t> bindings;
   std::map<std::string, std::shared_ptr<subprocess>> m_subprocesses;
