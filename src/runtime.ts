@@ -186,7 +186,7 @@
     this._processes[handle] = proc;
     (async () => {
       try {
-        const res_json = await (window as any).__alloy_spawn(handle, JSON.stringify(command), JSON.stringify(options || {}));
+        const res_json = await (globalThis as any).__alloy_spawn(handle, JSON.stringify(command), JSON.stringify(options || {}));
         const res = JSON.parse(res_json);
         if (res.error) return console.error("Alloy.spawn error:", res.error);
         proc.pid = res.pid;
@@ -198,7 +198,7 @@
   Alloy.spawnSync = async function(cmd: any, opts: any) {
     let command = Array.isArray(cmd) ? cmd : (cmd.cmd || []);
     let options = Array.isArray(cmd) ? (opts || {}) : (cmd || {});
-    const res_raw = await (window as any).__alloy_spawnSync(JSON.stringify(command), JSON.stringify(options || {}));
+    const res_raw = await (globalThis as any).__alloy_spawnSync(JSON.stringify(command), JSON.stringify(options || {}));
     const res = typeof res_raw === 'string' ? JSON.parse(res_raw) : res_raw;
     if (res.stdout) res.stdout = b64ToUint8(res.stdout);
     if (res.stderr) res.stderr = b64ToUint8(res.stderr);
@@ -209,7 +209,7 @@
   Alloy.cron.parse = function(expr: string, relativeDate?: Date | number) {
     try { return new CronParser(expr).next(relativeDate); } catch (e) { return null; }
   };
-  Alloy.cron.remove = async function(title: string) { await (window as any).__alloy_cron_remove(title); };
+  Alloy.cron.remove = async function(title: string) { await (globalThis as any).__alloy_cron_remove(title); };
 
   Alloy.gui = {
     Window: (props: any) => new NativeComponent("Window", props),
@@ -258,5 +258,5 @@
     };
   }
 
-  (window as any).Alloy = Alloy;
+  (globalThis as any).Alloy = Alloy;
 })();
