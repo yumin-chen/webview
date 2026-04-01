@@ -50,6 +50,7 @@ namespace detail {
 class engine_base {
 public:
   engine_base(bool owns_window) : m_owns_window{owns_window} {
+      m_ipc_secret = std::to_string(rand()) + std::to_string(rand());
       m_qjs_mem = (uint8_t*)malloc(2 * 1024 * 1024); // 2MB
       m_qjs_ctx = JS_NewContext(m_qjs_mem, 2 * 1024 * 1024, NULL);
 
@@ -71,7 +72,9 @@ public:
               return JS_UNDEFINED;
           }, "webviewEval", 1));
 
-      JS_SetPropertyStr(m_qjs_ctx, *global_obj, "Alloy", *alloy_obj);
+      // Global Alloy binding in MQuickJS
+      JS_DefinePropertyStr(m_qjs_ctx, *global_obj, "Alloy", *alloy_obj,
+          JS_PROP_ENUMERABLE | JS_PROP_CONFIGURABLE);
 
       JS_SetContextOpaque(m_qjs_ctx, this);
   }
@@ -111,6 +114,7 @@ public:
   struct binding_info_t {
       binding_ctx_t ctx;
       bool is_global;
+      bool is_secure;
   };
 
   using sync_binding_t = std::function<std::string(std::string)>;
@@ -128,7 +132,7 @@ public:
     if (bindings.count(name) > 0) {
       return error_info{WEBVIEW_ERROR_DUPLICATE};
     }
-    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), false});
+    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), false, false});
     replace_bind_script();
     // Notify that a binding was created if the init script has already
     // set things up.
@@ -143,12 +147,30 @@ window.__webview__.onBind(" +
     if (bindings.count(name) > 0) {
       return error_info{WEBVIEW_ERROR_DUPLICATE};
     }
-    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), true});
+    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), true, false});
     replace_bind_script();
     eval("if (window.__webview__) {\n\
 window.__webview__.onBindGlobal(" +
          json_escape(name) + ")\n\
 }");
+
+    // Also bind to MQuickJS
+    JSValue global_obj = JS_GetGlobalObject(m_qjs_ctx);
+    JS_SetPropertyStr(m_qjs_ctx, global_obj, name.c_str(),
+        JS_NewCFunction(m_qjs_ctx, [](JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) -> JSValue {
+            auto engine = (engine_base*)JS_GetContextOpaque(ctx);
+            // Unified binding logic needed here to bridge MQuickJS calls to C++ handlers
+            return JS_UNDEFINED;
+        }, name.c_str(), 1));
+    return {};
+  }
+
+  noresult bind_global_secure(const std::string &name, binding_t fn, void *arg) {
+    if (bindings.count(name) > 0) {
+      return error_info{WEBVIEW_ERROR_DUPLICATE};
+    }
+    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), true, true});
+    replace_bind_script();
     return {};
   }
 
@@ -259,7 +281,7 @@ protected:
     add_user_script(create_init_script(post_fn));
     m_is_init_script_added = true;
 
-    bind_global("__alloy_spawn_sync", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_spawn_sync", [this](const std::string &req) -> std::string {
       auto cmd_json = json_parse(req, "", 0);
       auto opts_json = json_parse(req, "", 1);
 
@@ -313,7 +335,7 @@ protected:
              ",\"success\":" + (exit_code == 0 ? "true" : "false") + "}";
     });
 
-    bind_global("__alloy_terminal_resize", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_terminal_resize", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       auto cols = std::stoi(json_parse(req, "", 1));
       auto rows = std::stoi(json_parse(req, "", 2));
@@ -325,7 +347,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_gui_set_value", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_set_value", [this](const std::string &req) -> std::string {
       auto id = json_parse(req, "", 0);
       auto val = std::stod(json_parse(req, "", 1));
       auto it = m_gui_components.find(id);
@@ -335,7 +357,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_terminal_raw", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_terminal_raw", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       auto enabled = json_parse(req, "", 1) == "true";
       auto it = m_subprocesses.find(proc_id);
@@ -346,7 +368,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_spawn_bridge", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_spawn_bridge", [this](const std::string &req) -> std::string {
       auto cmd_json = json_parse(req, "", 0);
       auto opts_json = json_parse(req, "", 1);
 
@@ -420,7 +442,7 @@ protected:
       }
     });
 
-    bind_global("__alloy_kill", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_kill", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       auto it = m_subprocesses.find(proc_id);
       if (it != m_subprocesses.end()) {
@@ -430,7 +452,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_stdin_write", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_stdin_write", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       auto data = json_parse(req, "", 1);
       auto it = m_subprocesses.find(proc_id);
@@ -441,7 +463,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_stdin_close", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_stdin_close", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       auto it = m_subprocesses.find(proc_id);
       if (it != m_subprocesses.end()) {
@@ -451,7 +473,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_send", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_send", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       auto message = json_parse(req, "", 1);
       auto it = m_subprocesses.find(proc_id);
@@ -463,25 +485,25 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_cleanup", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_cleanup", [this](const std::string &req) -> std::string {
       auto proc_id = json_parse(req, "", 0);
       m_subprocesses.erase(proc_id);
       return "true";
     });
 
-    bind_global("__alloy_cron_register", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_cron_register", [this](const std::string &req) -> std::string {
       auto path = json_parse(req, "", 0);
       auto schedule = json_parse(req, "", 1);
       auto title = json_parse(req, "", 2);
       return cron_manager::register_job(path, schedule, title) ? "true" : "false";
     });
 
-    bind_global("__alloy_cron_remove", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_cron_remove", [this](const std::string &req) -> std::string {
       auto title = json_parse(req, "", 0);
       return cron_manager::remove_job(title) ? "true" : "false";
     });
 
-    bind_global("__alloy_sqlite_open", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_open", [this](const std::string &req) -> std::string {
       auto filename = json_parse(req, "", 0);
       try {
         auto db = std::make_shared<sqlite_db>(filename);
@@ -493,7 +515,7 @@ protected:
       }
     });
 
-    bind_global("__alloy_sqlite_query", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_query", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto sql = json_parse(req, "", 1);
       auto it = m_sqlite_dbs.find(db_id);
@@ -510,7 +532,7 @@ protected:
       return "{\"error\":\"DB not found\"}";
     });
 
-    bind_global("__alloy_sqlite_step", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_step", [this](const std::string &req) -> std::string {
       auto stmt_id = json_parse(req, "", 0);
       auto safe_int = json_parse(req, "", 1) == "true";
       auto it = m_sqlite_stmts.find(stmt_id);
@@ -520,7 +542,7 @@ protected:
       return "";
     });
 
-    bind_global("__alloy_sqlite_last_insert_rowid", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_last_insert_rowid", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto it = m_sqlite_dbs.find(db_id);
       if (it != m_sqlite_dbs.end()) {
@@ -529,7 +551,7 @@ protected:
       return "0";
     });
 
-    bind_global("__alloy_sqlite_changes", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_changes", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto it = m_sqlite_dbs.find(db_id);
       if (it != m_sqlite_dbs.end()) {
@@ -538,7 +560,7 @@ protected:
       return "0";
     });
 
-    bind_global("__alloy_sqlite_reset", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_reset", [this](const std::string &req) -> std::string {
       auto stmt_id = json_parse(req, "", 0);
       auto it = m_sqlite_stmts.find(stmt_id);
       if (it != m_sqlite_stmts.end()) {
@@ -548,7 +570,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_sqlite_bind", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_bind", [this](const std::string &req) -> std::string {
       auto stmt_id = json_parse(req, "", 0);
       auto index_str = json_parse(req, "", 1);
       auto type = json_parse(req, "", 2);
@@ -572,7 +594,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_gui_create_window", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_window", [this](const std::string &req) -> std::string {
       auto title = json_parse(req, "", 0);
       auto w = std::stoi(json_parse(req, "", 1));
       auto h = std::stoi(json_parse(req, "", 2));
@@ -582,7 +604,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_button", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_button", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -592,7 +614,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_label", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_label", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -602,7 +624,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_textfield", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_textfield", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -612,7 +634,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_textarea", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_textarea", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -622,7 +644,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_checkbox", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_checkbox", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -632,7 +654,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_radiobutton", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_radiobutton", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -642,7 +664,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_combobox", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_combobox", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -652,7 +674,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_slider", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_slider", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -662,7 +684,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_loadingspinner", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_loadingspinner", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -672,7 +694,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_spinner", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_spinner", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -682,7 +704,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_progressbar", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_progressbar", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -692,7 +714,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_listview", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_listview", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -702,7 +724,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_treeview", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_treeview", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -712,7 +734,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_tabview", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_tabview", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -722,7 +744,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_webview", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_webview", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -732,7 +754,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_vstack", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_vstack", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -742,7 +764,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_hstack", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_hstack", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -752,7 +774,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_scrollview", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_scrollview", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -762,7 +784,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_menu", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_menu", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -772,7 +794,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_menubar", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_menubar", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -782,7 +804,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_toolbar", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_toolbar", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -792,7 +814,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_statusbar", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_statusbar", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -802,7 +824,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_splitter", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_splitter", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -812,7 +834,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_dialog", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_dialog", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -822,7 +844,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_filedialog", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_filedialog", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -832,7 +854,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_colorpicker", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_colorpicker", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -842,7 +864,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_datepicker", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_datepicker", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -852,7 +874,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_timepicker", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_timepicker", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -862,7 +884,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_tooltip", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_tooltip", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -872,7 +894,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_divider", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_divider", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -882,7 +904,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_image", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_image", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -892,7 +914,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_icon", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_icon", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -902,7 +924,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_separator", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_separator", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -912,7 +934,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_groupbox", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_groupbox", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -922,7 +944,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_accordion", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_accordion", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -932,7 +954,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_popover", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_popover", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -942,7 +964,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_contextmenu", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_contextmenu", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -952,7 +974,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_switch", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_switch", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -962,7 +984,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_badge", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_badge", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -972,7 +994,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_chip", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_chip", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -982,7 +1004,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_card", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_card", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -992,7 +1014,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_link", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_link", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -1002,7 +1024,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_rating", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_rating", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -1012,7 +1034,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_richtexteditor", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_richtexteditor", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -1022,7 +1044,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_create_codeeditor", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_create_codeeditor", [this](const std::string &req) -> std::string {
       auto parent_id = json_parse(req, "", 0);
       auto parent_it = m_gui_components.find(parent_id);
       auto parent = parent_it != m_gui_components.end() ? parent_it->second : nullptr;
@@ -1032,7 +1054,7 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_gui_set_text", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_set_text", [this](const std::string &req) -> std::string {
       auto id = json_parse(req, "", 0);
       auto text = json_parse(req, "", 1);
       auto it = m_gui_components.find(id);
@@ -1042,7 +1064,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_gui_destroy", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_gui_destroy", [this](const std::string &req) -> std::string {
       auto id = json_parse(req, "", 0);
       auto it = m_gui_components.find(id);
       if (it != m_gui_components.end()) {
@@ -1053,7 +1075,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_sqlite_serialize", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_serialize", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto it = m_sqlite_dbs.find(db_id);
       if (it != m_sqlite_dbs.end()) {
@@ -1069,7 +1091,7 @@ protected:
       return "";
     });
 
-    bind_global("__alloy_sqlite_file_control", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_file_control", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto op = std::stoi(json_parse(req, "", 1));
       auto val = std::stoi(json_parse(req, "", 2));
@@ -1081,7 +1103,7 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_sqlite_load_extension", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_load_extension", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       auto path = json_parse(req, "", 1);
       auto it = m_sqlite_dbs.find(db_id);
@@ -1096,38 +1118,40 @@ protected:
       return "false";
     });
 
-    bind_global("__alloy_sqlite_close", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_sqlite_close", [this](const std::string &req) -> std::string {
       auto db_id = json_parse(req, "", 0);
       m_sqlite_dbs.erase(db_id);
       return "true";
     });
 
     bind_global("eval", [this](const std::string &req) -> std::string {
-      auto js = json_parse(req, "", 0);
+      auto secret = json_parse(req, "", 0);
+      if (secret != m_ipc_secret) return "{\"error\":\"Unauthorized IPC access\"}";
+      auto js = json_parse(req, "", 1);
       return this->secure_eval_internal(js);
     });
 
-    bind_global("__alloy_file_exists", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_file_exists", [this](const std::string &req) -> std::string {
         auto path = json_parse(req, "", 0);
         struct stat buffer;
         return (stat(path.c_str(), &buffer) == 0) ? "true" : "false";
     });
 
-    bind_global("__alloy_file_size", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_file_size", [this](const std::string &req) -> std::string {
         auto path = json_parse(req, "", 0);
         struct stat buffer;
         if (stat(path.c_str(), &buffer) == 0) return std::to_string(buffer.st_size);
         return "0";
     });
 
-    bind_global("__alloy_file_read", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_file_read", [this](const std::string &req) -> std::string {
         auto path = json_parse(req, "", 0);
         std::ifstream f(path, std::ios::binary);
         if (!f.is_open()) return "";
         return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     });
 
-    bind_global("__alloy_file_write", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_file_write", [this](const std::string &req) -> std::string {
         auto path = json_parse(req, "", 0);
         auto data = json_parse(req, "", 1);
         std::ofstream f(path, std::ios::binary);
@@ -1136,18 +1160,18 @@ protected:
         return std::to_string(data.size());
     });
 
-    bind_global("__alloy_file_delete", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_file_delete", [this](const std::string &req) -> std::string {
         auto path = json_parse(req, "", 0);
         return (remove(path.c_str()) == 0) ? "true" : "false";
     });
 
-    bind_global("__alloy_get_env", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_get_env", [this](const std::string &req) -> std::string {
         auto key = json_parse(req, "", 0);
         const char* val = getenv(key.c_str());
         return val ? val : "";
     });
 
-    bind_global("__alloy_set_env", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_set_env", [this](const std::string &req) -> std::string {
         auto key = json_parse(req, "", 0);
         auto val = json_parse(req, "", 1);
 #ifdef _WIN32
@@ -1158,7 +1182,7 @@ protected:
         return "true";
     });
 
-    bind_global("__alloy_transpiler_create", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_transpiler_create", [this](const std::string &req) -> std::string {
       auto opts_json = json_parse(req, "", 0);
       transpiler_opts opts;
       opts.loader = json_parse(opts_json, "loader", 0);
@@ -1167,7 +1191,12 @@ protected:
       return id;
     });
 
-    bind_global("__alloy_transpiler_transform_sync", [this](const std::string &req) -> std::string {
+    /**
+     * Note: Bytecode reconstruction (decompilation) from MQuickJS binary format back to JS
+     * is technically feasible for logic restoration but is not supported by the core engine.
+     * Alloy.Transpiler currently uses the engine's parser for verification/bytecode generation.
+     */
+    bind_global_secure("__alloy_transpiler_transform_sync", [this](const std::string &req) -> std::string {
       auto id = json_parse(req, "", 0);
       auto code = json_parse(req, "", 1);
       auto loader = json_parse(req, "", 2);
@@ -1204,11 +1233,11 @@ protected:
       return result;
     });
 
-    bind_global("__alloy_transpiler_scan", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_transpiler_scan", [this](const std::string &req) -> std::string {
       return "{\"exports\":[], \"imports\":[]}";
     });
 
-    bind_global("__alloy_transpiler_scan_imports", [this](const std::string &req) -> std::string {
+    bind_global_secure("__alloy_transpiler_scan_imports", [this](const std::string &req) -> std::string {
       return "[]";
     });
   }
@@ -1467,7 +1496,8 @@ protected:
       }
     }
 
-  window.Alloy = {
+  if (!window.globalThis) window.globalThis = window;
+  const Alloy = {
       file: function(path, options) { return new AlloyFile(path, options); },
       write: async function(dest, data) {
         const path = (dest instanceof AlloyFile) ? dest.path : dest;
@@ -1491,7 +1521,20 @@ protected:
         this.id = window.__alloy_transpiler_create(JSON.stringify(this.options));
       }
       transformSync(code, loader) {
-        return window.__alloy_transpiler_transform_sync(this.id, code, loader || this.options.loader);
+        let result = window.__alloy_transpiler_transform_sync(this.id, code, loader || this.options.loader);
+        if (this.options.target === 'AlloyScript') {
+            // Automatically wrap browser APIs to forward them to webview
+            const browserAPIs = ['fetch', 'localStorage', 'sessionStorage', 'indexedDB', 'cookieStore'];
+            browserAPIs.forEach(api => {
+                const regex = new RegExp(`\\b${api}\\b`, 'g');
+                if (regex.test(result)) {
+                    result = `(function(){ const ${api} = function(...args){ return Alloy.webviewEval("${api}(" + args.map(a => JSON.stringify(a)).join(',') + ")"); }; ${result} })()`;
+                }
+            });
+            // Polyfill async/await if needed (simplified wrapper)
+            result = result.replace(/\bawait\b/g, '');
+        }
+        return result;
       }
       async transform(code, loader) {
         return this.transformSync(code, loader);
@@ -1643,6 +1686,11 @@ protected:
       }
     }
   };
+  Object.defineProperty(globalThis, 'Alloy', {
+    value: Alloy,
+    writable: false,
+    configurable: false
+  });
 })();
 )js";
   }
@@ -1695,22 +1743,24 @@ protected:
         promise.reject(result);\n\
       }\n\
     };\n\
-    Webview_.prototype.onBind = function(name, warn) {\n\
+    Webview_.prototype.onBind = function(name, warn, secret) {\n\
       if (warn && window.hasOwnProperty(name)) {\n\
         console.warn('Alloy: binding \"' + name + '\" is overwriting an existing property on window.');\n\
       }\n\
       window[name] = (function() {\n\
         var params = [name].concat(Array.prototype.slice.call(arguments));\n\
+        if (secret) params.unshift(secret);\n\
         return Webview_.prototype.call.apply(this, params);\n\
       }).bind(this);\n\
     };\n\
-    Webview_.prototype.onBindGlobal = function(name, warn) {\n\
+    Webview_.prototype.onBindGlobal = function(name, warn, secret) {\n\
       if (warn && window.hasOwnProperty(name)) {\n\
         console.warn('Alloy: global binding \"' + name + '\" is overwriting an existing property.');\n\
       }\n\
       Object.defineProperty(window, name, {\n\
         value: (function() {\n\
           var params = [name].concat(Array.prototype.slice.call(arguments));\n\
+          if (secret) params.unshift(secret);\n\
           return Webview_.prototype.call.apply(this, params);\n\
         }).bind(this),\n\
         writable: false,\n\
@@ -1732,12 +1782,14 @@ protected:
 
   std::string create_bind_script() {
     std::string js = "(function() {\n  'use strict';\n";
+    js += "  const __alloy_secret = " + json_escape(m_ipc_secret) + ";\n";
     std::string warn = m_warn_overwrite_on_bind ? "true" : "false";
     for (const auto &binding : bindings) {
+        std::string secret = binding.second.is_secure ? "__alloy_secret" : "null";
         if (binding.second.is_global) {
-            js += "  window.__webview__.onBindGlobal(" + json_escape(binding.first) + ", " + warn + ");\n";
+            js += "  window.__webview__.onBindGlobal(" + json_escape(binding.first) + ", " + warn + ", " + secret + ");\n";
         } else {
-            js += "  window.__webview__.onBind(" + json_escape(binding.first) + ", " + warn + ");\n";
+            js += "  window.__webview__.onBind(" + json_escape(binding.first) + ", " + warn + ", " + secret + ");\n";
         }
     }
     js += "})()";
@@ -1862,6 +1914,7 @@ private:
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
 
+  std::string m_ipc_secret;
   bool m_is_init_script_added{};
   bool m_is_size_set{};
   bool m_owns_window{};
