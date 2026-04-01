@@ -36,7 +36,22 @@ alloy_error_t alloy_transpiler_transform(alloy_transpiler_t t,
         res += "// async/await polyfilled via Service WebView bridge\n";
     }
 
-    res += "// loader: " + std::string(loader ? loader : "js") + "\n" + source;
+    std::string target_str = std::string(loader ? loader : ""); // Reusing loader arg for target in mock
+    if (target_str == "browser") {
+        res = "// alloy:wasm-target\n" + res;
+    }
+
+    res += "// loader: " + std::string(loader ? loader : "js") + "\n";
+
+    // Default target: AlloyScript
+    std::string target_str = "AlloyScript";
+    // In actual implementation, we'd read this from transpiler options
+
+    if (target_str == "AlloyScript") {
+        res += "// alloy:target AlloyScript\n";
+    }
+
+    res += source;
     *out_result = strdup(res.c_str());
     return ALLOY_OK;
 }

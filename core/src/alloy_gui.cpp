@@ -105,6 +105,18 @@ int alloy_get_visible(alloy_component_t h) {
 
 alloy_error_t alloy_destroy(alloy_component_t h) {
     if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+
+    // Clean up any active property bindings for this component
+    auto it = alloy::detail::g_bindings.begin();
+    while (it != alloy::detail::g_bindings.end()) {
+        if (it->component == h) {
+            alloy_effect_destroy(it->effect);
+            it = alloy::detail::g_bindings.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     delete static_cast<alloy::detail::component_base*>(h);
     return ALLOY_OK;
 }

@@ -6,7 +6,8 @@ void on_click(alloy_component_t handle, alloy_event_type_t event, void *userdata
 }
 
 int main() {
-    alloy_component_t window = alloy_create_window("C GUI Example", 400, 300);
+    // Dual-engine Architecture: Secure host process with reactive signals
+    alloy_component_t window = alloy_create_window("Alloy gui.c (Dual Engine)", 800, 600);
 
     alloy_component_t btn = alloy_create_button(window);
     alloy_set_text(btn, "Click Me");

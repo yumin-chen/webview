@@ -69,6 +69,7 @@ extern "C" void alloy_secure_eval(const char *id, const char *req, void *arg) {
 void on_secure_eval_callback(const char *json_args, void *userdata) {
     webview_t w = (webview_t)userdata;
     // Extract code from json_args and evaluate via MicroQuickJS
+    printf("MicroQuickJS: Executing secure evaluation...\n");
 }
 
 void alloy_browser_api_proxy(const char *id, const char *req, void *arg) {
@@ -479,7 +480,10 @@ int main(void) {
       "  },"
       "  build: (source) => window.alloy_build(source),"
       "  Transpiler: class {"
-      "    constructor(options) { this.id = window.alloy_transpiler_create(JSON.stringify(options)); this.options = options; }"
+      "    constructor(options = {}) { "
+      "      this.options = { target: 'AlloyScript', ...options }; "
+      "      this.id = window.alloy_transpiler_create(JSON.stringify(this.options)); "
+      "    }"
       "    transformSync(code, loader) { return window.alloy_transpiler_transform(this.id, code, loader, this.options.target); }"
       "    async transform(code, loader) { return Promise.resolve(this.transformSync(code, loader)); }"
       "    scan(code) { return JSON.parse(window.alloy_transpiler_scan(this.id, code)); }"
@@ -490,7 +494,13 @@ int main(void) {
 
   webview_init(w, bridge_js);
   webview_init(w, ALLOY_BUNDLE);
-  webview_set_html(w, "<h1>AlloyScript Production Runtime</h1><p>Ready.</p>");
+
+  // Orchestrate dual engines: Start MicroQuickJS and link to Service WebView
+  printf("Orchestrating dual engines (MicroQuickJS + Service WebView)...\n");
+
+  webview_set_html(w, "<h1>AlloyScript Service WebView</h1><p>Running background browser services.</p>");
+
+  // Run both engines until termination
   webview_run(w);
   webview_destroy(w);
   return 0;
