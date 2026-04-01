@@ -10,6 +10,7 @@
 #include "webview/detail/alloy_process.hh"
 #include "webview/detail/alloy_sqlite.hh"
 #include "alloy_gui/api.h"
+#include "alloy_gui/detail/component.hh"
 
 #include "webview.h"
 #include "webview/alloy.hh"
@@ -79,7 +80,7 @@ std::string AlloyRuntime::alloy_row_to_json(std::shared_ptr<AlloySQLite::Stateme
 
 void AlloyRuntime::setup_bindings() {
     if (!m_webview) return;
-    auto* browser = static_cast<::webview::browser_engine*>(this->m_webview);
+    auto* browser = static_cast<::webview::webview*>(this->m_webview);
 
     browser->bind("__alloy_spawn", [this, browser](const std::string& seq, const std::string& req, void*) {
         std::string id = json_parse(req, "", 0);
@@ -106,13 +107,13 @@ void AlloyRuntime::setup_bindings() {
         auto stdout_cb = [this, browser, id](const std::vector<char>& data) {
             std::string b64 = this->base64_encode(data);
             browser->dispatch([browser, id, b64]() {
-                browser->eval("window.__alloy_on_data(\"" + id + "\", \"stdout\", \"" + b64 + "\")");
+                browser->eval("window.__alloy_on_data(" + json_escape(id) + ", \"stdout\", " + json_escape(b64) + ")");
             });
         };
         auto stderr_cb = [this, browser, id](const std::vector<char>& data) {
             std::string b64 = this->base64_encode(data);
             browser->dispatch([browser, id, b64]() {
-                browser->eval("window.__alloy_on_data(\"" + id + "\", \"stderr\", \"" + b64 + "\")");
+                browser->eval("window.__alloy_on_data(" + json_escape(id) + ", \"stderr\", " + json_escape(b64) + ")");
             });
         };
         if (options.terminal) {
@@ -120,7 +121,7 @@ void AlloyRuntime::setup_bindings() {
         } else {
             proc->spawn(options, stdout_cb, stderr_cb, [this, id](int c, AlloyProcess::ResourceUsage u) { this->on_process_exit(id, c, u); });
         }
-        browser->resolve(seq, 0, std::to_string(proc->get_pid()));
+        browser->resolve(seq, 0, json_escape(std::to_string(proc->get_pid())));
     }, nullptr);
 
     browser->bind("__alloy_spawn_sync", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -137,8 +138,8 @@ void AlloyRuntime::setup_bindings() {
         auto res = proc.spawn_sync(options);
         std::stringstream ss;
         ss << "{"
-           << "\"stdout\":\"" << this->base64_encode(res.stdout_data) << "\","
-           << "\"stderr\":\"" << this->base64_encode(res.stderr_data) << "\","
+           << "\"stdout\":" << json_escape(this->base64_encode(res.stdout_data)) << ","
+           << "\"stderr\":" << json_escape(this->base64_encode(res.stderr_data)) << ","
            << "\"exitCode\":" << res.exitCode << ","
            << "\"success\":" << (res.success ? "true" : "false") << ","
            << "\"pid\":" << res.pid << ","
@@ -195,7 +196,7 @@ void AlloyRuntime::setup_bindings() {
             this->m_databases[id] = std::make_shared<AlloySQLite>(filename, opts);
             browser->resolve(seq, 0, "");
         } catch (const std::exception& e) {
-            browser->resolve(seq, 1, e.what());
+            browser->resolve(seq, 1, json_escape(e.what()));
         }
     }, nullptr);
 
@@ -214,12 +215,12 @@ void AlloyRuntime::setup_bindings() {
                 auto names = stmt->column_names();
                 for (size_t i = 0; i < names.size(); ++i) {
                     if (i > 0) ss << ",";
-                    ss << "\"" << names[i] << "\"";
+                    ss << json_escape(names[i]);
                 }
                 ss << "]}";
                 browser->resolve(seq, 0, ss.str());
-            } catch (const std::exception& e) { browser->resolve(seq, 1, e.what()); }
-        } else browser->resolve(seq, 1, "DB not found");
+            } catch (const std::exception& e) { browser->resolve(seq, 1, json_escape(e.what())); }
+        } else browser->resolve(seq, 1, "\"DB not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_get", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -232,8 +233,8 @@ void AlloyRuntime::setup_bindings() {
             int res = sqlite3_step(it->second->get());
             if (res == SQLITE_ROW) browser->resolve(seq, 0, this->alloy_row_to_json(it->second, false));
             else if (res == SQLITE_DONE) browser->resolve(seq, 0, "null");
-            else browser->resolve(seq, 1, sqlite3_errmsg(sqlite3_db_handle(it->second->get())));
-        } else browser->resolve(seq, 1, "Stmt not found");
+            else browser->resolve(seq, 1, json_escape(sqlite3_errmsg(sqlite3_db_handle(it->second->get()))));
+        } else browser->resolve(seq, 1, "\"Stmt not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_all", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -251,7 +252,7 @@ void AlloyRuntime::setup_bindings() {
             }
             ss << "]";
             browser->resolve(seq, 0, ss.str());
-        } else browser->resolve(seq, 1, "Stmt not found");
+        } else browser->resolve(seq, 1, "\"Stmt not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_values", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -269,7 +270,7 @@ void AlloyRuntime::setup_bindings() {
             }
             ss << "]";
             browser->resolve(seq, 0, ss.str());
-        } else browser->resolve(seq, 1, "Stmt not found");
+        } else browser->resolve(seq, 1, "\"Stmt not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_run", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -286,8 +287,8 @@ void AlloyRuntime::setup_bindings() {
                 ss << "{\"lastInsertRowid\":" << (long long)sqlite3_last_insert_rowid(db)
                    << ",\"changes\":" << sqlite3_changes(db) << "}";
                 browser->resolve(seq, 0, ss.str());
-            } else browser->resolve(seq, 1, sqlite3_errmsg(sqlite3_db_handle(it->second->get())));
-        } else browser->resolve(seq, 1, "Stmt not found");
+            } else browser->resolve(seq, 1, json_escape(sqlite3_errmsg(sqlite3_db_handle(it->second->get()))));
+        } else browser->resolve(seq, 1, "\"Stmt not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_exec", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -296,8 +297,8 @@ void AlloyRuntime::setup_bindings() {
         auto it = this->m_databases.find(db_id);
         if (it != this->m_databases.end()) {
             try { it->second->exec(sql); browser->resolve(seq, 0, ""); }
-            catch (const std::exception& e) { browser->resolve(seq, 1, e.what()); }
-        } else browser->resolve(seq, 1, "DB not found");
+            catch (const std::exception& e) { browser->resolve(seq, 1, json_escape(e.what())); }
+        } else browser->resolve(seq, 1, "\"DB not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_serialize", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -306,8 +307,8 @@ void AlloyRuntime::setup_bindings() {
         if (it != this->m_databases.end()) {
             auto data = it->second->serialize();
             std::vector<char> cdata(data.begin(), data.end());
-            browser->resolve(seq, 0, this->base64_encode(cdata));
-        } else browser->resolve(seq, 1, "DB not found");
+            browser->resolve(seq, 0, json_escape(this->base64_encode(cdata)));
+        } else browser->resolve(seq, 1, "\"DB not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_file_control", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -320,14 +321,14 @@ void AlloyRuntime::setup_bindings() {
             int val = v_j.empty() ? 0 : std::stoi(v_j);
             int res = it->second->file_control(op, &val);
             browser->resolve(seq, 0, std::to_string(res));
-        } else browser->resolve(seq, 1, "DB not found");
+        } else browser->resolve(seq, 1, "\"DB not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_stmt_to_string", [this, browser](const std::string& seq, const std::string& req, void*) {
         std::string id = json_parse(req, "", 0);
         auto it = this->m_statements.find(id);
-        if (it != this->m_statements.end()) browser->resolve(seq, 0, it->second->to_sql());
-        else browser->resolve(seq, 1, "Stmt not found");
+        if (it != this->m_statements.end()) browser->resolve(seq, 0, json_escape(it->second->to_sql()));
+        else browser->resolve(seq, 1, "\"Stmt not found\"");
     }, nullptr);
 
     browser->bind("__alloy_sqlite_close", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -348,59 +349,65 @@ void AlloyRuntime::setup_bindings() {
         std::string h_s = json_parse(req, "", 2);
         int width = w_s.empty() ? 800 : std::stoi(w_s);
         int height = h_s.empty() ? 600 : std::stoi(h_s);
-        browser->resolve(seq, 0, std::to_string((uintptr_t)alloy_create_window(title.c_str(), width, height)));
+        auto* win = (::alloy::detail::Component*)alloy_create_window(title.c_str(), width, height);
+        win->webview_ptr = browser;
+        win->runtime_id = std::to_string((uintptr_t)win);
+        browser->resolve(seq, 0, json_escape(win->runtime_id));
     }, nullptr);
 
     browser->bind("__alloy_gui_create_component", [this, browser](const std::string& seq, const std::string& req, void*) {
         std::string type = json_parse(req, "", 0);
         std::string parent_str = json_parse(req, "", 1);
         auto parent = parent_str.empty() ? nullptr : (alloy_component_t)std::stoull(parent_str);
-        alloy_component_t comp = nullptr;
-        if (type == "button") comp = alloy_create_button(parent);
-        else if (type == "textfield") comp = alloy_create_textfield(parent);
-        else if (type == "textarea") comp = alloy_create_textarea(parent);
-        else if (type == "label") comp = alloy_create_label(parent);
-        else if (type == "checkbox") comp = alloy_create_checkbox(parent);
-        else if (type == "radiobutton") comp = alloy_create_radiobutton(parent);
-        else if (type == "combobox") comp = alloy_create_combobox(parent);
-        else if (type == "slider") comp = alloy_create_slider(parent);
-        else if (type == "spinner") comp = alloy_create_spinner(parent);
-        else if (type == "progressbar") comp = alloy_create_progressbar(parent);
-        else if (type == "tabview") comp = alloy_create_tabview(parent);
-        else if (type == "listview") comp = alloy_create_listview(parent);
-        else if (type == "treeview") comp = alloy_create_treeview(parent);
-        else if (type == "webview") comp = alloy_create_webview(parent);
-        else if (type == "vstack") comp = alloy_create_vstack(parent);
-        else if (type == "hstack") comp = alloy_create_hstack(parent);
-        else if (type == "scrollview") comp = alloy_create_scrollview(parent);
-        else if (type == "switch") comp = alloy_create_switch(parent);
-        else if (type == "separator") comp = alloy_create_separator(parent);
-        else if (type == "image") comp = alloy_create_image(parent);
-        else if (type == "icon") comp = alloy_create_icon(parent);
-        else if (type == "menubar") comp = alloy_create_menubar(parent);
-        else if (type == "toolbar") comp = alloy_create_toolbar(parent);
-        else if (type == "statusbar") comp = alloy_create_statusbar(parent);
-        else if (type == "splitter") comp = alloy_create_splitter(parent);
-        else if (type == "dialog") comp = alloy_create_dialog("Dialog", 400, 300);
-        else if (type == "filedialog") comp = alloy_create_filedialog(parent);
-        else if (type == "colorpicker") comp = alloy_create_colorpicker(parent);
-        else if (type == "datepicker") comp = alloy_create_datepicker(parent);
-        else if (type == "timepicker") comp = alloy_create_timepicker(parent);
-        else if (type == "link") comp = alloy_create_link(parent);
-        else if (type == "chip") comp = alloy_create_chip(parent);
-        else if (type == "accordion") comp = alloy_create_accordion(parent);
-        else if (type == "codeeditor") comp = alloy_create_codeeditor(parent);
-        else if (type == "groupbox") comp = alloy_create_groupbox(parent);
-        else if (type == "popover") comp = alloy_create_popover(parent);
-        else if (type == "badge") comp = alloy_create_badge(parent);
-        else if (type == "card") comp = alloy_create_card(parent);
-        else if (type == "rating") comp = alloy_create_rating(parent);
-        else if (type == "menu") comp = alloy_create_menu(parent);
-        else if (type == "contextmenu") comp = alloy_create_contextmenu(parent);
-        else if (type == "divider") comp = alloy_create_divider(parent);
-        else if (type == "loading_indicator") comp = alloy_create_loading_indicator(parent);
-        else if (type == "richtexteditor") comp = alloy_create_richtexteditor(parent);
-        browser->resolve(seq, 0, std::to_string((uintptr_t)comp));
+        alloy_component_t comp_handle = nullptr;
+        if (type == "button") comp_handle = alloy_create_button(parent);
+        else if (type == "textfield") comp_handle = alloy_create_textfield(parent);
+        else if (type == "textarea") comp_handle = alloy_create_textarea(parent);
+        else if (type == "label") comp_handle = alloy_create_label(parent);
+        else if (type == "checkbox") comp_handle = alloy_create_checkbox(parent);
+        else if (type == "radiobutton") comp_handle = alloy_create_radiobutton(parent);
+        else if (type == "combobox") comp_handle = alloy_create_combobox(parent);
+        else if (type == "slider") comp_handle = alloy_create_slider(parent);
+        else if (type == "spinner") comp_handle = alloy_create_spinner(parent);
+        else if (type == "progressbar") comp_handle = alloy_create_progressbar(parent);
+        else if (type == "tabview") comp_handle = alloy_create_tabview(parent);
+        else if (type == "listview") comp_handle = alloy_create_listview(parent);
+        else if (type == "treeview") comp_handle = alloy_create_treeview(parent);
+        else if (type == "webview") comp_handle = alloy_create_webview(parent);
+        else if (type == "vstack") comp_handle = alloy_create_vstack(parent);
+        else if (type == "hstack") comp_handle = alloy_create_hstack(parent);
+        else if (type == "scrollview") comp_handle = alloy_create_scrollview(parent);
+        else if (type == "switch") comp_handle = alloy_create_switch(parent);
+        else if (type == "separator") comp_handle = alloy_create_separator(parent);
+        else if (type == "image") comp_handle = alloy_create_image(parent);
+        else if (type == "menubar") comp_handle = alloy_create_menubar(parent);
+        else if (type == "toolbar") comp_handle = alloy_create_toolbar(parent);
+        else if (type == "statusbar") comp_handle = alloy_create_statusbar(parent);
+        else if (type == "splitter") comp_handle = alloy_create_splitter(parent);
+        else if (type == "dialog") comp_handle = alloy_create_dialog("Dialog", 400, 300);
+        else if (type == "filedialog") comp_handle = alloy_create_filedialog(parent);
+        else if (type == "colorpicker") comp_handle = alloy_create_colorpicker(parent);
+        else if (type == "datepicker") comp_handle = alloy_create_datepicker(parent);
+        else if (type == "timepicker") comp_handle = alloy_create_timepicker(parent);
+        else if (type == "link") comp_handle = alloy_create_link(parent);
+        else if (type == "chip") comp_handle = alloy_create_chip(parent);
+        else if (type == "accordion") comp_handle = alloy_create_accordion(parent);
+        else if (type == "codeeditor") comp_handle = alloy_create_codeeditor(parent);
+        else if (type == "groupbox") comp_handle = alloy_create_groupbox(parent);
+        else if (type == "popover") comp_handle = alloy_create_popover(parent);
+        else if (type == "badge") comp_handle = alloy_create_badge(parent);
+        else if (type == "card") comp_handle = alloy_create_card(parent);
+        else if (type == "rating") comp_handle = alloy_create_rating(parent);
+        else if (type == "menu") comp_handle = alloy_create_menu(parent);
+        else if (type == "contextmenu") comp_handle = alloy_create_contextmenu(parent);
+        else if (type == "divider") comp_handle = alloy_create_divider(parent);
+        else if (type == "loading_indicator") comp_handle = alloy_create_loading_indicator(parent);
+        else if (type == "richtexteditor") comp_handle = alloy_create_richtexteditor(parent);
+
+        auto* comp = (::alloy::detail::Component*)comp_handle;
+        comp->webview_ptr = browser;
+        comp->runtime_id = std::to_string((uintptr_t)comp);
+        browser->resolve(seq, 0, json_escape(comp->runtime_id));
     }, nullptr);
 
     browser->bind("__alloy_gui_set_text", [this, browser](const std::string& seq, const std::string& req, void*) {
@@ -436,14 +443,14 @@ void AlloyRuntime::setup_bindings() {
 
 void AlloyRuntime::on_process_exit(const std::string& id, int code, AlloyProcess::ResourceUsage usage) {
     if (!m_webview) return;
-    auto* browser = static_cast<::webview::browser_engine*>(this->m_webview);
+    auto* browser = static_cast<::webview::webview*>(this->m_webview);
     browser->dispatch([this, browser, id, code, usage]() {
         std::stringstream ss;
         ss << "{"
            << "\"maxRSS\":" << (long long)usage.maxRSS << ","
            << "\"cpuTime\":{\"user\":" << (long long)usage.cpuTime.user << ",\"system\":" << (long long)usage.cpuTime.system << "}"
            << "}";
-        browser->eval("window.__alloy_on_exit(\"" + id + "\", " + std::to_string(code) + ", " + ss.str() + ")");
+        browser->eval("window.__alloy_on_exit(" + json_escape(id) + ", " + std::to_string(code) + ", " + ss.str() + ")");
         this->m_processes.erase(id);
     });
 }

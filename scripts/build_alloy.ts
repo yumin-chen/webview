@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
 import { spawnSync } from "child_process";
 
 async function buildAlloy(entryPoint: string, outputBinary: string) {
-    console.log(`Building AlloyScript: ${entryPoint} -> ${outputBinary}`);
+    console.log(\`Building AlloyScript: \${entryPoint} -> \${outputBinary}\`);
 
     const buildResult = await build({
         entrypoints: [entryPoint],
@@ -19,24 +19,27 @@ async function buildAlloy(entryPoint: string, outputBinary: string) {
 
     const transpiledJs = await buildResult.outputs[0].text();
 
-    const cHostTemplate = `
+    const cHostTemplate = \`
 #include "webview/webview.h"
 #include <string>
 
+extern "C" void webview_alloy_setup(webview_t w);
+
 const char* embedded_js = R"javascript(
-${transpiledJs}
+\${transpiledJs}
 )javascript";
 
 int main() {
-    webview::webview w(false, nullptr);
-    w.set_title("Alloy App");
-    w.set_size(800, 600, WEBVIEW_HINT_NONE);
-    // JS glue and runtime are initialized inside webview::run or backend constructor
-    w.init(embedded_js);
-    w.run();
+    webview_t wv = webview_create(0, nullptr);
+    webview_alloy_setup(wv);
+    webview_set_title(wv, "Alloy App");
+    webview_set_size(wv, 800, 600, WEBVIEW_HINT_NONE);
+    webview_init(wv, embedded_js);
+    webview_run(wv);
+    webview_destroy(wv);
     return 0;
 }
-`;
+\`;
 
     const buildDir = "build_tmp";
     if (!existsSync(buildDir)) mkdirSync(buildDir);
@@ -54,7 +57,7 @@ int main() {
         libPath,
         "-lutil",
         "-lsqlite3",
-        "$(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1)",
+        "\$(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1)",
         "-o", outputBinary
     ], { shell: true, stdio: "inherit" });
 
@@ -63,7 +66,7 @@ int main() {
         process.exit(1);
     }
 
-    console.log(`Successfully built: ${outputBinary}`);
+    console.log(\`Successfully built: \${outputBinary}\`);
 }
 
 const args = process.argv.slice(2);

@@ -187,6 +187,7 @@ static const std::string alloy_js_code = R"javascript(
     }
 
     const activeProcesses = new Map();
+    const activeComponents = new Map();
 
     window.Alloy = {
         spawn: function(cmd, options = {}) {
@@ -254,6 +255,13 @@ static const std::string alloy_js_code = R"javascript(
         if (proc) {
             proc._onExit(exitCode, resourceUsage);
             activeProcesses.delete(id);
+        }
+    };
+
+    window.__alloy_on_gui_event = function(handle, event) {
+        const comp = activeComponents.get(handle);
+        if (comp && comp._callbacks[event]) {
+            comp._callbacks[event](comp, event);
         }
     };
 
@@ -353,10 +361,15 @@ static const std::string alloy_js_code = R"javascript(
     class Component {
         constructor(handle) {
             this.handle = handle;
+            this._callbacks = {};
+            activeComponents.set(handle, this);
         }
         setText(text) { window.__alloy_gui_set_text(this.handle, text); }
         addChild(child) { window.__alloy_gui_add_child(this.handle, child.handle); }
         bind(prop, signal) { window.__alloy_gui_bind_property(this.handle, String(prop), signal.id); }
+        on(event, callback) {
+            this._callbacks[event] = callback;
+        }
     }
 
     const guiProxy = {

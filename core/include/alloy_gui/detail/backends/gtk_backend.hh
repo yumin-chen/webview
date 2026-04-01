@@ -2,60 +2,14 @@
 #define ALLOY_GUI_GTK_BACKEND_HH
 
 #include <gtk/gtk.h>
-#include <string>
-#include <map>
-#include <vector>
-#include <memory>
-#include <unordered_map>
-#include <functional>
-#include "alloy_gui/api.h"
-
 #include <webkit2/webkit2.h>
+#include "../component.hh"
 
 namespace alloy {
 namespace detail {
 
-enum class signal_type { STR, DOUBLE, INT, BOOL };
-struct signal_value {
-    signal_type type;
-    std::string s;
-    double d;
-    int i;
-    bool b;
-};
-
-struct signal_base {
-    signal_value value;
-    std::vector<std::pair<void*, alloy_prop_id_t>> subscribers;
-    void notify();
-};
-
-struct Component {
-    GtkWidget *widget;
-    std::map<alloy_event_type_t, std::pair<alloy_event_cb_t, void*>> callbacks;
-    std::vector<Component*> children;
-    float flex = 0;
-    bool is_container = false;
-
-    Component(GtkWidget *w) : widget(w) {}
-    virtual ~Component() {
-        if (widget) {
-            gtk_widget_destroy(widget);
-        }
-    }
-
-    void on_signal_changed(alloy_prop_id_t prop, const signal_value& val);
-};
-
 class GTKBackend {
 public:
-    static Component* create_window(const char *title, int width, int height) {
-        GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-        gtk_window_set_title(GTK_WINDOW(window), title);
-        gtk_window_set_default_size(GTK_WINDOW(window), width, height);
-        return new Component(window);
-    }
-
     static Component* create_button(Component */*parent*/) {
         GtkWidget *button = gtk_button_new();
         Component *comp = new Component(button);
@@ -162,22 +116,16 @@ public:
 
     static void on_button_clicked(GtkButton */*button*/, gpointer data) {
         Component *comp = static_cast<Component*>(data);
-        auto it = comp->callbacks.find(ALLOY_EVENT_CLICK);
-        if (it != comp->callbacks.end()) {
-            it->second.first(comp, ALLOY_EVENT_CLICK, it->second.second);
-        }
+        comp->fire_event(ALLOY_EVENT_CLICK);
     }
 
     static void on_changed(GtkWidget */*widget*/, gpointer data) {
         Component *comp = static_cast<Component*>(data);
-        auto it = comp->callbacks.find(ALLOY_EVENT_CHANGE);
-        if (it != comp->callbacks.end()) {
-            it->second.first(comp, ALLOY_EVENT_CHANGE, it->second.second);
-        }
+        comp->fire_event(ALLOY_EVENT_CHANGE);
     }
 };
 
 } // namespace detail
 } // namespace alloy
 
-#endif // ALLOY_GUI_GTK_BACKEND_HH
+#endif
