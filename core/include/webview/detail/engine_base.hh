@@ -77,6 +77,11 @@ public:
     void *m_arg;
   };
 
+  struct binding_info_t {
+      binding_ctx_t ctx;
+      bool is_global;
+  };
+
   using sync_binding_t = std::function<std::string(std::string)>;
 
   // Synchronous bind
@@ -92,7 +97,7 @@ public:
     if (bindings.count(name) > 0) {
       return error_info{WEBVIEW_ERROR_DUPLICATE};
     }
-    bindings.emplace(name, binding_ctx_t(fn, arg));
+    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), false});
     replace_bind_script();
     // Notify that a binding was created if the init script has already
     // set things up.
@@ -107,7 +112,8 @@ window.__webview__.onBind(" +
     if (bindings.count(name) > 0) {
       return error_info{WEBVIEW_ERROR_DUPLICATE};
     }
-    bindings.emplace(name, binding_ctx_t(fn, arg));
+    bindings.emplace(name, binding_info_t{binding_ctx_t(fn, arg), true});
+    replace_bind_script();
     eval("if (window.__webview__) {\n\
 window.__webview__.onBindGlobal(" +
          json_escape(name) + ")\n\
@@ -1628,26 +1634,15 @@ protected:
   }
 
   std::string create_bind_script() {
-    std::string js_names = "[";
-    bool first = true;
+    std::string js = "(function() {\n  'use strict';\n";
     for (const auto &binding : bindings) {
-      if (first) {
-        first = false;
-      } else {
-        js_names += ",";
-      }
-      js_names += json_escape(binding.first);
+        if (binding.second.is_global) {
+            js += "  window.__webview__.onBindGlobal(" + json_escape(binding.first) + ");\n";
+        } else {
+            js += "  window.__webview__.onBind(" + json_escape(binding.first) + ");\n";
+        }
     }
-    js_names += "]";
-
-    auto js = std::string{} + "(function() {\n\
-  'use strict';\n\
-  var methods = " +
-              js_names + ";\n\
-  methods.forEach(function(name) {\n\
-    window.__webview__.onBind(name);\n\
-  });\n\
-})()";
+    js += "})()";
     return js;
   }
 
@@ -1659,7 +1654,7 @@ protected:
     if (found == bindings.end()) {
       return;
     }
-    const auto &context = found->second;
+    const auto &context = found->second.ctx;
     dispatch([=] { context.call(id, args); });
   }
 
@@ -1723,7 +1718,7 @@ private:
     return 0;
   }
 
-  std::map<std::string, binding_ctx_t> bindings;
+  std::map<std::string, binding_info_t> bindings;
   std::map<std::string, std::shared_ptr<subprocess>> m_subprocesses;
   std::map<std::string, std::shared_ptr<sqlite_db>> m_sqlite_dbs;
   std::map<std::string, std::shared_ptr<sqlite_stmt>> m_sqlite_stmts;
