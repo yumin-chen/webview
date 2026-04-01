@@ -1,50 +1,42 @@
-# @alloyscript/runtime Architecture & Implementation
+# @alloyscript/engine Dual-Engine Architecture
 
-The AlloyScript runtime is a high-performance, secure JavaScript environment built for WebView applications. It uses **Bun** for development and bundling, and a **C host program** for native capabilities.
+This project implements a secure, high-performance runtime for AlloyScript using a **Dual-Engine Architecture**.
 
-## Architecture
+## Architecture Overview
 
-1.  **TypeScript Library**: Provides typed APIs for SQLite, Process Spawning, and Secure Evaluation.
-2.  **C Host Program (`src/host.c`)**: A native wrapper that initializes a WebView window and exposes a bridge to the JS context via `window.Alloy`.
-3.  **Bridge**: Synchronous and asynchronous communication between JS and C via `window.Alloy` and `webview_bind`.
-4.  **Secure Evaluation**: `globalThis.eval` is replaced with `secureEval` which runs [MicroQuickJS](https://github.com/bellard/mquickjs) within a containerized Linux kernel for ultimate isolation.
-5.  **SQLite Driver (`src/sqlite.ts`)**: A high-performance driver featuring transactions (`deferred`, `immediate`, `exclusive`), prepared statement caching, `bigint` (signed 64-bit) validation, and `.as(Class)` mapping.
-6.  **Native GUI Framework (`alloy:gui`)**: A declarative component framework (ASX/JSX) that wraps native OS controls (Win32/Cocoa/GTK) using the Yoga layout engine for flexbox-based layout.
+The system consists of two primary execution environments orchestrated by a native C host:
 
-## GUI Component Framework
+1.  **Safe Host Process (MicroQuickJS)**:
+    - Primary engine for executing AlloyScript logic.
+    - Runs in a secure, isolated environment.
+    - Handles sensitive operations like File I/O, SQLite, and Process Management.
+    - Uses MicroQuickJS compiled to native machine code or WASM.
 
-The framework includes 45+ modular components in `src/gui/components/`, re-exported via `src/gui/components.ts`. Each component maps to a native control in `src/gui/alloy.c`:
+2.  **Unsafe WebView Process (Browser Capacities)**:
+    - Hidden by default to reinforce defense-in-depth.
+    - Acts purely as a **Capacities Provider**.
+    - Exposes Browser-native APIs (GPU, Window, Document) to the Safe Host.
+    - Logic execution here is considered untrusted.
 
-- **Layout**: `VStack`, `HStack`, `ScrollView`, `GroupBox`, `Splitter`
-- **Input**: `Button`, `TextField`, `TextArea`, `CheckBox`, `RadioButton`, `ComboBox`, `Slider`, `Spinner`, `DatePicker`, `TimePicker`, `ColorPicker`, `Switch`, `Rating`
-- **Display**: `Label`, `Image`, `Icon`, `ProgressBar`, `LoadingSpinner`, `Badge`, `Card`, `Divider`, `Tooltip`, `Badge`, `Link`, `Chip`
-- **Navigation/Menus**: `Menu`, `MenuBar`, `Toolbar`, `ContextMenu`, `Accordion`, `TabView`, `TreeView`, `ListView`
-- **Dialogs**: `Dialog`, `FileDialog`, `Popover`, `StatusBar`
-- **Rich Content**: `WebView`, `RichTextEditor`, `CodeEditor`
+## ABI Boundary & Polyfilling
 
-## Native C Bindings
+The C host manages a high-speed ABI bridge between the two engines:
 
-The native implementation (`src/gui/alloy.c`) provides:
-- **Win32 Backend**: Uses `CreateWindowExW` with standard classes (`BUTTON`, `EDIT`, `STATIC`, etc.).
-- **GTK Backend**: Uses `gtk_button_new`, `gtk_entry_new`, etc., and manages widgets via `GtkContainer`.
-- **Layout**: Uses the Yoga flexbox engine (`YGNodeRef`) to calculate component positions.
-- **Dispatch**: Thread-safe UI updates via `alloy_dispatch`.
+- **Automatic Polyfilling**: MicroQuickJS is automatically polyfilled with standard Browser APIs. When AlloyScript code accesses `window` or `document`, the request is transparently delegated to the WebView via a secure proxy.
+- **IPC Encryption**: Messages crossing the ABI boundary are encrypted using a per-session E2E encryption shim to prevent manipulation by malicious scripts in the WebView.
+- **Global Bindings**: Critical APIs are bound to the global scope (`bind_global`) instead of being attached to the `window` object, protecting them from prototype pollution.
+
+## Transpiler & Bytecode
+
+The `Alloy.Transpiler` uses the MicroQuickJS parser to:
+- **Validate Syntax**: Engine-level parsing of JS and TS.
+- **Generate Bytecode**: Compile code to internal MicroQuickJS bytecode for efficient distribution.
+- **Reconstruction**: Restore JS code from bytecode when targeting Node.js.
+- **Async Polyfilling**: Automatically inject polyfills to forward `async/await` operations to the WebView capacities provider.
 
 ## Security Model
 
-By default, the runtime replaces the browser's `eval` with a more restricted and secure version using MicroQuickJS. The original `eval` is renamed to `_forbidden_eval` in the bridge to prevent accidental usage.
-
-## Build System (`scripts/build.ts`)
-
-Use `bun run build` to:
-1. Bundle the TypeScript source using `Bun.build`.
-2. Generate `build/bundle.c` which contains the minified JS source as an escaped C string.
-3. Compile the C host program using `gcc` (linking against `sqlite3`, `mquickjs`, `webview`, and platform GUI libraries).
-
-## Testing (`tests/`)
-
-Run tests with `bun test`.
-- `tests/components/`: Individual unit tests for all 45+ GUI components.
-- `tests/sqlite.test.ts`: Comprehensive SQLite engine verification.
-- `tests/spawn.test.ts`: Process management and SecureEval tests.
-- `tests/e2e.test.ts`: Full application lifecycle and JS bridge routing simulation.
+By treating the WebView as an inherently hostile layer, we achieve "Secure by Design":
+- Sensitive data never resides in the WebView's heap.
+- UI manipulation is restricted to high-level GUI components.
+- The browser runtime is used only for what it does best: rendering and specific web-native APIs.

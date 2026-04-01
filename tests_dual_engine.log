@@ -1,0 +1,201 @@
+bun test v1.2.14 (6a363a38)
+
+tests/e2e.test.ts:
+(pass) Alloy:gui End-to-End Bridge Tests > Full application lifecycle simulation [7.77ms]
+(pass) Alloy:gui End-to-End Bridge Tests > Event routing simulation (JS side) [0.15ms]
+
+tests/spawn.test.ts:
+(pass) Alloy Runtime > secureEval comprehensive > should handle complex expressions [0.12ms]
+(pass) Alloy Runtime > secureEval comprehensive > should handle string manipulation [0.03ms]
+(pass) Alloy Runtime > secureEval comprehensive > should handle error cases (mocked) [0.11ms]
+(pass) Alloy Runtime > spawn should return an exit code [9.60ms]
+(pass) Alloy Runtime > spawnSync should return an exit code [6.21ms]
+(pass) Alloy Runtime > spawn should handle failure [3.77ms]
+(pass) Alloy Runtime > spawnSync should handle failure [2.08ms]
+(pass) Alloy Runtime > spawn should handle non-existent command [3.36ms]
+(pass) Alloy Runtime > spawnSync should handle non-existent command [0.23ms]
+(pass) Alloy Runtime > spawn should work with multiple arguments [4.28ms]
+(pass) Alloy Runtime > secureEval should return the code in mock [0.12ms]
+(pass) Alloy Runtime > globalThis.eval should be replaced [0.21ms]
+
+tests/streams.test.ts:
+(pass) ArrayBufferSink > Basic write and end [2.92ms]
+(pass) ArrayBufferSink > Uint8Array output [0.46ms]
+(pass) ArrayBufferSink > Streaming flush [0.77ms]
+
+tests/gui.test.ts:
+(pass) Alloy:gui Logic Tests > Styling and Color API [0.11ms]
+
+tests/repl.test.ts:
+(pass) Alloy REPL > REPL instantiation and engine type [0.09ms]
+
+tests/transpiler.test.ts:
+(pass) Alloy Transpiler API > transform method [0.69ms]
+(pass) Alloy Transpiler API > transformSync method [0.07ms]
+(pass) Alloy Transpiler API > browser target [0.22ms]
+(pass) Alloy Transpiler API > scan and scanImports [0.66ms]
+
+tests/sqlite.test.ts:
+(pass) Alloy:sqlite expanded > Database opening and query result [1.50ms]
+(pass) Alloy:sqlite expanded > Class mapping using .as() [0.60ms]
+(pass) Alloy:sqlite expanded > Transactions [0.31ms]
+(pass) Alloy:sqlite expanded > bigint conversion [0.54ms]
+(pass) Alloy:sqlite expanded > Statement metadata [0.26ms]
+(pass) Alloy:sqlite expanded > Database serialization [0.71ms]
+(pass) Alloy:sqlite expanded > Database fileControl [0.14ms]
+(pass) Alloy:sqlite expanded > Statement iteration [1.02ms]
+(pass) Alloy:sqlite expanded > Strict mode - prefix required by default [0.05ms]
+(pass) Alloy:sqlite expanded > safeIntegers range check [0.72ms]
+
+tests/file.test.ts:
+(pass) Alloy File API > Alloy.file properties [0.10ms]
+(pass) Alloy File API > AlloyFile reading [0.54ms]
+(pass) Alloy File API > Alloy.write [0.61ms]
+(pass) Alloy File API > Standard streams [0.08ms]
+
+tests/components/DatePicker.test.ts:
+(pass) DatePicker representation [0.07ms]
+
+tests/components/Accordion.test.ts:
+(pass) Accordion representation [1.11ms]
+
+tests/components/FileDialog.test.ts:
+(pass) FileDialog representation [0.11ms]
+
+tests/components/HStack.test.ts:
+(pass) HStack representation [0.06ms]
+
+tests/components/VStack.test.ts:
+(pass) VStack representation [0.07ms]
+
+tests/components/Icon.test.ts:
+(pass) Icon representation [0.96ms]
+
+tests/components/Splitter.test.ts:
+(pass) Splitter representation [0.06ms]
+
+tests/components/ListView.test.ts:
+(pass) ListView representation [1.21ms]
+
+tests/components/Badge.test.ts:
+(pass) Badge representation [0.13ms]
+
+tests/components/StatusBar.test.ts:
+(pass) StatusBar representation [0.16ms]
+
+tests/components/Rating.test.ts:
+(pass) Rating representation [0.06ms]
+
+tests/components/Link.test.ts:
+(pass) Link representation [0.76ms]
+
+tests/components/Menu.test.ts:
+(pass) Menu representation [0.19ms]
+
+tests/components/LoadingSpinner.test.ts:
+(pass) LoadingSpinner representation [4.56ms]
+
+tests/components/Tooltip.test.ts:
+(pass) Tooltip representation [0.20ms]
+
+tests/components/TreeView.test.ts:
+(pass) TreeView representation [0.69ms]
+
+tests/components/Slider.test.ts:
+(pass) Slider representation [0.06ms]
+
+tests/components/Switch.test.ts:
+(pass) Switch representation [0.92ms]
+
+tests/components/ProgressBar.test.ts:
+(pass) ProgressBar representation [0.11ms]
+
+tests/components/Card.test.ts:
+(pass) Card representation [0.54ms]
+
+tests/components/ContextMenu.test.ts:
+(pass) ContextMenu representation [0.06ms]
+
+tests/components/TextArea.test.ts:
+(pass) TextArea representation [0.69ms]
+
+tests/components/TabView.test.ts:
+(pass) TabView representation [0.06ms]
+
+tests/components/Chip.test.ts:
+(pass) Chip representation [0.74ms]
+
+tests/components/Label.test.ts:
+(pass) Label representation [0.06ms]
+
+tests/components/CodeEditor.test.ts:
+(pass) CodeEditor representation [0.10ms]
+
+tests/components/Window.test.ts:
+(pass) Window Component > Window representation and attributes [0.13ms]
+(pass) Window Component > Window default size [0.04ms]
+
+tests/components/Divider.test.ts:
+(pass) Divider representation [0.67ms]
+
+tests/components/Image.test.ts:
+(pass) Image representation [0.06ms]
+
+tests/components/GroupBox.test.ts:
+(pass) GroupBox representation [0.63ms]
+
+tests/components/ColorPicker.test.ts:
+(pass) ColorPicker representation [0.10ms]
+
+tests/components/ScrollView.test.ts:
+(pass) ScrollView representation [1.08ms]
+
+tests/components/CheckBox.test.ts:
+(pass) CheckBox representation [0.27ms]
+
+tests/components/Toolbar.test.ts:
+(pass) Toolbar representation [1.25ms]
+
+tests/components/MenuBar.test.ts:
+(pass) MenuBar representation [0.10ms]
+
+tests/components/Button.test.ts:
+(pass) Button Component > Button representation and properties [0.11ms]
+(pass) Button Component > Button with default properties [0.13ms]
+(pass) Button Component > Button event simulation (bridge mock) [0.23ms]
+
+tests/components/TextField.test.ts:
+(pass) TextField Component > TextField representation and props [0.19ms]
+(pass) TextField Component > TextField event simulation (onChange) [0.12ms]
+
+tests/components/Spinner.test.ts:
+(pass) Spinner representation [0.80ms]
+
+tests/components/RichTextEditor.test.ts:
+(pass) RichTextEditor representation [0.15ms]
+
+tests/components/Separator.test.ts:
+(pass) Separator representation [0.30ms]
+
+tests/components/Dialog.test.ts:
+(pass) Dialog representation [0.22ms]
+
+tests/components/TimePicker.test.ts:
+(pass) TimePicker representation [0.12ms]
+
+tests/components/WebView.test.ts:
+(pass) WebView representation [0.13ms]
+
+tests/components/RadioButton.test.ts:
+(pass) RadioButton representation [0.07ms]
+
+tests/components/ComboBox.test.ts:
+(pass) ComboBox representation [0.08ms]
+
+tests/components/Popover.test.ts:
+(pass) Popover representation [0.11ms]
+
+ 87 pass
+ 0 fail
+ 121 expect() calls
+Ran 87 tests across 54 files. [288.00ms]
