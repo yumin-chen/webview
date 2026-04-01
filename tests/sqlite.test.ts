@@ -63,43 +63,49 @@ describe("Alloy SQLite (Mocked for Bun)", () => {
     Database = (globalThis as any).Alloy.sqlite.Database;
   });
 
-  test("Basic CRUD", () => {
+  test("Basic CRUD", async () => {
     const db = new Database(":memory:");
+    await db._initPromise;
     const insert = db.prepare("INSERT INTO users (name, age) VALUES (?, ?)");
-    const res = insert.run("Alice", 30);
+    const res = await insert.run("Alice", 30);
     expect(res.changes).toBe(1);
     expect(res.lastInsertRowid).toBe(1);
 
-    const user = db.query("SELECT * FROM users WHERE name = 'Alice'").get();
+    const user = await db.query("SELECT * FROM users WHERE name = 'Alice'").get();
     expect(user.name).toBe("Alice");
   });
 
-  test("Transactions", () => {
+  test("Transactions", async () => {
     const db = new Database(":memory:");
+    await db._initPromise;
     const insert = db.prepare("INSERT INTO users (name, age) VALUES (?, ?)");
-    const trans = db.transaction((users: any[]) => {
-      for (const u of users) insert.run(u.name, u.age);
+    const trans = db.transaction(async (users: any[]) => {
+      for (const u of users) await insert.run(u.name, u.age);
     });
 
-    trans([{ name: "Charlie", age: 40 }, { name: "Dave", age: 45 }]);
-    const count = db.query("SELECT count(*) as count FROM users").get().count;
-    expect(count).toBe(4);
+    await trans([{ name: "Charlie", age: 40 }, { name: "Dave", age: 45 }]);
+    const res = await db.query("SELECT count(*) as count FROM users").get();
+    expect(res.count).toBe(4);
   });
 
-  test("BigInt support", () => {
+  test("BigInt support", async () => {
     const big = 9007199254740993n;
     const db = new Database(":memory:", { safeIntegers: false });
-    const res = db.query("SELECT age FROM users WHERE name = 'Big'").get();
+    await db._initPromise;
+    const res = await db.query("SELECT age FROM users WHERE name = 'Big'").get();
     expect(typeof res.age).toBe("number");
 
     const dbSafe = new Database(":memory:", { safeIntegers: true });
-    const resSafe = dbSafe.query("SELECT v FROM t").get();
+    await dbSafe._initPromise;
+    const resSafe = await dbSafe.query("SELECT v FROM t").get();
     expect(resSafe.age).toBe(big);
   });
 
-  test("Drizzle Introspection", () => {
+  test("Drizzle Introspection", async () => {
     const db = new Database(":memory:");
+    await db._initPromise;
     const stmt = db.query("SELECT id, name FROM users");
+    await stmt._initPromise;
     expect(stmt.columnNames).toContain("id");
     expect(stmt.declaredTypes).toContain("INTEGER");
   });

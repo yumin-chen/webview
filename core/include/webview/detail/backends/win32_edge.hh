@@ -412,6 +412,11 @@ protected:
     return {};
   }
 
+  noresult set_visible_impl(bool visible) override {
+    ShowWindow(m_window, visible ? SW_SHOW : SW_HIDE);
+    return {};
+  }
+
   noresult set_size_impl(int width, int height, webview_hint_t hints) override {
     auto style = GetWindowLong(m_window, GWL_STYLE);
     if (hints == WEBVIEW_HINT_FIXED) {

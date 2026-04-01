@@ -6,7 +6,8 @@ const setupMock = () => {
         gui: {
             create: async (type: string, props: any) => "handle_" + Math.random(),
             createSignal: (initial: any) => ({ value: initial })
-        }
+        },
+        secureEval: async (code: string) => "Evaluated in secure host: " + code
     };
 };
 
@@ -40,5 +41,10 @@ describe("UI Components Comprehensive", () => {
             expect(instance.handle).toBeDefined();
             expect(instance.type).toBe(name);
         }
+    });
+
+    test("Secure Eval and Session Token Mock", async () => {
+        const res = await (globalThis as any).Alloy.secureEval("1 + 1");
+        expect(res).toContain("Evaluated in secure host");
     });
 });

@@ -182,6 +182,12 @@ WEBVIEW_API webview_error_t webview_set_size(webview_t w, int width, int height,
       [=] { return cast_to_webview(w)->set_size(width, height, hints); });
 }
 
+WEBVIEW_API webview_error_t webview_set_visible(webview_t w, int visible) {
+  using namespace webview::detail;
+  return api_filter(
+      [=] { return cast_to_webview(w)->set_visible(static_cast<bool>(visible)); });
+}
+
 WEBVIEW_API webview_error_t webview_navigate(webview_t w, const char *url) {
   using namespace webview::detail;
   if (!url) {
@@ -224,6 +230,24 @@ WEBVIEW_API webview_error_t webview_bind(webview_t w, const char *name,
   }
   return api_filter([=] {
     return cast_to_webview(w)->bind(
+        name,
+        [=](const std::string &seq, const std::string &req, void *arg_) {
+          fn(seq.c_str(), req.c_str(), arg_);
+        },
+        arg);
+  });
+}
+
+WEBVIEW_API webview_error_t webview_bind_global(webview_t w, const char *name,
+                                                void (*fn)(const char *id,
+                                                           const char *req, void *arg),
+                                                void *arg) {
+  using namespace webview::detail;
+  if (!name || !fn) {
+    return WEBVIEW_ERROR_INVALID_ARGUMENT;
+  }
+  return api_filter([=] {
+    return cast_to_webview(w)->bind_global(
         name,
         [=](const std::string &seq, const std::string &req, void *arg_) {
           fn(seq.c_str(), req.c_str(), arg_);

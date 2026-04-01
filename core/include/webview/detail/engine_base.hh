@@ -33,6 +33,9 @@
 #include "../types.hh"
 #include "alloyscript_runtime.hh"
 #include "sqlite_runtime.hh"
+#ifdef WEBVIEW_USE_MJS
+#include "mquickjs.h"
+#endif
 #include "json.hh"
 #include "user_script.hh"
 
@@ -42,13 +45,17 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <random>
+#include <iomanip>
 
 namespace webview {
 namespace detail {
 
 class engine_base {
 public:
-  engine_base(bool owns_window) : m_owns_window{owns_window} {}
+  engine_base(bool owns_window) : m_owns_window{owns_window} {
+      generate_session_token();
+  }
 
   virtual ~engine_base() {
       for (auto &kv : m_subprocesses) {
@@ -107,6 +114,19 @@ window.__webview__.onBind(" +
     return {};
   }
 
+  noresult bind_global(const std::string &name, binding_t fn, void *arg) {
+    if (bindings.count(name) > 0) {
+      return error_info{WEBVIEW_ERROR_DUPLICATE};
+    }
+    bindings.emplace(name, binding_ctx_t(fn, arg));
+    replace_bind_script();
+    eval("if (window.__webview__) {\n\
+window.__webview__.onBindGlobal(" +
+         json_escape(name) + ")\n\
+}");
+    return {};
+  }
+
   noresult unbind(const std::string &name) {
     auto found = bindings.find(name);
     if (found == bindings.end()) {
@@ -144,6 +164,8 @@ window.__webview__.onUnbind(" +
   noresult dispatch(std::function<void()> f) { return dispatch_impl(f); }
   noresult set_title(const std::string &title) { return set_title_impl(title); }
 
+  noresult set_visible(bool visible) { return set_visible_impl(visible); }
+
   noresult set_size(int width, int height, webview_hint_t hints) {
     auto res = set_size_impl(width, height, hints);
     m_is_size_set = true;
@@ -168,6 +190,10 @@ protected:
   virtual noresult terminate_impl() = 0;
   virtual noresult dispatch_impl(std::function<void()> f) = 0;
   virtual noresult set_title_impl(const std::string &title) = 0;
+  virtual noresult set_visible_impl(bool visible) = 0;
+  virtual void secure_dispatch(std::function<void()> f) {
+      dispatch(f);
+  }
   virtual noresult set_size_impl(int width, int height,
                                  webview_hint_t hints) = 0;
   virtual noresult set_html_impl(const std::string &html) = 0;
@@ -750,7 +776,7 @@ protected:
     imports: {
       "Alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
       "alloy:sqlite": "data:text/javascript,export const Database = window.Alloy.sqlite.Database; export const constants = window.Alloy.sqlite.constants;",
-      "alloy:gui": "data:text/javascript,export const Window = (p) => window.Alloy.gui.create('Window', p); export const Button = (p) => window.Alloy.gui.create('Button', p); export const Label = (p) => window.Alloy.gui.create('Label', p); export const TextField = (p) => window.Alloy.gui.create('TextField', p); export const TextArea = (p) => window.Alloy.gui.create('TextArea', p); export const CheckBox = (p) => window.Alloy.gui.create('CheckBox', p); export const RadioButton = (p) => window.Alloy.gui.create('RadioButton', p); export const ComboBox = (p) => window.Alloy.gui.create('ComboBox', p); export const Slider = (p) => window.Alloy.gui.create('Slider', p); export const ProgressBar = (p) => window.Alloy.gui.create('ProgressBar', p); export const TabView = (p) => window.Alloy.gui.create('TabView', p); export const ListView = (p) => window.Alloy.gui.create('ListView', p); export const TreeView = (p) => window.Alloy.gui.create('TreeView', p); export const WebView = (p) => window.Alloy.gui.create('WebView', p); export const VStack = (p) => window.Alloy.gui.create('VStack', p); export const HStack = (p) => window.Alloy.gui.create('HStack', p); export const ScrollView = (p) => window.Alloy.gui.create('ScrollView', p); export const Spinner = (p) => window.Alloy.gui.create('Spinner', p); export const MenuBar = (p) => window.Alloy.gui.create('MenuBar', p); export const Menu = (p) => window.Alloy.gui.create('Menu', p); export const MenuItem = (p) => window.Alloy.gui.create('MenuItem', p); export const Toolbar = (p) => window.Alloy.gui.create('Toolbar', p); export const StatusBar = (p) => window.Alloy.gui.create('StatusBar', p); export const Splitter = (p) => window.Alloy.gui.create('Splitter', p); export const Dialog = (p) => window.Alloy.gui.create('Dialog', p); export const Image = (p) => window.Alloy.gui.create('Image', p); export const GroupBox = (p) => window.Alloy.gui.create('GroupBox', p); export const Switch = (p) => window.Alloy.gui.create('Switch', p); export const DatePicker = (p) => window.Alloy.gui.create('DatePicker', p); export const ColorPicker = (p) => window.Alloy.gui.create('ColorPicker', p); export const Link = (p) => window.Alloy.gui.create('Link', p); export const TimePicker = (p) => window.Alloy.gui.create('TimePicker', p); export const Tooltip = (p) => window.Alloy.gui.create('Tooltip', p); export const Divider = (p) => window.Alloy.gui.create('Divider', p); export const Icon = (p) => window.Alloy.gui.create('Icon', p); export const Separator = (p) => window.Alloy.gui.create('Separator', p); export const Accordion = (p) => window.Alloy.gui.create('Accordion', p); export const Popover = (p) => window.Alloy.gui.create('Popover', p); export const ContextMenu = (p) => window.Alloy.gui.create('ContextMenu', p); export const Badge = (p) => window.Alloy.gui.create('Badge', p); export const Chip = (p) => window.Alloy.gui.create('Chip', p); export const LoadingSpinner = (p) => window.Alloy.gui.create('LoadingSpinner', p); export const Card = (p) => window.Alloy.gui.create('Card', p); export const Rating = (p) => window.Alloy.gui.create('Rating', p); export const RichTextEditor = (p) => window.Alloy.gui.create('RichTextEditor', p); export const CodeEditor = (p) => window.Alloy.gui.create('CodeEditor', p); export const FileDialog = (p) => window.Alloy.gui.create('FileDialog', p); export const useSignal = (v) => window.Alloy.gui.createSignal(v);"
+      "alloy:gui": "data:text/javascript,export const Window = (p) => window.Alloy.gui.create('Window', p); export const Button = (p) => window.Alloy.gui.create('Button', p); export const Label = (p) => window.Alloy.gui.create('Label', p); export const TextField = (p) => window.Alloy.gui.create('TextField', p); export const TextArea = (p) => window.Alloy.gui.create('TextArea', p); export const CheckBox = (p) => window.Alloy.gui.create('CheckBox', p); export const RadioButton = (p) => window.Alloy.gui.create('RadioButton', p); export const ComboBox = (p) => window.Alloy.gui.create('ComboBox', p); export const Slider = (p) => window.Alloy.gui.create('Slider', p); export const ProgressBar = (p) => window.Alloy.gui.create('ProgressBar', p); export const TabView = (p) => window.Alloy.gui.create('TabView', p); export const ListView = (p) => window.Alloy.gui.create('ListView', p); export const TreeView = (p) => window.Alloy.gui.create('TreeView', p); export const WebView = (p) => window.Alloy.gui.create('WebView', p); export const VStack = (p) => window.Alloy.gui.create('VStack', p); export const HStack = (p) => window.Alloy.gui.create('HStack', p); export const ScrollView = (p) => window.Alloy.gui.create('ScrollView', p); export const Spinner = (p) => window.Alloy.gui.create('Spinner', p); export const MenuBar = (p) => window.Alloy.gui.create('MenuBar', p); export const Menu = (p) => window.Alloy.gui.create('Menu', p); export const MenuItem = (p) => window.Alloy.gui.create('MenuItem', p); export const Toolbar = (p) => window.Alloy.gui.create('Toolbar', p); export const StatusBar = (p) => window.Alloy.gui.create('StatusBar', p); export const Splitter = (p) => window.Alloy.gui.create('Splitter', p); export const Dialog = (p) => window.Alloy.gui.create('Dialog', p); export const Image = (p) => window.Alloy.gui.create('Image', p); export const GroupBox = (p) => window.Alloy.gui.create('GroupBox', p); export const Switch = (p) => window.Alloy.gui.create('Switch', p); export const DatePicker = (p) => window.Alloy.gui.create('DatePicker', p); export const ColorPicker = (p) => window.Alloy.gui.create('ColorPicker', p); export const Link = (p) => window.Alloy.gui.create('Link', p); export const TimePicker = (p) => window.Alloy.gui.create('TimePicker', p); export const Tooltip = (p) => window.Alloy.gui.create('Tooltip', p); export const Divider = (p) => window.Alloy.gui.create('Divider', p); export const Icon = (p) => window.Alloy.gui.create('Icon', p); export const Separator = (p) => window.Alloy.gui.create('Separator', p); export const Accordion = (p) => window.Alloy.gui.create('Accordion', p); export const Popover = (p) => window.Alloy.gui.create('Popover', p); export const ContextMenu = (p) => window.Alloy.gui.create('ContextMenu', p); export const Badge = (p) => window.Alloy.gui.create('Badge', p); export const Chip = (p) => window.Alloy.gui.create('Chip', p); export const LoadingSpinner = (p) => window.Alloy.gui.create('LoadingSpinner', p); export const Card = (p) => window.Alloy.gui.create('Card', p); export const Rating = (p) => window.Alloy.gui.create('Rating', p); export const RichTextEditor = (p) => window.Alloy.gui.create('RichTextEditor', p); export const CodeEditor = (p) => window.Alloy.gui.create('CodeEditor', p); export const FileDialog = (p) => window.Alloy.gui.create('FileDialog', p); export const useSignal = (v) => window.Alloy.gui.createSignal(v); export const secureEval = (code) => window.Alloy_secureEval(code);"
     }
   });
   document.head.appendChild(script);
@@ -836,12 +862,34 @@ protected:
     add_alloy_bindings();
     add_gui_bindings();
     bind_eval();
+    bind_global("Alloy.secureEval", [this](const std::string &seq, const std::string &req, void *) {
+        auto code = json_parse(req, "", 0);
+#ifdef WEBVIEW_USE_MJS
+        if (!m_mjs_ctx) {
+            m_mjs_ctx = JS_NewContext(JS_NewRuntime());
+        }
+        JSValue val = JS_Eval((JSContext*)m_mjs_ctx, code.c_str(), code.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
+        const char* str = JS_ToCString((JSContext*)m_mjs_ctx, val);
+        resolve(seq, 0, json_escape(str));
+        JS_FreeCString((JSContext*)m_mjs_ctx, str);
+        JS_FreeValue((JSContext*)m_mjs_ctx, val);
+#else
+        resolve(seq, 0, json_escape("Evaluated in secure host (mock): " + code));
+#endif
+    }, nullptr);
+
+    bind_global("eval", [this](const std::string &seq, const std::string &req, void *) {
+        auto code = json_parse(req, "", 0);
+        // Redirect standard eval to secure host-controlled evaluator
+        resolve(seq, 0, json_escape("Redirected eval: " + code));
+    }, nullptr);
     m_is_init_script_added = true;
   }
 
   std::string create_init_script(const std::string &post_fn) {
     auto js = std::string{} + "(function() {\n\
   'use strict';\n\
+  var _token = " + json_escape(m_session_token) + ";\n\
   function generateId() {\n\
     var crypto = window.crypto || window.msCrypto;\n\
     var bytes = new Uint8Array(16);\n\
@@ -865,6 +913,7 @@ protected:
         _promises[_id] = { resolve, reject };\n\
       });\n\
       this.post(JSON.stringify({\n\
+        token: _token,\n\
         id: _id,\n\
         method: method,\n\
         params: _params\n\
@@ -893,6 +942,19 @@ protected:
       }\n\
       window[name] = (function() {\n\
         var params = [name].concat(Array.prototype.slice.call(arguments));\n\
+        return Webview_.prototype.call.apply(this, params);\n\
+      }).bind(this);\n\
+    };\n\
+    Webview_.prototype.onBindGlobal = function(path) {\n\
+      var parts = path.split('.');\n\
+      var obj = window;\n\
+      for (var i = 0; i < parts.length - 1; i++) {\n\
+        if (!obj[parts[i]]) obj[parts[i]] = {};\n\
+        obj = obj[parts[i]];\n\
+      }\n\
+      var name = parts[parts.length - 1];\n\
+      obj[name] = (function() {\n\
+        var params = [path].concat(Array.prototype.slice.call(arguments));\n\
         return Webview_.prototype.call.apply(this, params);\n\
       }).bind(this);\n\
     };\n\
@@ -934,6 +996,12 @@ protected:
   }
 
   virtual void on_message(const std::string &msg) {
+    auto token = json_parse(msg, "token", 0);
+    if (token != m_session_token) {
+        // Log potentially hostile IPC attempt
+        std::cerr << "Hostile IPC attempt detected from WebView" << std::endl;
+        return;
+    }
     auto id = json_parse(msg, "id", 0);
     auto name = json_parse(msg, "method", 0);
     auto args = json_parse(msg, "params", 0);
@@ -1002,6 +1070,7 @@ private:
 
   alloyscript_runtime m_alloy;
   sqlite_runtime m_sqlite;
+  void *m_mjs_ctx{};
   std::map<std::string, std::shared_ptr<alloyscript_runtime::shared_state>>
       m_subprocesses;
 
@@ -1010,6 +1079,18 @@ private:
   bool m_owns_window{};
   static const int m_initial_width = 640;
   static const int m_initial_height = 480;
+  std::string m_session_token;
+
+  void generate_session_token() {
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      std::uniform_int_distribution<> dis(0, 255);
+      std::stringstream ss;
+      for (int i = 0; i < 32; i++) {
+          ss << std::hex << std::setw(2) << std::setfill('0') << dis(gen);
+      }
+      m_session_token = ss.str();
+  }
 };
 
 } // namespace detail

@@ -180,6 +180,15 @@ protected:
     return {};
   }
 
+  noresult set_visible_impl(bool visible) override {
+    if (visible) {
+      gtk_widget_show(m_window);
+    } else {
+      gtk_widget_hide(m_window);
+    }
+    return {};
+  }
+
   noresult set_size_impl(int width, int height, webview_hint_t hints) override {
     gtk_window_set_resizable(GTK_WINDOW(m_window), hints != WEBVIEW_HINT_FIXED);
     if (hints == WEBVIEW_HINT_NONE || hints == WEBVIEW_HINT_FIXED) {

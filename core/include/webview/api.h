@@ -145,6 +145,14 @@ WEBVIEW_API webview_error_t webview_set_size(webview_t w, int width, int height,
                                              webview_hint_t hints);
 
 /**
+ * Updates the visibility of the native window.
+ *
+ * @param w The webview instance.
+ * @param visible 1 to show, 0 to hide.
+ */
+WEBVIEW_API webview_error_t webview_set_visible(webview_t w, int visible);
+
+/**
  * Navigates webview to the given URL. URL may be a properly encoded data URI.
  *
  * Example:
@@ -212,7 +220,20 @@ WEBVIEW_API webview_error_t webview_bind(webview_t w, const char *name,
                                          void *arg);
 
 /**
- * Removes a binding created with webview_bind().
+ * Binds a function pointer to a new global JavaScript function, supporting nested paths.
+ *
+ * @param w The webview instance.
+ * @param name Path to the JS function (e.g. "Alloy.sqlite.query").
+ * @param fn Callback function.
+ * @param arg User argument.
+ */
+WEBVIEW_API webview_error_t webview_bind_global(webview_t w, const char *name,
+                                                void (*fn)(const char *id,
+                                                           const char *req, void *arg),
+                                                void *arg);
+
+/**
+ * Removes a binding created with webview_bind() or webview_bind_global().
  *
  * @param w The webview instance.
  * @param name Name of the binding.

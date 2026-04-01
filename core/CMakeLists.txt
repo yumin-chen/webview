@@ -10,6 +10,12 @@ target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES})
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(webview_core_headers INTERFACE util)
 endif()
+
+ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/mquickjs")
+     target_include_directories(webview_core_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/mquickjs")
+     target_compile_definitions(webview_core_headers INTERFACE WEBVIEW_USE_MJS)
+     # Note: Implementation files would need to be added to GUI_SOURCES or similar if we were to build them here
+ endif()
 # Note that we also use CMAKE_CXX_STANDARD which can override this
 target_compile_features(webview_core_headers INTERFACE cxx_std_11)
 set_target_properties(webview_core_headers PROPERTIES

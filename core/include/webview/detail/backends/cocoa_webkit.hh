@@ -191,6 +191,15 @@ protected:
     NSWindow_set_title(m_window, title);
     return {};
   }
+  noresult set_visible_impl(bool visible) override {
+    objc::autoreleasepool arp;
+    if (visible) {
+      NSWindow_makeKeyAndOrderFront(m_window);
+    } else {
+      NSWindow_orderOut(m_window);
+    }
+    return {};
+  }
   noresult set_size_impl(int width, int height, webview_hint_t hints) override {
     objc::autoreleasepool arp;
 
