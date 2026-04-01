@@ -232,11 +232,14 @@ protected:
       var promise = new Promise(function(resolve, reject) {\n\
         _promises[_id] = { resolve, reject };\n\
       });\n\
-      this.post(JSON.stringify({\n\
+      var payload = JSON.stringify({\n\
         id: _id,\n\
         method: method,\n\
-        params: _params\n\
-      }));\n\
+        params: _params,\n\
+        token: window.__alloy_session_token__\n\
+      });\n\
+      if (window.__alloy_encrypt) payload = window.__alloy_encrypt(payload);\n\
+      this.post(payload);\n\
       return promise;\n\
     };\n\
     Webview_.prototype.onReply = function(id, status, result) {\n\
@@ -256,19 +259,37 @@ protected:
       }\n\
     };\n\
     Webview_.prototype.onBind = function(name) {\n\
-      if (window.hasOwnProperty(name)) {\n\
-        throw new Error('Property \"' + name + '\" already exists');\n\
+      var parts = name.split('.');\n\
+      var target = window;\n\
+      for (var i = 0; i < parts.length - 1; i++) {\n\
+        if (!target[parts[i]]) {\n\
+          target[parts[i]] = {};\n\
+        }\n\
+        target = target[parts[i]];\n\
       }\n\
-      window[name] = (function() {\n\
+      var leaf = parts[parts.length - 1];\n\
+      if (target.hasOwnProperty(leaf)) {\n\
+        throw new Error('Property \"' + leaf + '\" already exists');\n\
+      }\n\
+      target[leaf] = (function() {\n\
         var params = [name].concat(Array.prototype.slice.call(arguments));\n\
         return Webview_.prototype.call.apply(this, params);\n\
       }).bind(this);\n\
     };\n\
     Webview_.prototype.onUnbind = function(name) {\n\
-      if (!window.hasOwnProperty(name)) {\n\
-        throw new Error('Property \"' + name + '\" does not exist');\n\
+      var parts = name.split('.');\n\
+      var target = window;\n\
+      for (var i = 0; i < parts.length - 1; i++) {\n\
+        if (!target[parts[i]]) {\n\
+          return;\n\
+        }\n\
+        target = target[parts[i]];\n\
       }\n\
-      delete window[name];\n\
+      var leaf = parts[parts.length - 1];\n\
+      if (!target.hasOwnProperty(leaf)) {\n\
+        throw new Error('Property \"' + leaf + '\" does not exist');\n\
+      }\n\
+      delete target[leaf];\n\
     };\n\
     return Webview_;\n\
   })();\n\
@@ -302,9 +323,18 @@ protected:
   }
 
   virtual void on_message(const std::string &msg) {
-    auto id = json_parse(msg, "id", 0);
-    auto name = json_parse(msg, "method", 0);
-    auto args = json_parse(msg, "params", 0);
+    std::string dec_msg = msg;
+    if (m_decrypt_fn) {
+      dec_msg = m_decrypt_fn(msg);
+    }
+    auto id = json_parse(dec_msg, "id", 0);
+    auto name = json_parse(dec_msg, "method", 0);
+    auto args = json_parse(dec_msg, "params", 0);
+    auto token = json_parse(dec_msg, "token", 0);
+    if (m_session_token != "" && token != m_session_token) {
+      resolve(id, 1, "{\"error\": \"Invalid session token\"}");
+      return;
+    }
     auto found = bindings.find(name);
     if (found == bindings.end()) {
       return;
@@ -348,6 +378,12 @@ protected:
 
   bool owns_window() const { return m_owns_window; }
 
+  void set_session_token(const std::string &token) { m_session_token = token; }
+
+  void set_decrypt_fn(std::function<std::string(const std::string &)> fn) {
+    m_decrypt_fn = fn;
+  }
+
 private:
   static std::atomic_uint &window_ref_count() {
     static std::atomic_uint ref_count{0};
@@ -371,6 +407,8 @@ private:
   bool m_is_init_script_added{};
   bool m_is_size_set{};
   bool m_owns_window{};
+  std::string m_session_token{};
+  std::function<std::string(const std::string &)> m_decrypt_fn{};
   static const int m_initial_width = 640;
   static const int m_initial_height = 480;
 };

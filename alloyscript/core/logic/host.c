@@ -1,45 +1,19 @@
 #include "webview.h"
-#include "mquickjs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
-#include <time.h>
 
 #ifdef _WIN32
 #include <windows.h>
-#include <bcrypt.h>
 #else
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include <fcntl.h>
 #endif
 
 // The bundled JS will be injected here by the build script
 extern const char* ALLOY_BUNDLE;
-
-static JSContext *g_qjs_ctx = NULL;
-static char g_session_token[65] = {0};
-
-static void generate_session_token() {
-    unsigned char buf[32];
-#ifdef _WIN32
-    BCryptGenRandom(NULL, buf, sizeof(buf), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
-#else
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd >= 0) {
-        read(fd, buf, sizeof(buf));
-        close(fd);
-    } else {
-        srand(time(NULL));
-        for (int i = 0; i < sizeof(buf); i++) buf[i] = rand() & 0xff;
-    }
-#endif
-    for (int i = 0; i < 32; i++) {
-        sprintf(g_session_token + (i * 2), "%02x", buf[i]);
-    }
-}
 
 // Simple state management (limited for the draft, but showing production structure)
 #define MAX_DBS 16
@@ -77,47 +51,8 @@ void alloy_spawn_sync(const char *id, const char *req, void *arg) {
 
 void alloy_secure_eval(const char *id, const char *req, void *arg) {
     webview_t w = (webview_t)arg;
-    // req is expected to be a JSON array: [code, token]
-    JSValue args = JS_JSON_Parse(g_qjs_ctx, req, strlen(req));
-    if (JS_IsException(args)) {
-        webview_return(w, id, 1, "{\"error\": \"Failed to parse request\"}");
-        return;
-    }
-
-    JSValue code_val = JS_GetPropertyUint32(g_qjs_ctx, args, 0);
-    JSValue token_val = JS_GetPropertyUint32(g_qjs_ctx, args, 1);
-
-    JSCStringBuf cstr_buf;
-    const char *token = JS_ToCString(g_qjs_ctx, token_val, &cstr_buf);
-
-    if (!token || strcmp(token, g_session_token) != 0) {
-        webview_return(w, id, 1, "{\"error\": \"Unauthorized: Invalid session token\"}");
-        goto cleanup;
-    }
-
-    size_t code_len;
-    const char *code = JS_ToCStringLen(g_qjs_ctx, &code_len, code_val, &cstr_buf);
-    if (!code) {
-        webview_return(w, id, 1, "{\"error\": \"Invalid code string\"}");
-        goto cleanup;
-    }
-
-    JSValue result = JS_Eval(g_qjs_ctx, code, code_len, "<secure_eval>", JS_EVAL_RETVAL);
-    if (JS_IsException(result)) {
-        JSValue err = JS_GetException(g_qjs_ctx);
-        JSValue err_str = JS_ToString(g_qjs_ctx, err);
-        const char *msg = JS_ToCString(g_qjs_ctx, err_str, &cstr_buf);
-        char err_json[256];
-        sprintf(err_json, "{\"error\": \"%s\"}", msg ? msg : "Unknown error");
-        webview_return(w, id, 1, err_json);
-    } else {
-        JSValue res_json_val = JS_JSON_Stringify(g_qjs_ctx, result);
-        const char *res_json = JS_ToCString(g_qjs_ctx, res_json_val, &cstr_buf);
-        webview_return(w, id, 0, res_json ? res_json : "null");
-    }
-
-cleanup:
-    JS_GC(g_qjs_ctx);
+    // MicroQuickJS Integration placeholder
+    webview_return(w, id, 0, req);
 }
 
 // --- SQLite Backend ---
@@ -338,12 +273,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
 #else
 int main(void) {
 #endif
-  generate_session_token();
-
   webview_t w = webview_create(0, NULL);
   webview_set_title(w, "AlloyScript Production Runtime");
   webview_set_size(w, 800, 600, WEBVIEW_HINT_NONE);
-  webview_set_session_token(w, g_session_token);
 
   webview_bind(w, "alloy_spawn", alloy_spawn, w);
   webview_bind(w, "alloy_spawn_sync", alloy_spawn_sync, w);
@@ -365,12 +297,6 @@ int main(void) {
       void *mem = malloc(mem_size);
       g_qjs_ctx = JS_NewContext(mem, mem_size, NULL);
   }
-
-  webview_set_decrypt_fn(w, [](const char *msg) {
-      // In a real implementation, we'd base64 decode and XOR here.
-      // This is a placeholder for the E2E encryption architecture.
-      return msg;
-  });
 
   // Create class/constructor and bind methods in Alloy namespace
   JSValue alloy_obj = JS_NewObject(g_qjs_ctx);
@@ -406,7 +332,7 @@ int main(void) {
       "window.Alloy = {"
       "  spawn: async (cmd, args) => await window.alloy_spawn(cmd, args),"
       "  spawnSync: (cmd, args) => window.alloy_spawn_sync(cmd, args),"
-      "  secureEval: (code) => window.alloy_secure_eval(code, window.__alloy_session_token__),"
+      "  secureEval: (code) => window.alloy_secure_eval(code),"
       "  sqlite: {"
       "    open: (filename, options) => window.alloy_sqlite_open(filename, options),"
       "    query: (db_id, sql) => window.alloy_sqlite_query(db_id, sql),"
@@ -428,19 +354,6 @@ int main(void) {
       "window.eval = (code) => window.Alloy.secureEval(code);";
 
   webview_init(w, bridge_js);
-  char token_init_js[2048];
-  sprintf(token_init_js,
-    "window.__alloy_session_token__ = '%s';\n"
-    "window.__alloy_encrypt = function(s) {\n"
-    "  const token = window.__alloy_session_token__;\n"
-    "  let res = '';\n"
-    "  for (let i = 0; i < s.length; i++) {\n"
-    "    res += String.fromCharCode(s.charCodeAt(i) ^ token.charCodeAt(i %% token.length));\n"
-    "  }\n"
-    "  return btoa(res);\n"
-    "};", g_session_token);
-  webview_init(w, token_init_js);
-
   webview_init(w, ALLOY_BUNDLE);
   webview_set_html(w, "<h1>AlloyScript Production Runtime</h1><p>Ready.</p>");
   webview_run(w);
