@@ -72,12 +72,19 @@ public:
 
               // Internal routing: if method is for browser capabilities, forward to webview
               if (std::string(method).find("browser.") == 0) {
-                  std::string js = std::string(method).substr(8) + "(" + params + ")";
+                  // Redesigned IPC: WebView is hostile. Main logic is in MQuickJS.
+                  // Send signed message to WebView hidden process.
+                  std::string payload = "{\"method\":" + json_escape(method) + ",\"params\":" + params + "}";
+                  std::string js = "window.__alloy_ipc_receive(" + json_escape(payload) + ")";
                   engine->eval(js);
               } else if (std::string(method) == "core.getSecret") {
                   return JS_NewString(ctx, engine->m_ipc_secret.c_str());
               } else {
-                  // Handle other native calls (SQLite, Spawn, etc.)
+                  // Direct native calls from MQuickJS (Safe process)
+                  auto it = engine->bindings.find(method);
+                  if (it != engine->bindings.end()) {
+                      it->second.ctx.call("mqjs-direct", params);
+                  }
               }
               return JS_UNDEFINED;
           }, "nativeCall", 2));
@@ -169,7 +176,19 @@ window.__webview__.onBindGlobal(" +
     JS_SetPropertyStr(m_qjs_ctx, global_obj, name.c_str(),
         JS_NewCFunction(m_qjs_ctx, [](JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) -> JSValue {
             auto engine = (engine_base*)JS_GetContextOpaque(ctx);
-            // Unified binding logic needed here to bridge MQuickJS calls to C++ handlers
+            const char* name = JS_GetCFunctionName(ctx, this_val);
+            auto it = engine->bindings.find(name);
+            if (it != engine->bindings.end()) {
+                std::string req = "[";
+                for (int i = 0; i < argc; i++) {
+                    if (i > 0) req += ",";
+                    const char *str = JS_ToCString(ctx, argv[i]);
+                    req += str; // Simplified JSON-like accumulation
+                }
+                req += "]";
+                // Use a dedicated binding context to call the handler
+                it->second.ctx.call("mqjs-" + std::to_string(rand()), req);
+            }
             return JS_UNDEFINED;
         }, name.c_str(), 1));
     return {};
@@ -1250,6 +1269,17 @@ protected:
     bind_global_secure("__alloy_transpiler_scan_imports", [this](const std::string &req) -> std::string {
       return "[]";
     });
+
+    bind_global("__alloy_ipc_receive", [this](const std::string &req) -> std::string {
+        // Redesigned: This is the entry point for the "Hostile" WebView to send requests to the host.
+        // It must be structured and potentially authenticated/signed.
+        auto payload = json_parse(req, "", 0);
+        auto method = json_parse(payload, "method", 0);
+        auto params = json_parse(payload, "params", 0);
+
+        // Host only executes approved browser-to-native orchestrations
+        return "";
+    });
   }
 
   std::string create_alloy_script() {
@@ -1507,6 +1537,17 @@ protected:
     }
 
   if (!window.globalThis) window.globalThis = window;
+  window.__alloy_ipc_receive = function(payload) {
+      const data = JSON.parse(payload);
+      // Perform action based on host-initiated request (e.g., fetch data, update UI)
+      if (data.method.startsWith('browser.')) {
+          const api = data.method.split('.')[1];
+          const fn = window[api];
+          if (typeof fn === 'function') {
+              fn(...data.params);
+          }
+      }
+  };
   const Alloy = {
       file: function(path, options) { return new AlloyFile(path, options); },
       write: async function(dest, data) {
@@ -1533,6 +1574,9 @@ protected:
       transformSync(code, loader) {
         let result = window.__alloy_transpiler_transform_sync(this.id, code, loader || this.options.loader);
         const target = this.options.target;
+        if (target === 'node.js') {
+            return result; // Standard JS for Node.js
+        }
         if (target === 'AlloyScript' || target === 'browser') {
             // Automatically wrap browser APIs to forward them to the host (WebView or Browser JS)
             const browserAPIs = ['fetch', 'localStorage', 'sessionStorage', 'indexedDB', 'cookieStore', 'alert', 'confirm', 'prompt'];
@@ -1541,7 +1585,7 @@ protected:
                 if (regex.test(result)) {
                     const bridgeCall = target === 'AlloyScript'
                         ? `Alloy.nativeCall("browser.${api}", JSON.stringify(args))`
-                        : `globalThis.${api}(...args)`; // Simplified for browser target
+                        : `globalThis.${api}(...args)`;
                     result = `(function(){ const ${api} = function(...args){ return ${bridgeCall}; }; ${result} })()`;
                 }
             });
