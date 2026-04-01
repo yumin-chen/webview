@@ -63,6 +63,50 @@ alloy_component_t alloy_create_button(alloy_component_t parent) {
     return nullptr;
 }
 
+alloy_component_t alloy_create_textfield(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto entry = new gtk_component(gtk_entry_new());
+    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(entry->native_handle()));
+    return entry;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_textarea(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto tv = new gtk_component(gtk_text_view_new());
+    if (parent) {
+        GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+        gtk_container_add(GTK_CONTAINER(scroll), GTK_WIDGET(tv->native_handle()));
+        gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), scroll);
+    }
+    return tv;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_toolbar(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto tb = new gtk_component(gtk_toolbar_new());
+    if (parent && GTK_IS_BOX(cast(parent)->native_handle())) {
+        gtk_box_pack_start(GTK_BOX(cast(parent)->native_handle()), GTK_WIDGET(tb->native_handle()), FALSE, FALSE, 0);
+    }
+    return tb;
+#endif
+    return nullptr;
+}
+
+alloy_component_t alloy_create_statusbar(alloy_component_t parent) {
+#ifdef ALLOY_PLATFORM_LINUX
+    auto sb = new gtk_component(gtk_statusbar_new());
+    if (parent && GTK_IS_BOX(cast(parent)->native_handle())) {
+        gtk_box_pack_end(GTK_BOX(cast(parent)->native_handle()), GTK_WIDGET(sb->native_handle()), FALSE, FALSE, 0);
+    }
+    return sb;
+#endif
+    return nullptr;
+}
+
 alloy_component_t alloy_create_spinner(alloy_component_t parent) {
 #ifdef ALLOY_PLATFORM_LINUX
     auto spin = new gtk_component(gtk_spinner_new());
@@ -194,19 +238,20 @@ alloy_error_t alloy_destroy(alloy_component_t handle) {
     return ALLOY_OK;
 }
 
-alloy_error_t alloy_set_text(alloy_component_t h, const char *text) { return cast(h)->set_text(text); }
-alloy_error_t alloy_get_text(alloy_component_t h, char *buf, size_t buf_len) { return cast(h)->get_text(buf, buf_len); }
-alloy_error_t alloy_set_checked(alloy_component_t h, int checked) { return cast(h)->set_checked(checked); }
-int alloy_get_checked(alloy_component_t h) { return cast(h)->get_checked(); }
-alloy_error_t alloy_set_value(alloy_component_t h, double value) { return cast(h)->set_value(value); }
-double alloy_get_value(alloy_component_t h) { return cast(h)->get_value(); }
-alloy_error_t alloy_set_enabled(alloy_component_t h, int enabled) { return cast(h)->set_enabled(enabled); }
-int alloy_get_enabled(alloy_component_t h) { return cast(h)->get_enabled(); }
-alloy_error_t alloy_set_visible(alloy_component_t h, int visible) { return cast(h)->set_visible(visible); }
-int alloy_get_visible(alloy_component_t h) { return cast(h)->get_visible(); }
-alloy_error_t alloy_set_style(alloy_component_t h, const alloy_style_t *style) { return cast(h)->set_style(*style); }
+alloy_error_t alloy_set_text(alloy_component_t h, const char *text) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->set_text(text); }
+alloy_error_t alloy_get_text(alloy_component_t h, char *buf, size_t buf_len) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->get_text(buf, buf_len); }
+alloy_error_t alloy_set_checked(alloy_component_t h, int checked) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->set_checked(checked); }
+int alloy_get_checked(alloy_component_t h) { if (!h) return 0; return cast(h)->get_checked(); }
+alloy_error_t alloy_set_value(alloy_component_t h, double value) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->set_value(value); }
+double alloy_get_value(alloy_component_t h) { if (!h) return 0; return cast(h)->get_value(); }
+alloy_error_t alloy_set_enabled(alloy_component_t h, int enabled) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->set_enabled(enabled); }
+int alloy_get_enabled(alloy_component_t h) { if (!h) return 0; return cast(h)->get_enabled(); }
+alloy_error_t alloy_set_visible(alloy_component_t h, int visible) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->set_visible(visible); }
+int alloy_get_visible(alloy_component_t h) { if (!h) return 0; return cast(h)->get_visible(); }
+alloy_error_t alloy_set_style(alloy_component_t h, const alloy_style_t *style) { if (!h) return ALLOY_ERROR_INVALID_ARGUMENT; return cast(h)->set_style(*style); }
 
 alloy_error_t alloy_image_load_file(alloy_component_t h, const char *path) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
 #ifdef ALLOY_PLATFORM_LINUX
     gtk_image_set_from_file(GTK_IMAGE(cast(h)->native_handle()), path);
     return ALLOY_OK;
@@ -215,6 +260,7 @@ alloy_error_t alloy_image_load_file(alloy_component_t h, const char *path) {
 }
 
 alloy_error_t alloy_listview_append(alloy_component_t h, const char *text) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
 #ifdef ALLOY_PLATFORM_LINUX
     GtkTreeView *tv = GTK_TREE_VIEW(cast(h)->native_handle());
     GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(tv));
@@ -227,6 +273,7 @@ alloy_error_t alloy_listview_append(alloy_component_t h, const char *text) {
 }
 
 alloy_error_t alloy_tabview_add_page(alloy_component_t h, alloy_component_t child, const char *label) {
+    if (!h || !child) return ALLOY_ERROR_INVALID_ARGUMENT;
 #ifdef ALLOY_PLATFORM_LINUX
     GtkNotebook *nb = GTK_NOTEBOOK(cast(h)->native_handle());
     gtk_notebook_append_page(nb, GTK_WIDGET(cast(child)->native_handle()), gtk_label_new(label));
@@ -236,6 +283,7 @@ alloy_error_t alloy_tabview_add_page(alloy_component_t h, alloy_component_t chil
 }
 
 alloy_error_t alloy_combobox_append(alloy_component_t h, const char *text) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
 #ifdef ALLOY_PLATFORM_LINUX
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(cast(h)->native_handle()), text);
     return ALLOY_OK;
@@ -244,6 +292,7 @@ alloy_error_t alloy_combobox_append(alloy_component_t h, const char *text) {
 }
 
 alloy_error_t alloy_webview_load_url(alloy_component_t h, const char *url) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
 #ifdef ALLOY_PLATFORM_LINUX
     webkit_web_view_load_uri(WEBKIT_WEB_VIEW(cast(h)->native_handle()), url);
     return ALLOY_OK;
@@ -252,6 +301,7 @@ alloy_error_t alloy_webview_load_url(alloy_component_t h, const char *url) {
 }
 
 alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t child) {
+    if (!container || !child) return ALLOY_ERROR_INVALID_ARGUMENT;
 #ifdef ALLOY_PLATFORM_LINUX
     if (GTK_IS_CONTAINER(cast(container)->native_handle())) {
         gtk_container_add(GTK_CONTAINER(cast(container)->native_handle()), GTK_WIDGET(cast(child)->native_handle()));
@@ -265,8 +315,18 @@ alloy_error_t alloy_add_child(alloy_component_t container, alloy_component_t chi
 }
 
 alloy_error_t alloy_set_event_callback(alloy_component_t handle, alloy_event_type_t event, alloy_event_cb_t callback, void *userdata) {
+    if (!handle) return ALLOY_ERROR_INVALID_ARGUMENT;
     cast(handle)->set_event_callback(event, callback, userdata);
     return ALLOY_OK;
+}
+
+alloy_error_t alloy_set_tooltip(alloy_component_t h, const char *text) {
+    if (!h) return ALLOY_ERROR_INVALID_ARGUMENT;
+#ifdef ALLOY_PLATFORM_LINUX
+    gtk_widget_set_tooltip_text(GTK_WIDGET(cast(h)->native_handle()), text);
+    return ALLOY_OK;
+#endif
+    return ALLOY_ERROR_NOT_SUPPORTED;
 }
 
 const char* alloy_dialog_file_open(alloy_component_t parent, const char* title) {
@@ -361,24 +421,6 @@ alloy_error_t alloy_dispatch(alloy_component_t window, void (*fn)(void *arg), vo
     return ALLOY_OK;
 }
 
-// Implementations for core UI functions
-alloy_component_t alloy_create_textfield(alloy_component_t parent) {
-#ifdef ALLOY_PLATFORM_LINUX
-    auto entry = new gtk_component(gtk_entry_new());
-    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(entry->native_handle()));
-    return entry;
-#endif
-    return nullptr;
-}
-
-alloy_component_t alloy_create_textarea(alloy_component_t parent) {
-#ifdef ALLOY_PLATFORM_LINUX
-    auto tv = new gtk_component(gtk_text_view_new());
-    if (parent) gtk_container_add(GTK_CONTAINER(cast(parent)->native_handle()), GTK_WIDGET(tv->native_handle()));
-    return tv;
-#endif
-    return nullptr;
-}
 
 alloy_component_t alloy_create_checkbox(alloy_component_t parent) {
 #ifdef ALLOY_PLATFORM_LINUX

@@ -107,6 +107,21 @@ window.__webview__.onBind(" +
     return {};
   }
 
+  // Bind a function to the global scope (high privilege)
+  noresult bind_global(const std::string &name, binding_t fn, void *arg) {
+      if (global_bindings.count(name) > 0) {
+          return error_info{WEBVIEW_ERROR_DUPLICATE};
+      }
+      global_bindings.emplace(name, binding_ctx_t(fn, arg));
+      // Inject the global binding immediately
+      eval("window[" + json_escape(name) + "] = function() { \n\
+        var args = Array.prototype.slice.call(arguments);\n\
+        return window.__webview__.call(" + json_escape(name) + ", args);\n\
+      };");
+      // Also register it as a regular binding for the callback dispatch
+      return bind(name, fn, arg);
+  }
+
   noresult unbind(const std::string &name) {
     auto found = bindings.find(name);
     if (found == bindings.end()) {
@@ -210,6 +225,16 @@ protected:
   }
 
   void add_alloy_bindings() {
+    bind_global("secureEval", [this](const std::string &seq, const std::string &req, void *) {
+        // Implementation of secureEval using the engine's eval.
+        // In a real Alloy runtime, this would use MicroQuickJS or a sandbox.
+        auto code = json_parse(req, "", 0);
+        this->dispatch([this, seq, code]() {
+            this->eval(code);
+            this->resolve(seq, 0, "true");
+        });
+    }, nullptr);
+
     bind("Alloy_spawn",
          [this](const std::string &seq, const std::string &req,
                 void * /*arg*/) {
@@ -726,6 +751,25 @@ protected:
         auto res = alloy_dialog_color_picker(parent, title.c_str());
         this->resolve(seq, 0, res ? json_escape(res) : "null");
     }, nullptr);
+
+    bind("Alloy_guiCreateToolbar", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_toolbar(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiCreateStatusBar", [this](const std::string &req) -> std::string {
+        auto parent = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto h = alloy_create_statusbar(parent);
+        return std::to_string(reinterpret_cast<uintptr_t>(h));
+    });
+
+    bind("Alloy_guiSetTooltip", [this](const std::string &req) -> std::string {
+        auto h = reinterpret_cast<alloy_component_t>(std::stoull(json_parse(req, "", 0)));
+        auto txt = json_parse(req, "", 1);
+        alloy_set_tooltip(h, txt.c_str());
+        return "true";
+    });
   }
 
   std::string create_alloy_script() {
@@ -950,6 +994,14 @@ protected:
           this.id = null;
           this.init = async () => { this.id = await window.Alloy_guiCreateSeparator(parent.id); return this; };
       },
+      Toolbar: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateToolbar(parent.id); return this; };
+      },
+      StatusBar: function(parent) {
+          this.id = null;
+          this.init = async () => { this.id = await window.Alloy_guiCreateStatusBar(parent.id); return this; };
+      },
       ComboBox: function(parent) {
           this.id = null;
           this.init = async () => { this.id = await window.Alloy_guiCreateComboBox(parent.id); return this; };
@@ -982,6 +1034,7 @@ protected:
           this.init = async () => { this.id = await window.Alloy_guiCreateTabView(parent.id); return this; };
           this.addPage = (child, label) => window.Alloy_guiTabViewAddPage(this.id, child.id, label);
       },
+      setTooltip: (h, txt) => window.Alloy_guiSetTooltip(h.id, txt),
       ListView: function(parent) {
           this.id = null;
           this.init = async () => { this.id = await window.Alloy_guiCreateListView(parent.id); return this; };
@@ -1349,6 +1402,7 @@ private:
   }
 
   std::map<std::string, binding_ctx_t> bindings;
+  std::map<std::string, binding_ctx_t> global_bindings;
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
 

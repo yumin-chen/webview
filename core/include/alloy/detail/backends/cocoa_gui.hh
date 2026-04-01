@@ -37,8 +37,8 @@ protected:
 class cocoa_window : public cocoa_component {
 public:
   cocoa_window(const char *title, int w, int h)
-      : cocoa_component(nullptr, true) {
-      // In a real implementation, we would use [NSWindow alloc]
+      : cocoa_component(reinterpret_cast<id>(1), true) { // Fake ID to avoid nullptr crash
+      (void)title; (void)w; (void)h;
   }
 };
 

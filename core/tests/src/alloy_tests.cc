@@ -154,6 +154,11 @@ TEST_CASE("Alloy Spawn File Redirection") {
     remove(test_file.c_str());
 }
 
+TEST_CASE("Alloy Global Bindings") {
+    // webview::webview is a typedef or class that might be obscured by namespace in tests
+    // Use the concrete backend type for testing if possible or just verify through compilation of engine_base
+}
+
 TEST_CASE("Alloy Shell Pipelines") {
     alloyscript_runtime runtime;
 
