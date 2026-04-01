@@ -5,7 +5,11 @@ namespace alloy::detail {
 
 #if defined(ALLOY_PLATFORM_WINDOWS)
 alloy_component_t create_datepicker_win(alloy_component_t parent) {
-    return new win32_datepicker(NULL);
+        auto p = static_cast<win32_component*>(parent);
+    HWND parent_hwnd = p ? (HWND)p->native_handle() : NULL;
+    HWND hwnd = CreateWindowExW(0, DATETIMEPICKER_CLASSW, L"", WS_CHILD | WS_VISIBLE | DTS_SHORTDATECENTURYFORMAT,
+                               0, 0, 100, 25, parent_hwnd, NULL, GetModuleHandle(NULL), NULL);
+    return new win32_datepicker(hwnd);
 }
 #elif defined(ALLOY_PLATFORM_DARWIN)
 alloy_component_t create_datepicker_cocoa(alloy_component_t parent) {

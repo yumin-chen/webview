@@ -5,7 +5,11 @@ namespace alloy::detail {
 
 #if defined(ALLOY_PLATFORM_WINDOWS)
 alloy_component_t create_badge_win(alloy_component_t parent) {
-    return new win32_badge(NULL);
+        auto p = static_cast<win32_component*>(parent);
+    HWND parent_hwnd = p ? (HWND)p->native_handle() : NULL;
+    HWND hwnd = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | 0,
+                               0, 0, 100, 25, parent_hwnd, NULL, GetModuleHandle(NULL), NULL);
+    return new win32_badge(hwnd);
 }
 #elif defined(ALLOY_PLATFORM_DARWIN)
 alloy_component_t create_badge_cocoa(alloy_component_t parent) {

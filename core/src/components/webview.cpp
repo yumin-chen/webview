@@ -5,8 +5,11 @@ namespace alloy::detail {
 
 #if defined(ALLOY_PLATFORM_WINDOWS)
 alloy_component_t create_webview_win(alloy_component_t parent) {
-    // This would involve initializing WebView2
-    return nullptr;
+    auto p = static_cast<win32_component*>(parent);
+    HWND parent_hwnd = p ? (HWND)p->native_handle() : NULL;
+    HWND hwnd = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE,
+                               0, 0, 100, 100, parent_hwnd, NULL, GetModuleHandle(NULL), NULL);
+    return new win32_webview(hwnd);
 }
 #elif defined(ALLOY_PLATFORM_DARWIN)
 alloy_component_t create_webview_cocoa(alloy_component_t parent) {

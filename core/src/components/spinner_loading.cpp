@@ -5,8 +5,11 @@ namespace alloy::detail {
 
 #if defined(ALLOY_PLATFORM_WINDOWS)
 alloy_component_t create_spinner_loading_win(alloy_component_t parent) {
-    return new win32_spinner_loading(NULL);
-}
+    auto p = static_cast<win32_component*>(parent);
+    HWND parent_hwnd = p ? (HWND)p->native_handle() : NULL;
+    HWND hwnd = CreateWindowExW(0, PROGRESS_CLASSW, L"", WS_CHILD | WS_VISIBLE | PBS_MARQUEE,
+                               0, 0, 100, 100, parent_hwnd, NULL, GetModuleHandle(NULL), NULL);
+    return new win32_spinnerloading(hwnd);}
 #elif defined(ALLOY_PLATFORM_DARWIN)
 alloy_component_t create_spinner_loading_cocoa(alloy_component_t parent) {
     return nullptr;
