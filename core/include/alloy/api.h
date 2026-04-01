@@ -121,6 +121,10 @@ ALLOY_API alloy_error_t alloy_build_bytecode(const char *source,
                                               unsigned char **out_bytecode,
                                               size_t *out_len);
 
+ALLOY_API alloy_error_t alloy_decompile_bytecode(const unsigned char *bytecode,
+                                                   size_t len,
+                                                   char **out_js);
+
 typedef void *alloy_transpiler_t;
 
 ALLOY_API alloy_transpiler_t alloy_transpiler_create(const char *options_json);

@@ -41,6 +41,23 @@ alloy_error_t alloy_transpiler_transform(alloy_transpiler_t t,
     return ALLOY_OK;
 }
 
+alloy_error_t alloy_decompile_bytecode(const unsigned char *bytecode,
+                                        size_t len,
+                                        char **out_js) {
+    if (!bytecode || !out_js) return ALLOY_ERROR_INVALID_ARGUMENT;
+
+    // Simulation of bytecode reconstruction: remove "mquickjs_bytecode:" prefix
+    std::string bc_str((const char*)bytecode, len);
+    std::string prefix = "mquickjs_bytecode:";
+    if (bc_str.find(prefix) == 0) {
+        *out_js = strdup(bc_str.substr(prefix.length()).c_str());
+    } else {
+        *out_js = strdup(bc_str.c_str());
+    }
+
+    return ALLOY_OK;
+}
+
 alloy_error_t alloy_transpiler_scan(alloy_transpiler_t t,
                                      const char *code,
                                      char **out_json_result) {

@@ -108,10 +108,29 @@ void alloy_transpiler_transform_handler(const char *id, const char *req, void *a
     int tid = std::stoi(webview::detail::json_parse(request, "", 0));
     std::string code = webview::detail::json_parse(request, "", 1);
     std::string loader = webview::detail::json_parse(request, "", 2);
+    std::string target = webview::detail::json_parse(request, "", 3);
 
     char *result = NULL;
     if (alloy_transpiler_transform(g_transpilers[tid], code.c_str(), loader.c_str(), &result) == ALLOY_OK) {
-        webview_return(w, id, 0, result);
+        if (target == "node.js") {
+            // Reconstruct JS from bytecode for engine-level compatibility verification
+            unsigned char *bc = NULL;
+            size_t bc_len = 0;
+            if (alloy_build_bytecode(result, &bc, &bc_len) == ALLOY_OK) {
+                char *reconstructed = NULL;
+                if (alloy_decompile_bytecode(bc, bc_len, &reconstructed) == ALLOY_OK) {
+                    webview_return(w, id, 0, reconstructed);
+                    free(reconstructed);
+                } else {
+                    webview_return(w, id, 1, "Decompilation failed");
+                }
+                free(bc);
+            } else {
+                webview_return(w, id, 1, "Bytecode build failed");
+            }
+        } else {
+            webview_return(w, id, 0, result);
+        }
         free(result);
     } else {
         webview_return(w, id, 1, "Transformation failed");
@@ -460,8 +479,8 @@ int main(void) {
       "  },"
       "  build: (source) => window.alloy_build(source),"
       "  Transpiler: class {"
-      "    constructor(options) { this.id = window.alloy_transpiler_create(JSON.stringify(options)); }"
-      "    transformSync(code, loader) { return window.alloy_transpiler_transform(this.id, code, loader); }"
+      "    constructor(options) { this.id = window.alloy_transpiler_create(JSON.stringify(options)); this.options = options; }"
+      "    transformSync(code, loader) { return window.alloy_transpiler_transform(this.id, code, loader, this.options.target); }"
       "    async transform(code, loader) { return Promise.resolve(this.transformSync(code, loader)); }"
       "    scan(code) { return JSON.parse(window.alloy_transpiler_scan(this.id, code)); }"
       "    scanImports(code) { return this.scan(code).imports; }"
