@@ -182,9 +182,10 @@ build liballoy.a: CXX_STATIC_LIBRARY_LINKER__alloy_ CMakeFiles/alloy.dir/src/all
 
 build cmake_object_order_depends_target_alloy_host: phony || cmake_object_order_depends_target_alloy cmake_object_order_depends_target_mquickjs cmake_object_order_depends_target_webview_static
 
-build CMakeFiles/alloy_host.dir/src/host.c.o: C_COMPILER__alloy_host_unscanned_ /app/src/host.c || cmake_object_order_depends_target_alloy_host
+build CMakeFiles/alloy_host.dir/src/host.cpp.o: CXX_COMPILER__alloy_host_unscanned_ /app/src/host.cpp || cmake_object_order_depends_target_alloy_host
   DEFINES = -DWEBVIEW_STATIC
-  DEP_FILE = CMakeFiles/alloy_host.dir/src/host.c.o.d
+  DEP_FILE = CMakeFiles/alloy_host.dir/src/host.cpp.o.d
+  FLAGS = -std=gnu++17
   INCLUDES = -I/app/core/webview/include -I/app/src/alloy -I/app/core/mquickjs -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy_host.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy_host.dir/src
@@ -204,7 +205,7 @@ build CMakeFiles/alloy_host.dir/src/bundle.c.o: C_COMPILER__alloy_host_unscanned
 #############################################
 # Link the executable alloy_host
 
-build alloy_host: CXX_EXECUTABLE_LINKER__alloy_host_ CMakeFiles/alloy_host.dir/src/host.c.o CMakeFiles/alloy_host.dir/src/bundle.c.o | liballoy.a libmquickjs.a /usr/lib/x86_64-linux-gnu/libcrypto.so libwebview_static.a || liballoy.a libmquickjs.a libwebview_static.a
+build alloy_host: CXX_EXECUTABLE_LINKER__alloy_host_ CMakeFiles/alloy_host.dir/src/host.cpp.o CMakeFiles/alloy_host.dir/src/bundle.c.o | liballoy.a libmquickjs.a /usr/lib/x86_64-linux-gnu/libcrypto.so libwebview_static.a || liballoy.a libmquickjs.a libwebview_static.a
   LINK_LIBRARIES = liballoy.a  -lsqlite3  -lgtk-3  -lgdk-3  -lz  -lpangocairo-1.0  -lpango-1.0  -lharfbuzz  -latk-1.0  -lcairo-gobject  -lcairo  -lgdk_pixbuf-2.0  -lgio-2.0  -lgobject-2.0  -lglib-2.0  -lwebkit2gtk-4.1  -lgtk-3  -lgdk-3  -lz  -lpangocairo-1.0  -lpango-1.0  -lharfbuzz  -latk-1.0  -lcairo-gobject  -lcairo  -lgdk_pixbuf-2.0  -lsoup-3.0  -lgmodule-2.0  -lglib-2.0  -lgio-2.0  -ljavascriptcoregtk-4.1  -lgobject-2.0  -lglib-2.0  libmquickjs.a  /usr/lib/x86_64-linux-gnu/libcrypto.so  libwebview_static.a  -lgtk-3  -lgdk-3  -lz  -lpangocairo-1.0  -lpango-1.0  -lharfbuzz  -latk-1.0  -lcairo-gobject  -lcairo  -lgdk_pixbuf-2.0  -lgio-2.0  -lgobject-2.0  -lglib-2.0  -lwebkit2gtk-4.1  -lsoup-3.0  -lgmodule-2.0  -ljavascriptcoregtk-4.1  -lgtk-3  -lgdk-3  -lz  -lpangocairo-1.0  -lpango-1.0  -lharfbuzz  -latk-1.0  -lcairo-gobject  -lcairo  -lgdk_pixbuf-2.0  -lgio-2.0  -lgobject-2.0  -lglib-2.0  -lwebkit2gtk-4.1  -lsoup-3.0  -lgmodule-2.0  -ljavascriptcoregtk-4.1
   OBJECT_DIR = CMakeFiles/alloy_host.dir
   POST_BUILD = :

@@ -5,15 +5,15 @@
 #include "list.h"
 #include "mquickjs.h"
 
-#define JSW 8 // Assuming 64-bit for now
+#define JSW 8
 
 typedef uintptr_t JSWord;
+
+#define JS_MTAG_BITS 4
 
 #define JS_MB_HEADER \
     JSWord gc_mark: 1; \
     JSWord mtag: (JS_MTAG_BITS - 1)
-
-#define JS_MTAG_BITS 4
 
 typedef enum {
     JS_MTAG_FREE,
@@ -27,6 +27,27 @@ typedef enum {
     JS_MTAG_COUNT,
 } JSMemTagEnum;
 
-// ... add more private definitions from the code
+struct JSContext {
+    JSValue *sp;
+    JSValue *fp;
+    struct JSGCRef *top_gc_ref;
+    struct JSGCRef *last_gc_ref;
+    JSValue global_obj;
+};
+
+typedef struct JSCFunctionData {
+    JSCFunction *func;
+} JSCFunctionData;
+
+typedef struct JSObject {
+    JS_MB_HEADER;
+    uint8_t class_id;
+    uint32_t extra_size;
+    JSValue proto;
+    JSValue props;
+    union {
+        JSCFunctionData cfunc;
+    } u;
+} JSObject;
 
 #endif

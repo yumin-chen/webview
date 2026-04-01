@@ -36,6 +36,6 @@ target_include_directories(alloy PUBLIC src/alloy core/mquickjs core/webview/inc
 target_link_libraries(alloy PUBLIC mquickjs OpenSSL::Crypto webview_static)
 
 # Host Executable
-add_executable(alloy_host src/host.c src/bundle.c)
+add_executable(alloy_host src/host.cpp src/bundle.c)
 target_include_directories(alloy_host PRIVATE core/webview/include src/alloy core/mquickjs ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS})
 target_link_libraries(alloy_host PRIVATE alloy sqlite3 ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})

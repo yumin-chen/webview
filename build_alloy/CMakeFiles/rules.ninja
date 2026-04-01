@@ -79,6 +79,16 @@ rule C_COMPILER__alloy_host_unscanned_
 
 
 #############################################
+# Rule for compiling CXX files.
+
+rule CXX_COMPILER__alloy_host_unscanned_
+  depfile = $DEP_FILE
+  deps = gcc
+  command = ${LAUNCHER}${CODE_CHECK}/usr/bin/c++ $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
+  description = Building CXX object $out
+
+
+#############################################
 # Rule for linking CXX executable.
 
 rule CXX_EXECUTABLE_LINKER__alloy_host_
