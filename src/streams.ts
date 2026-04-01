@@ -9,7 +9,15 @@ export class ArrayBufferSink {
 
   start(options?: {
     asUint8Array?: boolean;
+    /**
+     * Preallocate an internal buffer of this size
+     * This can significantly improve performance when the chunk size is small
+     */
     highWaterMark?: number;
+    /**
+     * On {@link ArrayBufferSink.flush}, return the written data as a `Uint8Array`.
+     * Writes will restart from the beginning of the buffer.
+     */
     stream?: boolean;
   }): void {
     if (options?.highWaterMark) this.highWaterMark = options.highWaterMark;
@@ -42,6 +50,13 @@ export class ArrayBufferSink {
     return data.length;
   }
 
+  /**
+   * Flush the internal buffer
+   *
+   * If {@link ArrayBufferSink.start} was passed a `stream` option, this will return a `ArrayBuffer`
+   * If {@link ArrayBufferSink.start} was passed a `stream` option and `asUint8Array`, this will return a `Uint8Array`
+   * Otherwise, this will return the number of bytes written since the last flush
+   */
   flush(): number | Uint8Array | ArrayBuffer {
     if (!this.buffer) return 0;
     const result = this.buffer.slice(0, this.offset);
