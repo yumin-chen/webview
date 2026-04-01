@@ -1,0 +1,18 @@
+{
+  "name": "@alloyscript/engine",
+  "version": "1.0.0",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "browser": "dist/browser.js",
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "test": "bun test"
+  }
+}

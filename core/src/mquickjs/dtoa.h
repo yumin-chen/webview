@@ -1,8 +1,7 @@
 /*
- * MIT License
+ * Double to ASCII conversion
  *
- * Copyright (c) 2017 Serge Zaitsev
- * Copyright (c) 2022 Steffen André Langnes
+ * Copyright (c) 2017 Fabrice Bellard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,19 +21,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef DTOA_H
+#define DTOA_H
 
-/**
- * @file webview.h
- *
- * @deprecated This header file is deprecated. Use `webview/webview.h` instead.
- *
- * This file is provided for backward-compatibility with existing code
- * such as `#include "webview.h"`.
- */
+#include <stdint.h>
 
-#ifndef WEBVIEW_ROOT_H
-#define WEBVIEW_ROOT_H
+#define JS_DTOA_FORMAT_FREE 0
+#define JS_DTOA_FORMAT_FRAC 1
+#define JS_DTOA_FORMAT_FIXED 2
 
-#include "webview/webview.h"
+#define JS_DTOA_EXP_ENABLED (1 << 3)
+#define JS_DTOA_EXP_DISABLED (1 << 4)
+#define JS_DTOA_MINUS_ZERO (1 << 5)
 
-#endif // WEBVIEW_ROOT_H
+typedef struct {
+    double d;
+} JSDTOATempMem;
+
+typedef struct {
+    double d;
+} JSATODTempMem;
+
+int js_dtoa(char *buf, double d, int radix, int n_digits, int flags, JSDTOATempMem *mem);
+int js_dtoa_max_len(double d, int radix, int n_digits, int flags);
+double js_atod(const char *str, const char **pp, int radix, int flags, JSATODTempMem *mem);
+
+#define JS_ATOD_ACCEPT_BIN_OCT (1 << 0)
+#define JS_ATOD_ACCEPT_UNDERSCORES (1 << 1)
+#define JS_ATOD_INT_ONLY (1 << 2)
+
+#endif /* DTOA_H */

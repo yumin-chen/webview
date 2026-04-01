@@ -6,7 +6,7 @@ target_include_directories(
     INTERFACE
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES})
+target_link_libraries(webview_core_headers INTERFACE ${WEBVIEW_DEPENDENCIES} sqlite3 yoga mquickjs)
 # Note that we also use CMAKE_CXX_STANDARD which can override this
 target_compile_features(webview_core_headers INTERFACE cxx_std_11)
 set_target_properties(webview_core_headers PROPERTIES
@@ -20,7 +20,7 @@ endif()
 if(WEBVIEW_BUILD_SHARED_LIBRARY)
     add_library(webview_core_shared SHARED)
     add_library(webview::core_shared ALIAS webview_core_shared)
-    target_sources(webview_core_shared PRIVATE src/webview.cc)
+    target_sources(webview_core_shared PRIVATE src/webview.cc src/alloy_gui.cc)
     target_link_libraries(webview_core_shared PUBLIC webview_core_headers)
     set_target_properties(webview_core_shared PROPERTIES
         OUTPUT_NAME webview
@@ -43,7 +43,7 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
 
     add_library(webview_core_static STATIC)
     add_library(webview::core_static ALIAS webview_core_static)
-    target_sources(webview_core_static PRIVATE src/webview.cc)
+    target_sources(webview_core_static PRIVATE src/webview.cc src/alloy_gui.cc)
     target_link_libraries(webview_core_static PUBLIC webview_core_headers)
     set_target_properties(webview_core_static PROPERTIES
         OUTPUT_NAME "${STATIC_LIBRARY_OUTPUT_NAME}"

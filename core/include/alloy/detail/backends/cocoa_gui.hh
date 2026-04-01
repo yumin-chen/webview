@@ -1,8 +1,5 @@
 /*
- * MIT License
- *
- * Copyright (c) 2017 Serge Zaitsev
- * Copyright (c) 2022 Steffen André Langnes
+ * AlloyScript Runtime - CC0 Unlicense Public Domain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,18 +20,13 @@
  * SOFTWARE.
  */
 
-/**
- * @file webview.h
- *
- * @deprecated This header file is deprecated. Use `webview/webview.h` instead.
- *
- * This file is provided for backward-compatibility with existing code
- * such as `#include "webview.h"`.
- */
+#ifndef ALLOY_BACKENDS_COCOA_GUI_HH
+#define ALLOY_BACKENDS_COCOA_GUI_HH
 
-#ifndef WEBVIEW_ROOT_H
-#define WEBVIEW_ROOT_H
+#ifdef __APPLE__
+namespace alloy::detail {
+// Placeholder for Cocoa backend classes
+}
+#endif
 
-#include "webview/webview.h"
-
-#endif // WEBVIEW_ROOT_H
+#endif // ALLOY_BACKENDS_COCOA_GUI_HH

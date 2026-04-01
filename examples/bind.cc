@@ -48,30 +48,29 @@ int main() {
     long count = 0;
 
     webview::webview w(true, nullptr);
-    w.set_title("Bind Example");
+    w.set_title("Bind Example (Dual Engine)");
     w.set_size(480, 320, WEBVIEW_HINT_NONE);
 
-    // A binding that counts up or down and immediately returns the new value.
-    w.bind("count", [&](const std::string &req) -> std::string {
-      // Imagine that req is properly parsed or use your own JSON parser.
-      auto direction = std::stol(req.substr(1, req.size() - 1));
-      return std::to_string(count += direction);
-    });
+    // Global Bindings registered for both engines
+    w.bind_global("count", [&](const std::string &id, const std::string &req, void*) {
+      auto direction = std::stol(webview::detail::json_parse(req, "", 0));
+      count += direction;
+      w.return_result(id, 0, std::to_string(count));
+    }, nullptr);
 
-    // A binding that creates a new thread and returns the result at a later time.
-    w.bind(
-        "compute",
-        [&](const std::string &id, const std::string &req, void * /*arg*/) {
-          // Create a thread and forget about it for the sake of simplicity.
-          std::thread([&, id, req] {
-            // Simulate load.
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            // Imagine that req is properly parsed or use your own JSON parser.
-            const auto *result = "42";
-            w.resolve(id, 0, result);
-          }).detach();
-        },
-        nullptr);
+    w.bind_global("compute", [&](const std::string &id, const std::string &req, void*) {
+      std::thread([&, id] {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        w.return_result(id, 0, "42");
+      }).detach();
+    }, nullptr);
+
+    // Logic in MQuickJS orchestrates the WebView UI
+    std::string logic = R"js(
+        Alloy.log('Logic engine started.');
+        // Initial setup or periodic tasks in safe engine
+    )js";
+    w.eval("eval(" + webview::detail::json_escape(logic) + ")");
 
     w.set_html(html);
     w.run();

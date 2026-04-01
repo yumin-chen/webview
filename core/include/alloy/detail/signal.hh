@@ -1,8 +1,5 @@
 /*
- * MIT License
- *
- * Copyright (c) 2017 Serge Zaitsev
- * Copyright (c) 2022 Steffen André Langnes
+ * AlloyScript Runtime - CC0 Unlicense Public Domain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,18 +20,47 @@
  * SOFTWARE.
  */
 
-/**
- * @file webview.h
- *
- * @deprecated This header file is deprecated. Use `webview/webview.h` instead.
- *
- * This file is provided for backward-compatibility with existing code
- * such as `#include "webview.h"`.
- */
+#ifndef ALLOY_DETAIL_SIGNAL_HH
+#define ALLOY_DETAIL_SIGNAL_HH
 
-#ifndef WEBVIEW_ROOT_H
-#define WEBVIEW_ROOT_H
+#include "../api.h"
+#include <string>
+#include <vector>
+#include <variant>
+#include <functional>
 
-#include "webview/webview.h"
+namespace alloy::detail {
 
-#endif // WEBVIEW_ROOT_H
+struct signal_value {
+  std::variant<std::string, double, int, bool> data;
+};
+
+class component_base;
+
+class signal_base {
+public:
+  virtual ~signal_base() = default;
+
+  struct subscription {
+    component_base* component;
+    alloy_prop_id_t prop;
+  };
+
+  void subscribe(component_base* c, alloy_prop_id_t p) {
+    m_subscribers.push_back({c, p});
+  }
+
+  void unsubscribe(component_base* c, alloy_prop_id_t p) {
+    // Basic implementation
+  }
+
+protected:
+  void notify_subscribers(const signal_value& val);
+
+private:
+  std::vector<subscription> m_subscribers;
+};
+
+} // namespace alloy::detail
+
+#endif // ALLOY_DETAIL_SIGNAL_HH
