@@ -49,9 +49,39 @@ namespace detail {
 
 class engine_base {
 public:
-  engine_base(bool owns_window) : m_owns_window{owns_window} {}
+  engine_base(bool owns_window) : m_owns_window{owns_window} {
+      m_qjs_mem = (uint8_t*)malloc(2 * 1024 * 1024); // 2MB
+      m_qjs_ctx = JS_NewContext(m_qjs_mem, 2 * 1024 * 1024, NULL);
 
-  virtual ~engine_base() = default;
+      JSValue *global_obj = JS_PushGCRef(m_qjs_ctx, &m_qjs_global_ref);
+      JSValue *alloy_obj = JS_PushGCRef(m_qjs_ctx, &m_qjs_alloy_ref);
+
+      *global_obj = JS_GetGlobalObject(m_qjs_ctx);
+      *alloy_obj = JS_NewObject(m_qjs_ctx);
+
+      JS_SetPropertyStr(m_qjs_ctx, *alloy_obj, "log",
+          JS_NewCFunction(m_qjs_ctx, js_alloy_log, "log", 1));
+
+      // Bind a special function to call into WebView from QJS
+      JS_SetPropertyStr(m_qjs_ctx, *alloy_obj, "webviewEval",
+          JS_NewCFunction(m_qjs_ctx, [](JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) -> JSValue {
+              auto engine = (engine_base*)JS_GetContextOpaque(ctx);
+              const char *js = JS_ToCString(ctx, argv[0]);
+              engine->eval(js); // Async eval in webview
+              return JS_UNDEFINED;
+          }, "webviewEval", 1));
+
+      JS_SetPropertyStr(m_qjs_ctx, *global_obj, "Alloy", *alloy_obj);
+
+      JS_SetContextOpaque(m_qjs_ctx, this);
+  }
+
+  virtual ~engine_base() {
+      JS_PopGCRef(m_qjs_ctx, &m_qjs_alloy_ref);
+      JS_PopGCRef(m_qjs_ctx, &m_qjs_global_ref);
+      JS_FreeContext(m_qjs_ctx);
+      free(m_qjs_mem);
+  }
 
   noresult navigate(const std::string &url) {
     if (url.empty()) {
@@ -1778,39 +1808,21 @@ protected:
   std::string secure_eval_internal(const std::string& js) {
       if (js.empty()) return "null";
 
-      uint8_t *mem_buf = (uint8_t*)malloc(1024 * 1024); // 1MB buffer
-      JSContext *ctx = JS_NewContext(mem_buf, 1024 * 1024, NULL);
+      JSGCRef val_ref;
+      JSValue *val = JS_PushGCRef(m_qjs_ctx, &val_ref);
 
-      JSGCRef global_ref, alloy_ref, val_ref;
-      JSValue *global_obj = JS_PushGCRef(ctx, &global_ref);
-      JSValue *alloy_obj = JS_PushGCRef(ctx, &alloy_ref);
-      JSValue *val = JS_PushGCRef(ctx, &val_ref);
-
-      *global_obj = JS_GetGlobalObject(ctx);
-      *alloy_obj = JS_NewObject(ctx);
-
-      JS_SetPropertyStr(ctx, *alloy_obj, "log",
-          JS_NewCFunction(ctx, js_alloy_log, "log", 1));
-
-      JS_SetPropertyStr(ctx, *global_obj, "Alloy", *alloy_obj);
-
-      *val = JS_Eval(ctx, js.c_str(), js.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
+      *val = JS_Eval(m_qjs_ctx, js.c_str(), js.size(), "<eval>", JS_EVAL_TYPE_GLOBAL);
       std::string result;
       if (JS_IsException(*val)) {
-          JSValue exception = JS_GetException(ctx);
-          const char *str = JS_ToCString(ctx, exception);
+          JSValue exception = JS_GetException(m_qjs_ctx);
+          const char *str = JS_ToCString(m_qjs_ctx, exception);
           result = "{\"error\":" + json_escape(str) + "}";
       } else {
-          const char *str = JS_ToCString(ctx, *val);
+          const char *str = JS_ToCString(m_qjs_ctx, *val);
           result = "{\"result\":" + json_escape(str ? str : "undefined") + "}";
       }
 
-      JS_PopGCRef(ctx, &val_ref);
-      JS_PopGCRef(ctx, &alloy_ref);
-      JS_PopGCRef(ctx, &global_ref);
-
-      JS_FreeContext(ctx);
-      free(mem_buf);
+      JS_PopGCRef(m_qjs_ctx, &val_ref);
 
       return result;
   }
@@ -1843,6 +1855,10 @@ private:
   std::map<std::string, std::shared_ptr<sqlite_stmt>> m_sqlite_stmts;
   std::map<std::string, alloy_component_t> m_gui_components;
   size_t m_gui_next_id{1};
+  uint8_t *m_qjs_mem = nullptr;
+  JSContext *m_qjs_ctx = nullptr;
+  JSGCRef m_qjs_global_ref, m_qjs_alloy_ref;
+
   user_script *m_bind_script{};
   std::list<user_script> m_user_scripts;
 
