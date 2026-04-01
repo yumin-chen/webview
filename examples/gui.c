@@ -1,6 +1,10 @@
 #include "gui/alloy.h"
 #include <stdio.h>
 
+#ifdef __APPLE__
+#include <objc/objc-runtime.h>
+#endif
+
 void on_button_click(alloy_component_t component, void *userdata) {
     printf("Button clicked: %s\n", (const char*)userdata);
 }

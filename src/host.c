@@ -227,6 +227,16 @@ void alloy_file_delete(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, "0");
 }
 
+// --- IPC Encryption (Draft) ---
+const char* IPC_SECRET = "alloy-secure-secret-123";
+
+void alloy_encrypted_ipc(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // req is expected to be encrypted JSON
+    // Implementation would decrypt, process, and encrypt response
+    webview_return(w, id, 0, req);
+}
+
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
 #else
@@ -236,9 +246,12 @@ int main(void) {
   webview_set_title(w, "AlloyScript Comprehensive Runtime");
   webview_set_size(w, 1024, 768, WEBVIEW_HINT_NONE);
 
-  webview_bind(w, "alloy_spawn", alloy_spawn, w);
-  webview_bind(w, "alloy_spawn_sync", alloy_spawn_sync, w);
-  webview_bind(w, "alloy_secure_eval", alloy_secure_eval, w);
+  // Critical APIs bound globally via bind_global (defense-in-depth)
+  webview_bind_global(w, "alloy_spawn", alloy_spawn, w);
+  webview_bind_global(w, "alloy_spawn_sync", alloy_spawn_sync, w);
+  webview_bind_global(w, "alloy_secure_eval", alloy_secure_eval, w);
+  webview_bind_global(w, "alloy_encrypted_ipc", alloy_encrypted_ipc, w);
+
   webview_bind(w, "alloy_sqlite_open", alloy_sqlite_open, w);
   webview_bind(w, "alloy_sqlite_query", alloy_sqlite_query, w);
   webview_bind(w, "alloy_sqlite_run", alloy_sqlite_run, w);
@@ -285,7 +298,14 @@ int main(void) {
       "  file_delete: (path) => window.alloy_file_delete(path)"
       "};"
       "globalThis._forbidden_eval = globalThis.eval;"
-      "globalThis.eval = (code) => globalThis.Alloy.secureEval(code);";
+      "globalThis.eval = (code) => globalThis.Alloy.secureEval(code);"
+      "// E2E Encryption shim\n"
+      "const _secret = 'alloy-secure-secret-123';\n"
+      "window.Alloy.encrypt = (msg) => btoa(msg + _secret); // Simplistic draft encryption\n"
+      "window.Alloy.secureCall = async (method, args) => {\n"
+      "  const payload = window.Alloy.encrypt(JSON.stringify({method, args}));\n"
+      "  return await window.alloy_encrypted_ipc(payload);\n"
+      "};";
 
   webview_init(w, bridge_js);
   webview_init(w, ALLOY_BUNDLE);

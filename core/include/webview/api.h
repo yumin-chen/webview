@@ -212,6 +212,14 @@ WEBVIEW_API webview_error_t webview_bind(webview_t w, const char *name,
                                          void *arg);
 
 /**
+ * Binds a native function globally to the webview.
+ */
+WEBVIEW_API webview_error_t webview_bind_global(webview_t w, const char *name,
+                                                void (*fn)(const char *id,
+                                                           const char *req, void *arg),
+                                                void *arg);
+
+/**
  * Removes a binding created with webview_bind().
  *
  * @param w The webview instance.

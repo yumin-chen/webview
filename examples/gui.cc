@@ -1,5 +1,9 @@
 #include "gui/alloy.h"
 #include <iostream>
+
+#ifdef __APPLE__
+#include <objc/objc-runtime.h>
+#endif
 #include <vector>
 #include <string>
 #include <memory>
