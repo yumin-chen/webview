@@ -49,3 +49,18 @@ add_executable(alloy_gui_example_cc MACOSX_BUNDLE WIN32)
 target_sources(alloy_gui_example_cc PRIVATE gui.cc)
 target_include_directories(alloy_gui_example_cc PRIVATE ../core/include)
 target_link_libraries(alloy_gui_example_cc PRIVATE alloy_gui)
+
+# Add TypeScript example build if possible
+if(NOT WIN32)
+    # On non-Windows, we can try to find bun to build the TS example
+    find_program(BUN_EXE bun)
+    if(BUN_EXE)
+        add_custom_command(
+            OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/gui.js"
+            COMMAND ${BUN_EXE} build "${CMAKE_CURRENT_SOURCE_DIR}/gui.ts" --outfile "${CMAKE_CURRENT_BINARY_DIR}/gui.js"
+            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/gui.ts"
+            COMMENT "Building TypeScript GUI example..."
+        )
+        add_custom_target(alloy_gui_example_ts ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/gui.js")
+    endif()
+endif()
