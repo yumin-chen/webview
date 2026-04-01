@@ -186,3 +186,25 @@ TEST_CASE("Ensure that narrow/wide string conversion works on Windows") {
   REQUIRE(narrow_string(std::wstring(2, L'\0')) == std::string(2, '\0'));
 }
 #endif
+
+#include "webview/alloy.hh"
+
+TEST_CASE("Alloy Runtime - Base64") {
+    webview::detail::AlloyRuntime runtime(nullptr);
+    std::vector<char> data = {'H', 'e', 'l', 'l', 'o'};
+    REQUIRE(runtime.base64_encode(data) == "SGVsbG8=");
+}
+
+TEST_CASE("SQLite - Options") {
+    webview::detail::AlloySQLite::Options opts;
+    opts.readonly = true;
+    REQUIRE(opts.readonly == true);
+    REQUIRE(opts.create == true); // default
+}
+
+TEST_CASE("AlloyProcess - Command Line") {
+    webview::detail::AlloyProcess::Options opts;
+    opts.argv = {"ls", "-l"};
+    REQUIRE(opts.argv.size() == 2);
+    REQUIRE(opts.argv[0] == "ls");
+}

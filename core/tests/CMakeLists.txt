@@ -12,7 +12,22 @@ webview_discover_tests(webview_core_functional_tests
     TIMEOUT_AFTER_MATCH 300 "[[slow]]")
 
 add_executable(webview_core_unit_tests)
-target_sources(webview_core_unit_tests PRIVATE src/unit_tests.cc)
-target_link_libraries(webview_core_unit_tests PRIVATE webview::core webview_test_driver)
+target_sources(webview_core_unit_tests PRIVATE
+    src/unit_tests.cc
+    src/alloy_gui_tests.cc
+    ../src/alloy.cc
+    ../src/alloy_gui/signals.cc
+    ../src/alloy_gui/window.cc
+    ../src/alloy_gui/button.cc
+    ../src/alloy_gui/label.cc
+    ../src/alloy_gui/input.cc
+    ../src/alloy_gui/layout.cc
+    ../src/alloy_gui/selection.cc
+    ../src/alloy_gui/navigation.cc
+    ../src/alloy_gui/dialog.cc
+    ../src/alloy_gui/extra.cc
+)
+target_include_directories(webview_core_unit_tests PRIVATE ../include)
+target_link_libraries(webview_core_unit_tests PRIVATE webview::core webview_test_driver util sqlite3)
 webview_discover_tests(webview_core_unit_tests
     TIMEOUT 10)
