@@ -20,6 +20,10 @@ using window_impl = alloy::detail::gtk_window;
 #include "detail/backends/win32_gui.hh"
 using component_impl = alloy::detail::win32_component;
 using window_impl = alloy::detail::win32_window;
+#elif defined(ALLOY_PLATFORM_DARWIN)
+#include "detail/backends/cocoa_gui.hh"
+using component_impl = alloy::detail::cocoa_component;
+using window_impl = alloy::detail::cocoa_window;
 #endif
 
 using namespace alloy::detail;
@@ -39,7 +43,7 @@ const char *alloy_error_message(alloy_error_t err) {
 }
 
 alloy_component_t alloy_create_window(const char *title, int width, int height) {
-#if defined(ALLOY_PLATFORM_LINUX) || defined(ALLOY_PLATFORM_WINDOWS)
+#if defined(ALLOY_PLATFORM_LINUX) || defined(ALLOY_PLATFORM_WINDOWS) || defined(ALLOY_PLATFORM_DARWIN)
     return new window_impl(title, width, height);
 #else
     (void)title; (void)width; (void)height;
@@ -324,6 +328,9 @@ alloy_error_t alloy_run(alloy_component_t window) {
     g_object_unref(provider);
 
     gtk_main();
+#elif defined(ALLOY_PLATFORM_DARWIN)
+    (void)window;
+    // In a real implementation, we would use [NSApp run]
 #elif defined(ALLOY_PLATFORM_WINDOWS)
     (void)window;
     MSG msg;
