@@ -20,5 +20,18 @@ export const secureEval = (code: string): string => {
   return window.Alloy.secureEval(code);
 };
 
+import { ArrayBufferSink } from "./streams";
+import { file, write, AlloyFile, FileSink } from "./file";
+
 export * from "./sqlite";
 export * from "./gui";
+export { ArrayBufferSink, AlloyFile, FileSink };
+
+export const Alloy = {
+  ArrayBufferSink,
+  file,
+  write,
+  stdin: new AlloyFile(0),
+  stdout: new AlloyFile(1),
+  stderr: new AlloyFile(2),
+};

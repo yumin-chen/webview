@@ -39,6 +39,21 @@ alloy_error_t alloy_create_window(const char *title, int width, int height, allo
     win->native_handle = CreateWindowExW(0, L"AlloyWindow", L"Alloy", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                         CW_USEDEFAULT, CW_USEDEFAULT, width, height, NULL, NULL, wc.hInstance, NULL);
     if (win->native_handle) SetWindowTextA((HWND)win->native_handle, title);
+#elif defined(__APPLE__)
+    // Simple Cocoa NSWindow via ObjC runtime (draft)
+    id pool = (id)objc_msgSend((id)objc_getClass("NSAutoreleasePool"), sel_registerName("new"));
+    id app = (id)objc_msgSend((id)objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+
+    CGRect frame = {{0, 0}, {(double)width, (double)height}};
+    id window = (id)objc_msgSend((id)objc_getClass("NSWindow"), sel_registerName("alloc"));
+    window = (id)objc_msgSend(window, sel_registerName("initWithContentRect:styleMask:backing:defer:"),
+                             frame, 15 /* Titled, Closable, Miniaturizable, Resizable */, 2 /* Buffered */, NO);
+
+    objc_msgSend(window, sel_registerName("setTitle:"),
+                 objc_msgSend((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), title));
+    objc_msgSend(window, sel_registerName("makeKeyAndOrderFront:"), NULL);
+    win->native_handle = window;
+    objc_msgSend(pool, sel_registerName("drain"));
 #elif defined(__linux__)
     if (!gtk_init_check(NULL, NULL)) return ALLOY_ERROR_PLATFORM;
     win->native_handle = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -60,6 +75,9 @@ alloy_error_t alloy_run(alloy_component_t window) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+#elif defined(__APPLE__)
+    id app = (id)objc_msgSend((id)objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
+    objc_msgSend(app, sel_registerName("run"));
 #elif defined(__linux__)
     gtk_main();
 #endif

@@ -173,6 +173,60 @@ void alloy_gui_destroy(const char *id, const char *req, void *arg) {
     webview_return((webview_t)arg, id, 0, "0");
 }
 
+// --- File I/O Bindings ---
+void alloy_file_size(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    FILE *f = fopen(req, "rb");
+    if (!f) { webview_return(w, id, 0, "0"); return; }
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fclose(f);
+    char buf[32];
+    sprintf(buf, "%ld", size);
+    webview_return(w, id, 0, buf);
+}
+
+void alloy_file_read(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // req format for draft could be path;format
+    FILE *f = fopen(req, "rb");
+    if (!f) { webview_return(w, id, 1, "File not found"); return; }
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *data = (char*)malloc(size + 1);
+    fread(data, 1, size, f);
+    data[size] = '\0';
+    fclose(f);
+    webview_return(w, id, 0, data);
+    free(data);
+}
+
+void alloy_file_write(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    // Simplified for draft: id is path, req is data
+    FILE *f = fopen(id, "wb");
+    if (!f) { webview_return(w, id, 1, "0"); return; }
+    size_t written = fwrite(req, 1, strlen(req), f);
+    fclose(f);
+    char buf[32];
+    sprintf(buf, "%zu", written);
+    webview_return(w, id, 0, buf);
+}
+
+void alloy_file_exists(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    FILE *f = fopen(req, "r");
+    if (f) { fclose(f); webview_return(w, id, 0, "true"); }
+    else { webview_return(w, id, 0, "false"); }
+}
+
+void alloy_file_delete(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    remove(req);
+    webview_return(w, id, 0, "0");
+}
+
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
 #else
@@ -195,6 +249,11 @@ int main(void) {
   webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
   webview_bind(w, "alloy_gui_update", alloy_gui_update, w);
   webview_bind(w, "alloy_gui_destroy", alloy_gui_destroy, w);
+  webview_bind(w, "alloy_file_size", alloy_file_size, w);
+  webview_bind(w, "alloy_file_read", alloy_file_read, w);
+  webview_bind(w, "alloy_file_write", alloy_file_write, w);
+  webview_bind(w, "alloy_file_exists", alloy_file_exists, w);
+  webview_bind(w, "alloy_file_delete", alloy_file_delete, w);
 
   const char* bridge_js =
       "window.Alloy = {"
@@ -218,7 +277,12 @@ int main(void) {
       "    create: (type, props) => window.alloy_gui_create(JSON.stringify({type, props})),"
       "    update: (handle, props) => window.alloy_gui_update(handle, props),"
       "    destroy: (handle) => window.alloy_gui_destroy(handle)"
-      "  }"
+      "  },"
+      "  file_size: (path) => window.alloy_file_size(path),"
+      "  file_read: (path, format) => window.alloy_file_read(path, format),"
+      "  file_write: (path, data) => window.alloy_file_write(path, data),"
+      "  file_exists: (path) => window.alloy_file_exists(path),"
+      "  file_delete: (path) => window.alloy_file_delete(path)"
       "};"
       "globalThis._forbidden_eval = globalThis.eval;"
       "globalThis.eval = (code) => globalThis.Alloy.secureEval(code);";
