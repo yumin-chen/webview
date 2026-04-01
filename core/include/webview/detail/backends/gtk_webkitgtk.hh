@@ -161,6 +161,10 @@ protected:
     return {};
   }
 
+  void hide_window() override {
+      gtk_widget_hide(m_window);
+  }
+
   noresult terminate_impl() override {
     return dispatch_impl([&] { m_stop_run_loop = true; });
   }

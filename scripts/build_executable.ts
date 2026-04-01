@@ -26,20 +26,21 @@ int main() {
 `;
 
 async function transpileAlloyScript(js: string): Promise<string> {
-    // Alloy.Transpiler: Advanced Browser API forwarding and MicroQuickJS polyfills
+    // Alloy.Transpiler: High-performance dual-engine redirection
     let transpiled = js;
 
-    // 1. Browser API Proxying (Forward to WebView)
-    const browserAPIs = ["document", "window", "navigator", "localStorage", "fetch", "XMLHttpRequest", "location", "history", "screen"];
+    // 1. Browser API Forwarding (Sync Proxy to Hidden WebView)
+    const browserAPIs = ["document", "window", "navigator", "localStorage", "sessionStorage", "fetch", "XMLHttpRequest", "location", "history", "screen", "alert", "prompt", "confirm"];
     const apiProxy = `
         (function() {
             const forwardToWebView = (path, args) => {
-                const res_json = Alloy.webview.call(path, args); // Sync call from MicroQuickJS to WebView
+                const res_json = Alloy.webview.call(path, JSON.stringify(args));
                 try { return JSON.parse(res_json); } catch(e) { return res_json; }
             };
             ${browserAPIs.map(api => `
                 if (typeof ${api} === 'undefined') {
-                    globalThis.${api} = new Proxy({}, {
+                    globalThis.${api} = new Proxy(function(){}, {
+                        apply: (t, thisArg, args) => forwardToWebView('${api}', args),
                         get: (target, prop) => {
                             if (prop === 'then') return undefined;
                             return (...args) => forwardToWebView('${api}.' + String(prop), args);
@@ -50,31 +51,28 @@ async function transpileAlloyScript(js: string): Promise<string> {
         })();
     `;
 
-    // 2. MicroQuickJS Polyfills (Async/Await & Promises)
+    // 2. MicroQuickJS Compatibility (Sync Promises)
     const enginePolyfills = `
         if (typeof Promise === 'undefined') {
             globalThis.Promise = function(executor) {
-                let resolveValue, rejectValue, isResolved = false, isRejected = false;
-                executor(v => { resolveValue = v; isResolved = true; }, e => { rejectValue = e; isRejected = true; });
+                let res, rej, resolved = false, rejected = false;
+                executor(v => { res = v; resolved = true; }, e => { rej = e; rejected = true; });
                 const p = {
-                    then: function(onFulfilled) { if (isResolved) return Promise.resolve(onFulfilled(resolveValue)); return p; },
-                    catch: function(onRejected) { if (isRejected) return Promise.resolve(onRejected(rejectValue)); return p; }
+                    then: (onF) => resolved ? Promise.resolve(onF(res)) : p,
+                    catch: (onR) => rejected ? Promise.resolve(onR(rej)) : p
                 };
                 return p;
             };
-            globalThis.Promise.resolve = v => {
-                if (v && v.then) return v;
-                return { then: cb => Promise.resolve(cb(v)), catch: cb => this };
-            };
-            globalThis.Promise.all = (promises) => {
-                return { then: cb => cb(promises.map(p => { let r; p.then(v => r = v); return r; })) };
-            };
+            globalThis.Promise.resolve = v => (v && v.then) ? v : { then: cb => Promise.resolve(cb(v)) };
+            globalThis.Promise.all = ps => ({ then: cb => cb(ps.map(p => { let r; p.then(v => r = v); return r; })) });
         }
     `;
 
-    transpiled = apiProxy + "\n" + enginePolyfills + "\n" + transpiled;
+    // 3. Native Capability Redirects (Force to Host for Perf)
+    // E.g. console.log should use host stdout directly if possible, or we let webview handle it.
+    // For now, we prefer host-side logic.
 
-    return transpiled;
+    return apiProxy + "\n" + enginePolyfills + "\n" + transpiled;
 }
   writeFileSync("host.cc", cppHost);
 }

@@ -48,8 +48,13 @@ int main() {
     long count = 0;
 
     webview::webview w(true, nullptr);
-    w.set_title("Bind Example");
+    w.set_title("AlloyScript Bind Example");
     w.set_size(480, 320, WEBVIEW_HINT_NONE);
+
+    // Demonstrate Alloy:sqlite bridge usage in secure host
+    w.dispatch([&]() {
+        w.eval("Alloy.secureEval('const db = new Alloy.sqlite.Database(\":memory:\"); db.exec(\"CREATE TABLE test (v TEXT)\"); db.exec(\"INSERT INTO test VALUES (\"\"Hello Dual Engine!\"\")\"); console.log(\"SQLite write successful.\");')");
+    });
 
     // A binding that counts up or down and immediately returns the new value.
     w.bind("count", [&](const std::string &req) -> std::string {
