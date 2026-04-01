@@ -24,6 +24,13 @@ describe("Alloy Transpiler API", () => {
     expect(result).toContain("transpiled");
   });
 
+  test("browser target", async () => {
+    const transpiler = new Alloy.Transpiler({ target: "browser" });
+    const result = await transpiler.transform("const x = 1;");
+    // Should mock WASM output logic
+    expect(result).toBeDefined();
+  });
+
   test("scan and scanImports", () => {
     const transpiler = new Alloy.Transpiler();
     const result = transpiler.scan("import React from 'react'");

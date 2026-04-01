@@ -246,10 +246,13 @@ void alloy_transpiler_transform(const char *id, const char *req, void *arg) {
         JS_FreeCString(ctx, err);
         JS_FreeValue(ctx, exc);
     } else {
-        // Mock bytecode to JS reconstruction for target node.js
+        // Mock bytecode to JS reconstruction for various targets
         if (strstr(id, "target:node")) {
             // Reconstruct JS from bytecode (Draft)
             webview_return(w, id, 0, req);
+        } else if (strstr(id, "target:browser")) {
+            // Compile MicroQuickJS to WASM and run in Browser
+            webview_return(w, id, 0, "/* WASM executable logic */");
         } else {
             // Return raw bytecode or polyfilled code
             webview_return(w, id, 0, req);

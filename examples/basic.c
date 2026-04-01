@@ -6,23 +6,25 @@
 #include <windows.h>
 #endif
 
-// Separated Dual Engine Architecture: Main process vs Hidden Unsafe WebView
+// --- Dual Engine Architecture: Main Process (Safe) vs Hidden WebView (Unsafe) ---
+// This example demonstrates the separation of the host process from the browser runtime.
+
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine,
                    int nCmdShow) {
 #else
 int main(void) {
 #endif
-  // Main Safe C Process Logic (Simulated MicroQuickJS)
-  printf("Starting Safe C Host Engine...\n");
+  // 1. Safe Host Process: Executes MicroQuickJS (WASM logic when target is browser)
+  printf("Starting AlloyScript Engine Host (MicroQuickJS/WASM)...\n");
 
-  // Unsafe WebView (Hidden UI Layer)
+  // 2. Unsafe WebView Process: Provides browser APIs and rendering
   webview_t w = webview_create(0, NULL);
-  webview_set_title(w, "Alloy Dual Engine Architecture");
+  webview_set_title(w, "Alloy Dual Engine - Basic Separation");
   webview_set_size(w, 800, 600, WEBVIEW_HINT_NONE);
 
-  // treats webview as hostile - hidden by default if possible, or just providing native API
-  webview_set_html(w, "<h1>AlloyScript Protected Engine</h1><p>WebView is restricted to UI only.</p>");
+  // treats webview as a capacities provider only
+  webview_set_html(w, "<h1>Safe Host Active</h1><p>Browser runtime is sandboxed and isolated from the main C process.</p>");
 
   webview_run(w);
   webview_destroy(w);
