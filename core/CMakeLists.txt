@@ -24,6 +24,7 @@ if(WEBVIEW_BUILD_SHARED_LIBRARY)
         src/webview.cc
         src/alloy_gui.cpp
         src/signals.cpp
+        src/compiler.cpp
         src/components/button.cpp
         src/components/textfield.cpp
         src/components/textarea.cpp
@@ -111,6 +112,7 @@ if(WEBVIEW_BUILD_STATIC_LIBRARY)
         src/webview.cc
         src/alloy_gui.cpp
         src/signals.cpp
+        src/compiler.cpp
         src/components/button.cpp
         src/components/textfield.cpp
         src/components/textarea.cpp

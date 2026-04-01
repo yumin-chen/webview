@@ -78,6 +78,46 @@ void alloy_browser_api_proxy(const char *id, const char *req, void *arg) {
     webview_eval(w, ("window.__alloy_service_webview_dispatch('" + std::string(req) + "')").c_str());
 }
 
+void alloy_build(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    unsigned char *bytecode = NULL;
+    size_t len = 0;
+    if (alloy_build_bytecode(req, &bytecode, &len) == ALLOY_OK) {
+        // Return bytecode as hex or base64
+        webview_return(w, id, 0, (const char*)bytecode);
+        free(bytecode);
+    } else {
+        webview_return(w, id, 1, "Compilation failed");
+    }
+}
+
+std::map<int, alloy_transpiler_t> g_transpilers;
+int g_next_transpiler_id = 1;
+
+void alloy_transpiler_create_handler(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    alloy_transpiler_t t = alloy_transpiler_create(req);
+    int tid = g_next_transpiler_id++;
+    g_transpilers[tid] = t;
+    webview_return(w, id, 0, std::to_string(tid).c_str());
+}
+
+void alloy_transpiler_transform_handler(const char *id, const char *req, void *arg) {
+    webview_t w = (webview_t)arg;
+    std::string request(req);
+    int tid = std::stoi(webview::detail::json_parse(request, "", 0));
+    std::string code = webview::detail::json_parse(request, "", 1);
+    std::string loader = webview::detail::json_parse(request, "", 2);
+
+    char *result = NULL;
+    if (alloy_transpiler_transform(g_transpilers[tid], code.c_str(), loader.c_str(), &result) == ALLOY_OK) {
+        webview_return(w, id, 0, result);
+        free(result);
+    } else {
+        webview_return(w, id, 1, "Transformation failed");
+    }
+}
+
 // --- SQLite Backend ---
 
 extern "C" void alloy_sqlite_open(const char *id, const char *req, void *arg) {
@@ -358,6 +398,9 @@ int main(void) {
   webview_bind(w, "alloy_sqlite_stmt_all", alloy_sqlite_stmt_all, w);
   webview_bind(w, "alloy_sqlite_close", alloy_sqlite_close, w);
   webview_bind(w, "alloy_browser_api_proxy", alloy_browser_api_proxy, w);
+  webview_bind(w, "alloy_build", alloy_build, w);
+  webview_bind(w, "alloy_transpiler_create", alloy_transpiler_create_handler, w);
+  webview_bind(w, "alloy_transpiler_transform", alloy_transpiler_transform_handler, w);
 
   // GUI bindings
   webview_bind(w, "alloy_gui_create", alloy_gui_create, w);
@@ -398,6 +441,12 @@ int main(void) {
       "    update: (id, props) => window.alloy_gui_update(id, props),"
       "    destroy: (id) => window.alloy_gui_destroy(id),"
       "    addChild: (parent, child) => window.alloy_gui_add_child(parent, child)"
+      "  },"
+      "  build: (source) => window.alloy_build(source),"
+      "  Transpiler: class {"
+      "    constructor(options) { this.id = window.alloy_transpiler_create(JSON.stringify(options)); }"
+      "    transformSync(code, loader) { return window.alloy_transpiler_transform(this.id, code, loader); }"
+      "    async transform(code, loader) { return Promise.resolve(this.transformSync(code, loader)); }"
       "  }"
       "};"
       "window._forbidden_eval = window.eval;"

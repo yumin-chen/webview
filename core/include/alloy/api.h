@@ -116,6 +116,22 @@ ALLOY_API alloy_error_t alloy_webview_bind_global(alloy_component_t webview,
                                                    void *userdata);
 ALLOY_API alloy_error_t alloy_webview_secure_post(alloy_component_t webview,
                                                    const char *encrypted_msg);
+
+ALLOY_API alloy_error_t alloy_build_bytecode(const char *source,
+                                              unsigned char **out_bytecode,
+                                              size_t *out_len);
+
+typedef void *alloy_transpiler_t;
+
+ALLOY_API alloy_transpiler_t alloy_transpiler_create(const char *options_json);
+ALLOY_API alloy_error_t alloy_transpiler_transform(alloy_transpiler_t t,
+                                                   const char *code,
+                                                   const char *loader,
+                                                   char **out_result);
+ALLOY_API alloy_error_t alloy_transpiler_scan(alloy_transpiler_t t,
+                                               const char *code,
+                                               char **out_json_result);
+ALLOY_API void alloy_transpiler_destroy(alloy_transpiler_t t);
 ALLOY_API alloy_component_t alloy_create_vstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_hstack(alloy_component_t parent);
 ALLOY_API alloy_component_t alloy_create_scrollview(alloy_component_t parent);
