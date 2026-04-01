@@ -248,6 +248,14 @@ macro(webview_install_targets)
     # Install targets
     list(APPEND WEBVIEW_INSTALL_TARGET_NAMES webview_core_headers)
 
+    if(TARGET sqlite3)
+        list(APPEND WEBVIEW_INSTALL_TARGET_NAMES sqlite3)
+    endif()
+
+    if(TARGET alloy_gui)
+        list(APPEND WEBVIEW_INSTALL_TARGET_NAMES alloy_gui)
+    endif()
+
     if(WEBVIEW_BUILD_SHARED_LIBRARY)
         list(APPEND WEBVIEW_INSTALL_TARGET_NAMES webview_core_shared)
     endif()
