@@ -1,39 +1,41 @@
 cmake_minimum_required(VERSION 3.16)
+project(alloy_host)
 
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/internal.cmake")
-webview_extract_version()
+set(CMAKE_CXX_STANDARD 17)
 
-project(
-    webview
-    VERSION "${WEBVIEW_VERSION_NUMBER}"
-    DESCRIPTION "A tiny cross-platform webview library for C/C++ to build modern cross-platform GUIs."
-    HOMEPAGE_URL https://github.com/webview/webview)
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
+# Find GTK and WebKit
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+pkg_check_modules(WEBKIT2 REQUIRED webkit2gtk-4.1)
 
-webview_init()
+# MicroQuickJS
+add_library(mquickjs STATIC
+    core/mquickjs/mquickjs.c
+    core/mquickjs/mqjs_stdlib.c
+    core/mquickjs/dtoa.c
+)
+target_include_directories(mquickjs PUBLIC core/mquickjs)
 
-if(WEBVIEW_BUILD)
-    add_subdirectory(compatibility)
+# Webview
+add_library(webview_static STATIC core/webview/src/webview.cc)
+target_include_directories(webview_static PUBLIC core/webview/include ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS})
+target_compile_definitions(webview_static PUBLIC WEBVIEW_STATIC)
+target_link_libraries(webview_static PRIVATE ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})
 
-    if(WEBVIEW_BUILD_TESTS)
-        include(CTest)
-        add_subdirectory(test_driver)
-    endif()
+# Alloy Components
+add_library(alloy STATIC
+    src/alloy/bindings.cpp
+    src/alloy/crypto.cpp
+    src/alloy/ipc.cpp
+    src/alloy/eval.cpp
+    src/alloy/streams.cpp
+)
+target_include_directories(alloy PUBLIC src/alloy core/mquickjs core/webview/include ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS})
+target_link_libraries(alloy PUBLIC mquickjs OpenSSL::Crypto webview_static)
 
-    add_subdirectory(core)
-
-    if(WEBVIEW_BUILD_EXAMPLES)
-        add_subdirectory(examples)
-    endif()
-
-    if(WEBVIEW_BUILD_DOCS)
-        add_subdirectory(docs)
-    endif()
-
-    if(WEBVIEW_INSTALL_TARGETS)
-        webview_install_targets()
-    endif()
-
-    if(WEBVIEW_ENABLE_PACKAGING)
-        add_subdirectory(packaging)
-    endif()
-endif()
+# Host Executable
+add_executable(alloy_host src/host.cpp src/bundle.c)
+target_include_directories(alloy_host PRIVATE core/webview/include src/alloy core/mquickjs ${GTK3_INCLUDE_DIRS} ${WEBKIT2_INCLUDE_DIRS})
+target_link_libraries(alloy_host PRIVATE alloy sqlite3 ${GTK3_LIBRARIES} ${WEBKIT2_LIBRARIES})

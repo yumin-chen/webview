@@ -1,0 +1,6 @@
+/app/build_alloy/CMakeFiles/mquickjs.dir
+/app/build_alloy/CMakeFiles/webview_static.dir
+/app/build_alloy/CMakeFiles/alloy.dir
+/app/build_alloy/CMakeFiles/alloy_host.dir
+/app/build_alloy/CMakeFiles/edit_cache.dir
+/app/build_alloy/CMakeFiles/rebuild_cache.dir
