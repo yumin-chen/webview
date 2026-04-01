@@ -38,50 +38,7 @@ alloy_error_t alloy_destroy(alloy_component_t component) {
     return ALLOY_OK;
 }
 
-// --- Other API implementations (Stubs for the rest, logic moved to native/ files for core components) ---
-alloy_error_t alloy_create_textarea(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_checkbox(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_radiobutton(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_combobox(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_slider(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_spinner(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_datepicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_timepicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_colorpicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_switch(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_label(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_image(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_icon(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_progressbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_tooltip(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_badge(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_card(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_divider(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_richtexteditor(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_listview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_treeview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_tabview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_vstack(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_hstack(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_scrollview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_groupbox(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_menu(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_menubar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_toolbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_contextmenu(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_dialog(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_filedialog(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_popover(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_statusbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_splitter(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_webview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_link(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_chip(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_rating(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_accordion(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-alloy_error_t alloy_create_codeeditor(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
-
-alloy_error_t alloy_run(alloy_component_t window) { return ALLOY_OK; }
+// --- Global API Stubs ---
 alloy_error_t alloy_terminate(alloy_component_t window) { return ALLOY_OK; }
 alloy_error_t alloy_dispatch(alloy_component_t window, void (*fn)(void *), void *arg) { return ALLOY_OK; }
 alloy_error_t alloy_set_text(alloy_component_t component, const char *text) { return ALLOY_OK; }
@@ -101,3 +58,33 @@ alloy_error_t alloy_set_flex(alloy_component_t component, float flex) { return A
 alloy_error_t alloy_set_padding(alloy_component_t component, float top, float right, float bottom, float left) { return ALLOY_OK; }
 alloy_error_t alloy_set_margin(alloy_component_t component, float top, float right, float bottom, float left) { return ALLOY_OK; }
 alloy_error_t alloy_set_style(alloy_component_t component, const alloy_style_t *style) { return ALLOY_OK; }
+
+// --- More Component Stubs (Placeholder for full extraction) ---
+alloy_error_t alloy_create_datepicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_timepicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_colorpicker(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_switch(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_image(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_icon(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_tooltip(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_badge(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_card(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_divider(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_richtexteditor(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_treeview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_scrollview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_groupbox(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_toolbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_contextmenu(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_filedialog(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_popover(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_statusbar(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_splitter(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_webview(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_link(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_chip(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_rating(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_accordion(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_codeeditor(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_separator(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }
+alloy_error_t alloy_create_loadingspinner(alloy_component_t p, alloy_component_t *o) { return ALLOY_OK; }

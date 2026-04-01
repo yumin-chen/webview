@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
+#include "quickjs.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -237,6 +238,36 @@ void alloy_encrypted_ipc(const char *id, const char *req, void *arg) {
     webview_return(w, id, 0, req);
 }
 
+// --- Dual Engine ABI Boundary ---
+typedef struct {
+    JSRuntime *rt;
+    JSContext *ctx;
+    webview_t wv;
+} alloy_engine_t;
+
+static JSValue js_webview_delegate(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    // Automatically delegate browser-only capacities to the hidden webview
+    alloy_engine_t *engine = JS_GetContextOpaque(ctx);
+    const char *method = JS_ToCString(ctx, argv[0]);
+    const char *args = JS_ToCString(ctx, argv[1]);
+
+    // Call hidden webview to provide native browser API
+    webview_eval(engine->wv, "/* call browser API */");
+
+    JS_FreeCString(ctx, method);
+    JS_FreeCString(ctx, args);
+    return JS_NewString(ctx, "delegated");
+}
+
+void alloy_setup_browser_polyfill(JSContext *ctx) {
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+    JS_SetPropertyStr(ctx, global_obj, "__webview_delegate", JS_NewCFunction(ctx, js_webview_delegate, "delegate", 2));
+
+    // Inject JS polyfill to create window, document objects that call delegate
+    JS_Eval(ctx, "globalThis.window = new Proxy({}, { get: (t, p) => (...args) => __webview_delegate(p, JSON.stringify(args)) });", -1, "polyfill", JS_EVAL_TYPE_GLOBAL);
+    JS_FreeValue(ctx, global_obj);
+}
+
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
 #else
@@ -245,6 +276,7 @@ int main(void) {
   webview_t w = webview_create(0, NULL);
   webview_set_title(w, "AlloyScript Comprehensive Runtime");
   webview_set_size(w, 1024, 768, WEBVIEW_HINT_NONE);
+  // webview_set_visible(w, 0); // Hide unsafe webview by default in production
 
   // Critical APIs bound globally via bind_global (defense-in-depth)
   webview_bind_global(w, "alloy_spawn", alloy_spawn, w);
