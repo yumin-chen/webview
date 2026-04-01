@@ -1,4 +1,5 @@
 #include "bindings.hpp"
+#include "streams.hpp"
 #include <map>
 
 namespace alloy {
@@ -9,31 +10,35 @@ struct BindingContext {
     JSContext *ctx;
 };
 
-// Webview binding wrapper
 static void webview_binding_wrapper(const char *seq, const char *req, void *arg) {
     BindingContext *bc = static_cast<BindingContext*>(arg);
     std::string result = bc->fn(req);
     webview_return(bc->w, seq, 0, result.c_str());
 }
 
-// MicroQuickJS binding wrapper placeholder (needs integration with mquickjs API)
-/*
-static JSValue mqjs_binding_wrapper(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
-    // ... call bc->fn ...
-    return JS_UNDEFINED;
-}
-*/
-
 void bind_global(webview_t w, JSContext *ctx, const char *name, BindingFn fn) {
     BindingContext *bc = new BindingContext{fn, w, ctx};
+    if (w) webview_bind(w, name, webview_binding_wrapper, bc);
+    if (ctx) {
+        // Registering as a global function in MicroQuickJS
+        // Placeholder for JS_NewCFunction call
+    }
+}
+
+void register_alloy_runtime(webview_t w, JSContext *ctx) {
+    // 1. Define window.Alloy object
+    // 2. Define window.Alloy.ArrayBufferSink class
 
     if (w) {
-        webview_bind(w, name, webview_binding_wrapper, bc);
+        // WebView side is usually handled via script injection
     }
 
     if (ctx) {
-        // TODO: Register with MicroQuickJS using JS_NewCFunction or similar
-        // This requires the full mquickjs.h API to be visible
+        // MicroQuickJS side:
+        // JSValue global_obj = JS_GetGlobalObject(ctx);
+        // JSValue alloy_obj = JS_NewObject(ctx);
+        // JS_SetPropertyStr(ctx, alloy_obj, "ArrayBufferSink", ...);
+        // JS_SetPropertyStr(ctx, global_obj, "Alloy", alloy_obj);
     }
 }
 

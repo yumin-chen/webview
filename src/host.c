@@ -166,6 +166,9 @@ int main(void) {
   webview_bind(w, "alloy_gui_update", alloy_gui_update, w);
   webview_bind(w, "alloy_gui_destroy", alloy_gui_destroy, w);
 
+  // Register Alloy runtime (ArrayBufferSink, etc.)
+  // alloy::register_alloy_runtime(w, NULL); // Needs C++ linkage
+
   const char* bridge_js =
       "window.Alloy = {"
       "  spawn: async (cmd, args) => await window.alloy_spawn(cmd, args),"

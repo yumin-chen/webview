@@ -4,15 +4,89 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct JSContext JSContext;
 typedef uint32_t JSValue;
-typedef int JS_BOOL;
+typedef int BOOL;
 
-#define JS_UNDEFINED 0
-#define JS_NULL 2
-#define JS_FALSE 4
-#define JS_TRUE 6
+#define JS_VALUE_GET_TAG(v) ((v) & 7)
+#define JS_VALUE_GET_INT(v) ((int32_t)(v) >> 1)
+#define JS_VALUE_IS_PTR(v) (((v) & 1) != 0)
 
-// ... more definitions will be added based on the provided code
+#define JS_TAG_INT 0
+#define JS_TAG_SPECIAL 2
+#define JS_TAG_SHORT_FLOAT 4
+#define JS_TAG_STRING_CHAR 6
+
+#define JS_TAG_NULL (JS_TAG_SPECIAL | (0 << 2))
+#define JS_TAG_UNDEFINED (JS_TAG_SPECIAL | (1 << 2))
+#define JS_TAG_BOOL (JS_TAG_SPECIAL | (2 << 2))
+#define JS_TAG_UNINITIALIZED (JS_TAG_SPECIAL | (3 << 2))
+#define JS_TAG_EXCEPTION (JS_TAG_SPECIAL | (4 << 2))
+#define JS_TAG_CATCH_OFFSET (JS_TAG_SPECIAL | (5 << 2))
+#define JS_TAG_SHORT_FUNC (JS_TAG_SPECIAL | (6 << 2))
+
+#define JS_UNDEFINED JS_TAG_UNDEFINED
+#define JS_NULL JS_TAG_NULL
+#define JS_FALSE (JS_TAG_BOOL | (0 << 3))
+#define JS_TRUE (JS_TAG_BOOL | (1 << 3))
+#define JS_EXCEPTION (JS_TAG_EXCEPTION | (0 << 3))
+
+typedef JSValue JSCFunction(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+typedef JSValue JSCFunctionMagic(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv, int magic);
+typedef JSValue JSCFunctionParams(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv, JSValue params);
+
+typedef struct JSGCRef {
+    struct JSGCRef *prev;
+    JSValue val;
+} JSGCRef;
+
+JSContext *JS_NewContext(void *mem_start, size_t mem_size, const struct JSSTDLibraryDef *stdlib_def);
+void JS_FreeContext(JSContext *ctx);
+JSValue JS_Eval(JSContext *ctx, const char *input, size_t input_len, const char *filename, int eval_flags);
+JSValue JS_Run(JSContext *ctx, JSValue val);
+JSValue JS_Parse(JSContext *ctx, const char *input, size_t input_len, const char *filename, int eval_flags);
+
+#define JS_EVAL_RETVAL (1 << 0)
+#define JS_EVAL_REPL   (1 << 1)
+#define JS_EVAL_STRIP_COL (1 << 2)
+
+JSValue JS_NewInt32(JSContext *ctx, int32_t val);
+JSValue JS_NewInt64(JSContext *ctx, int64_t val);
+JSValue JS_NewFloat64(JSContext *ctx, double d);
+JSValue JS_NewString(JSContext *ctx, const char *str);
+JSValue JS_NewStringLen(JSContext *ctx, const char *buf, size_t len);
+JSValue JS_NewArray(JSContext *ctx, int initial_len);
+JSValue JS_NewObject(JSContext *ctx);
+
+JSValue JS_GetProperty(JSContext *ctx, JSValue obj, JSValue prop);
+JSValue JS_GetPropertyStr(JSContext *ctx, JSValue this_obj, const char *str);
+JSValue JS_GetPropertyUint32(JSContext *ctx, JSValue obj, uint32_t idx);
+JSValue JS_SetPropertyInternal(JSContext *ctx, JSValue this_obj, JSValue prop, JSValue val, BOOL allow_tail_call);
+JSValue JS_SetPropertyStr(JSContext *ctx, JSValue this_obj, const char *str, JSValue val);
+JSValue JS_SetPropertyUint32(JSContext *ctx, JSValue this_obj, uint32_t idx, JSValue val);
+
+int JS_ToInt32(JSContext *ctx, int *pres, JSValue val);
+int JS_ToNumber(JSContext *ctx, double *pres, JSValue val);
+const char *JS_ToCString(JSContext *ctx, JSValue val, struct JSCStringBuf *buf);
+
+typedef struct JSCStringBuf {
+    uint8_t buf[256];
+} JSCStringBuf;
+
+JSValue *JS_AddGCRef(JSContext *ctx, JSGCRef *ref);
+void JS_DeleteGCRef(JSContext *ctx, JSGCRef *ref);
+
+void JS_GC(JSContext *ctx);
+
+typedef int JSInterruptHandler(JSContext *ctx, void *opaque);
+void JS_SetInterruptHandler(JSContext *ctx, JSInterruptHandler *interrupt_handler);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

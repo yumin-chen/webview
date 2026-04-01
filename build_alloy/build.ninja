@@ -86,13 +86,13 @@ build libmquickjs.a: C_STATIC_LIBRARY_LINKER__mquickjs_ CMakeFiles/mquickjs.dir/
 
 build cmake_object_order_depends_target_webview_static: phony || CMakeFiles/webview_static.dir
 
-build CMakeFiles/webview_static.dir/core/src/webview.cc.o: CXX_COMPILER__webview_static_unscanned_ /app/core/src/webview.cc || cmake_object_order_depends_target_webview_static
+build CMakeFiles/webview_static.dir/core/webview/src/webview.cc.o: CXX_COMPILER__webview_static_unscanned_ /app/core/webview/src/webview.cc || cmake_object_order_depends_target_webview_static
   DEFINES = -DWEBVIEW_STATIC
-  DEP_FILE = CMakeFiles/webview_static.dir/core/src/webview.cc.o.d
+  DEP_FILE = CMakeFiles/webview_static.dir/core/webview/src/webview.cc.o.d
   FLAGS = -std=gnu++17
-  INCLUDES = -I/app/core/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/core/webview/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/webview_static.dir
-  OBJECT_FILE_DIR = CMakeFiles/webview_static.dir/core/src
+  OBJECT_FILE_DIR = CMakeFiles/webview_static.dir/core/webview/src
 
 
 # =============================================================================
@@ -102,7 +102,7 @@ build CMakeFiles/webview_static.dir/core/src/webview.cc.o: CXX_COMPILER__webview
 #############################################
 # Link the static library libwebview_static.a
 
-build libwebview_static.a: CXX_STATIC_LIBRARY_LINKER__webview_static_ CMakeFiles/webview_static.dir/core/src/webview.cc.o
+build libwebview_static.a: CXX_STATIC_LIBRARY_LINKER__webview_static_ CMakeFiles/webview_static.dir/core/webview/src/webview.cc.o
   OBJECT_DIR = CMakeFiles/webview_static.dir
   POST_BUILD = :
   PRE_LINK = :
@@ -122,7 +122,7 @@ build CMakeFiles/alloy.dir/src/alloy/bindings.cpp.o: CXX_COMPILER__alloy_unscann
   DEFINES = -DWEBVIEW_STATIC
   DEP_FILE = CMakeFiles/alloy.dir/src/alloy/bindings.cpp.o.d
   FLAGS = -std=gnu++17
-  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/webview/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy.dir/src/alloy
 
@@ -130,7 +130,7 @@ build CMakeFiles/alloy.dir/src/alloy/crypto.cpp.o: CXX_COMPILER__alloy_unscanned
   DEFINES = -DWEBVIEW_STATIC
   DEP_FILE = CMakeFiles/alloy.dir/src/alloy/crypto.cpp.o.d
   FLAGS = -std=gnu++17
-  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/webview/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy.dir/src/alloy
 
@@ -138,7 +138,7 @@ build CMakeFiles/alloy.dir/src/alloy/ipc.cpp.o: CXX_COMPILER__alloy_unscanned_ /
   DEFINES = -DWEBVIEW_STATIC
   DEP_FILE = CMakeFiles/alloy.dir/src/alloy/ipc.cpp.o.d
   FLAGS = -std=gnu++17
-  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/webview/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy.dir/src/alloy
 
@@ -146,7 +146,15 @@ build CMakeFiles/alloy.dir/src/alloy/eval.cpp.o: CXX_COMPILER__alloy_unscanned_ 
   DEFINES = -DWEBVIEW_STATIC
   DEP_FILE = CMakeFiles/alloy.dir/src/alloy/eval.cpp.o.d
   FLAGS = -std=gnu++17
-  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/webview/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  OBJECT_DIR = CMakeFiles/alloy.dir
+  OBJECT_FILE_DIR = CMakeFiles/alloy.dir/src/alloy
+
+build CMakeFiles/alloy.dir/src/alloy/streams.cpp.o: CXX_COMPILER__alloy_unscanned_ /app/src/alloy/streams.cpp || cmake_object_order_depends_target_alloy
+  DEFINES = -DWEBVIEW_STATIC
+  DEP_FILE = CMakeFiles/alloy.dir/src/alloy/streams.cpp.o.d
+  FLAGS = -std=gnu++17
+  INCLUDES = -I/app/src/alloy -I/app/core/mquickjs -I/app/core/webview/include -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy.dir/src/alloy
 
@@ -158,7 +166,7 @@ build CMakeFiles/alloy.dir/src/alloy/eval.cpp.o: CXX_COMPILER__alloy_unscanned_ 
 #############################################
 # Link the static library liballoy.a
 
-build liballoy.a: CXX_STATIC_LIBRARY_LINKER__alloy_ CMakeFiles/alloy.dir/src/alloy/bindings.cpp.o CMakeFiles/alloy.dir/src/alloy/crypto.cpp.o CMakeFiles/alloy.dir/src/alloy/ipc.cpp.o CMakeFiles/alloy.dir/src/alloy/eval.cpp.o || libmquickjs.a libwebview_static.a
+build liballoy.a: CXX_STATIC_LIBRARY_LINKER__alloy_ CMakeFiles/alloy.dir/src/alloy/bindings.cpp.o CMakeFiles/alloy.dir/src/alloy/crypto.cpp.o CMakeFiles/alloy.dir/src/alloy/ipc.cpp.o CMakeFiles/alloy.dir/src/alloy/eval.cpp.o CMakeFiles/alloy.dir/src/alloy/streams.cpp.o || libmquickjs.a libwebview_static.a
   OBJECT_DIR = CMakeFiles/alloy.dir
   POST_BUILD = :
   PRE_LINK = :
@@ -177,14 +185,14 @@ build cmake_object_order_depends_target_alloy_host: phony || cmake_object_order_
 build CMakeFiles/alloy_host.dir/src/host.c.o: C_COMPILER__alloy_host_unscanned_ /app/src/host.c || cmake_object_order_depends_target_alloy_host
   DEFINES = -DWEBVIEW_STATIC
   DEP_FILE = CMakeFiles/alloy_host.dir/src/host.c.o.d
-  INCLUDES = -I/app/core/include -I/app/src/alloy -I/app/core/mquickjs -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/core/webview/include -I/app/src/alloy -I/app/core/mquickjs -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy_host.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy_host.dir/src
 
 build CMakeFiles/alloy_host.dir/src/bundle.c.o: C_COMPILER__alloy_host_unscanned_ /app/src/bundle.c || cmake_object_order_depends_target_alloy_host
   DEFINES = -DWEBVIEW_STATIC
   DEP_FILE = CMakeFiles/alloy_host.dir/src/bundle.c.o.d
-  INCLUDES = -I/app/core/include -I/app/src/alloy -I/app/core/mquickjs -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
+  INCLUDES = -I/app/core/webview/include -I/app/src/alloy -I/app/core/mquickjs -I/usr/include/gtk-3.0 -I/usr/include/pango-1.0 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/harfbuzz -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/fribidi -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/webp -I/usr/include/gio-unix-2.0 -I/usr/include/atk-1.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/webkitgtk-4.1 -I/usr/include/libsoup-3.0 -I/usr/include/sysprof-6
   OBJECT_DIR = CMakeFiles/alloy_host.dir
   OBJECT_FILE_DIR = CMakeFiles/alloy_host.dir/src
 
