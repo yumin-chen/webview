@@ -41,6 +41,7 @@
 #include <string>
 
 namespace webview {
+class MetaRuntime;
 namespace detail {
 
 class engine_base {
@@ -151,6 +152,10 @@ window.__webview__.onUnbind(" +
   }
 
   noresult eval(const std::string &js) { return eval_impl(js); }
+
+  using sync_handler_t = std::function<std::string(std::string)>;
+  sync_handler_t m_sync_handler;
+  void set_sync_handler(sync_handler_t handler) { m_sync_handler = handler; }
 
 protected:
   virtual noresult navigate_impl(const std::string &url) = 0;
@@ -347,6 +352,8 @@ protected:
   void set_default_size_guard(bool guarded) { m_is_size_set = guarded; }
 
   bool owns_window() const { return m_owns_window; }
+
+  friend class ::webview::MetaRuntime;
 
 private:
   static std::atomic_uint &window_ref_count() {
