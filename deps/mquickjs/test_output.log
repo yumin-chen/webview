@@ -1,0 +1,3 @@
+./mqjs tests/test_closure.js
+./mqjs tests/test_language.js
+make: *** [Makefile:126: test] Segmentation fault

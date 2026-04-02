@@ -59,43 +59,47 @@ public:
   using binding_t = std::function<void(std::string, std::string, void *)>;
   class binding_ctx_t {
   public:
-    binding_ctx_t(binding_t callback, void *arg)
-        : m_callback(callback), m_arg(arg) {}
+    binding_ctx_t(binding_t callback, void *arg, bool is_global = false)
+        : m_callback(callback), m_arg(arg), m_is_global(is_global) {}
     void call(std::string id, std::string args) const {
       if (m_callback) {
         m_callback(id, args, m_arg);
       }
     }
+    bool is_global() const { return m_is_global; }
 
   private:
     // This function is called upon execution of the bound JS function
     binding_t m_callback;
     // This user-supplied argument is passed to the callback
     void *m_arg;
+    bool m_is_global;
   };
 
   using sync_binding_t = std::function<std::string(std::string)>;
 
   // Synchronous bind
-  noresult bind(const std::string &name, sync_binding_t fn) {
+  noresult bind(const std::string &name, sync_binding_t fn,
+                bool is_global = false) {
     auto wrapper = [this, fn](const std::string &id, const std::string &req,
                               void * /*arg*/) { resolve(id, 0, fn(req)); };
-    return bind(name, wrapper, nullptr);
+    return bind(name, wrapper, nullptr, is_global);
   }
 
   // Asynchronous bind
-  noresult bind(const std::string &name, binding_t fn, void *arg) {
+  noresult bind(const std::string &name, binding_t fn, void *arg,
+                bool is_global = false) {
     // NOLINTNEXTLINE(readability-container-contains): contains() requires C++20
     if (bindings.count(name) > 0) {
       return error_info{WEBVIEW_ERROR_DUPLICATE};
     }
-    bindings.emplace(name, binding_ctx_t(fn, arg));
+    bindings.emplace(name, binding_ctx_t(fn, arg, is_global));
     replace_bind_script();
     // Notify that a binding was created if the init script has already
     // set things up.
     eval("if (window.__webview__) {\n\
 window.__webview__.onBind(" +
-         json_escape(name) + ")\n\
+         json_escape(name) + ", " + (is_global ? "true" : "false") + ")\n\
 }");
     return {};
   }
@@ -255,11 +259,12 @@ protected:
         promise.reject(result);\n\
       }\n\
     };\n\
-    Webview_.prototype.onBind = function(name) {\n\
-      if (window.hasOwnProperty(name)) {\n\
-        throw new Error('Property \"' + name + '\" already exists');\n\
+    Webview_.prototype.onBind = function(name, isGlobal) {\n\
+      var target = isGlobal ? globalThis : window;\n\
+      if (target.hasOwnProperty(name)) {\n\
+        throw new Error('Property \"' + name + '\" already exists on ' + (isGlobal ? 'globalThis' : 'window'));\n\
       }\n\
-      window[name] = (function() {\n\
+      target[name] = (function() {\n\
         var params = [name].concat(Array.prototype.slice.call(arguments));\n\
         return Webview_.prototype.call.apply(this, params);\n\
       }).bind(this);\n\
@@ -278,24 +283,26 @@ protected:
   }
 
   std::string create_bind_script() {
-    std::string js_names = "[";
+    std::string js_bindings = "[";
     bool first = true;
     for (const auto &binding : bindings) {
       if (first) {
         first = false;
       } else {
-        js_names += ",";
+        js_bindings += ",";
       }
-      js_names += json_escape(binding.first);
+      js_bindings += "{\"name\":" + json_escape(binding.first) +
+                     ",\"isGlobal\":" +
+                     (binding.second.is_global() ? "true" : "false") + "}";
     }
-    js_names += "]";
+    js_bindings += "]";
 
     auto js = std::string{} + "(function() {\n\
   'use strict';\n\
-  var methods = " +
-              js_names + ";\n\
-  methods.forEach(function(name) {\n\
-    window.__webview__.onBind(name);\n\
+  var bindings = " +
+              js_bindings + ";\n\
+  bindings.forEach(function(binding) {\n\
+    window.__webview__.onBind(binding.name, binding.isGlobal);\n\
   });\n\
 })()";
     return js;

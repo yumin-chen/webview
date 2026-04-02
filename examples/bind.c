@@ -179,10 +179,10 @@ int main(void) {
   webview_set_size(w, 480, 320, WEBVIEW_HINT_NONE);
 
   // A binding that counts up or down and immediately returns the new value.
-  webview_bind(w, "count", count, &context);
+  webview_bind_window(w, "count", count, &context);
 
   // A binding that creates a new thread and returns the result at a later time.
-  webview_bind(w, "compute", compute, &context);
+  webview_bind_window(w, "compute", compute, &context);
 
   webview_set_html(w, html);
   webview_run(w);

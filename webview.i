@@ -20,6 +20,7 @@ extern void webview_navigate(webview_t w, const char *url);
 extern void webview_set_html(webview_t w, const char *html);
 extern void webview_init(webview_t w, const char *js);
 extern void webview_eval(webview_t w, const char *js);
-extern void webview_bind(webview_t w, const char *name, void (*fn)(const char *seq, const char *req, void *arg), void *arg);
+extern void webview_bind_window(webview_t w, const char *name, void (*fn)(const char *seq, const char *req, void *arg), void *arg);
+extern void webview_bind_global(webview_t w, const char *name, void (*fn)(const char *seq, const char *req, void *arg), void *arg);
 extern void webview_unbind(webview_t w, const char *name);
 extern void webview_return(webview_t w, const char *seq, int status, const char *result);
